@@ -1,0 +1,224 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design system — Black/Navy with Emerald + Orange accents.
+   All colors in HSL.
+*/
+
+@layer base {
+  :root {
+    /* Surfaces — near-black with navy tint */
+    --background: 220 45% 5%;
+    --foreground: 210 25% 95%;
+
+    --card: 220 40% 9%;
+    --card-foreground: 210 25% 95%;
+
+    --popover: 220 42% 7%;
+    --popover-foreground: 210 25% 95%;
+
+    /* Primary — emerald green */
+    --primary: 152 75% 48%;
+    --primary-foreground: 220 45% 5%;
+    --primary-glow: 152 75% 58%;
+
+    --secondary: 220 38% 13%;
+    --secondary-foreground: 210 25% 95%;
+
+    --muted: 220 35% 11%;
+    --muted-foreground: 215 18% 62%;
+
+    /* Accent — vivid orange */
+    --accent: 24 95% 58%;
+    --accent-foreground: 220 45% 5%;
+
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 152 75% 48%;
+    --warning: 24 95% 58%;
+
+    --border: 220 30% 16%;
+    --input: 220 30% 16%;
+    --ring: 152 75% 48%;
+
+    --radius: 0.75rem;
+
+    /* Gradients & shadows — green + orange combo */
+    --gradient-primary: linear-gradient(135deg, hsl(152 75% 48%), hsl(152 75% 58%));
+    --gradient-accent: linear-gradient(135deg, hsl(24 95% 58%), hsl(14 90% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(152 75% 55%) 0%, hsl(24 95% 60%) 100%);
+    --gradient-card-hover: linear-gradient(135deg, hsl(152 75% 48% / 0.10), hsl(24 95% 58% / 0.05));
+    --shadow-glow: 0 0 32px hsl(152 75% 48% / 0.28);
+    --shadow-glow-accent: 0 0 32px hsl(24 95% 58% / 0.28);
+    --shadow-card: 0 2px 14px -4px hsl(220 60% 2% / 0.7);
+    --shadow-elevated: 0 18px 50px -16px hsl(152 75% 48% / 0.30);
+
+    /* Sidebar */
+    --sidebar-background: 220 50% 4%;
+    --sidebar-foreground: 210 22% 78%;
+    --sidebar-primary: 152 75% 48%;
+    --sidebar-primary-foreground: 220 45% 5%;
+    --sidebar-accent: 220 38% 11%;
+    --sidebar-accent-foreground: 210 25% 95%;
+    --sidebar-border: 220 30% 14%;
+    --sidebar-ring: 152 75% 48%;
+  }
+
+  .dark {
+    --background: 220 45% 5%;
+    --foreground: 210 25% 95%;
+    --card: 220 40% 9%;
+    --card-foreground: 210 25% 95%;
+    --popover: 220 42% 7%;
+    --popover-foreground: 210 25% 95%;
+    --primary: 152 75% 48%;
+    --primary-foreground: 220 45% 5%;
+    --primary-glow: 152 75% 58%;
+    --secondary: 220 38% 13%;
+    --secondary-foreground: 210 25% 95%;
+    --muted: 220 35% 11%;
+    --muted-foreground: 215 18% 62%;
+    --accent: 24 95% 58%;
+    --accent-foreground: 220 45% 5%;
+    --destructive: 0 75% 58%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 152 75% 48%;
+    --warning: 24 95% 58%;
+    --border: 220 30% 16%;
+    --input: 220 30% 16%;
+    --ring: 152 75% 48%;
+    --sidebar-background: 220 50% 4%;
+    --sidebar-foreground: 210 22% 78%;
+    --sidebar-primary: 152 75% 48%;
+    --sidebar-primary-foreground: 220 45% 5%;
+    --sidebar-accent: 220 38% 11%;
+    --sidebar-accent-foreground: 210 25% 95%;
+    --sidebar-border: 220 30% 14%;
+    --sidebar-ring: 152 75% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      radial-gradient(ellipse 60% 35% at 15% -5%, hsl(152 75% 48% / 0.08), transparent 60%),
+      radial-gradient(ellipse 60% 35% at 90% 0%, hsl(24 95% 58% / 0.07), transparent 60%);
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .bg-gradient-accent {
+    background: var(--gradient-accent);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .shadow-glow-accent {
+    box-shadow: var(--shadow-glow-accent);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .min-h-svh {
+    min-height: 100svh;
+    min-height: 100dvh;
+  }
+  .h-svh {
+    height: 100svh;
+    height: 100dvh;
+  }
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  /* Отступ под нижнюю мобильную навигацию (h-16 + safe-area + запас под FAB). */
+  .mobile-main {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 768px) {
+    .mobile-main {
+      padding-bottom: 0;
+    }
+  }
+
+  /* Sticky-CTA, поднятая над нижней навигацией на мобильных. */
+  .mobile-sticky-cta {
+    position: sticky;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+    z-index: 30;
+  }
+  @media (min-width: 768px) {
+    .mobile-sticky-cta {
+      bottom: 1rem;
+    }
+  }
+}
+
+/* Нативные тач-ощущения на мобильных. */
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior-y: contain;
+  }
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-main {
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Минимальный тап-таргет 44px по Apple HIG для всех интерактивов в основной области. */
+  .mobile-main button:not(.no-min-tap),
+  .mobile-main a[role="button"]:not(.no-min-tap) {
+    min-height: 36px;
+  }
+  /* iOS не должен зумить input при фокусе → ≥16px. */
+  .mobile-main input,
+  .mobile-main select,
+  .mobile-main textarea {
+    font-size: max(16px, 1rem);
+  }
+}

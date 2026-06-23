@@ -1,0 +1,1 @@
+ALTER VIEW public.v_latest_campaign_status SET (security_invoker = true);
