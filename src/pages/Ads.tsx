@@ -39,15 +39,15 @@ const StatChip = ({
   accent: string;
   icon: LucideIcon;
 }) => (
-  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-3 py-2">
-    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${accent}`}>
-      <Icon className="h-4 w-4" />
+  <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-card/40 px-3 py-2">
+    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
+      <Icon className="h-3.5 w-3.5" />
     </span>
     <div className="min-w-0 flex-1">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-none">
         {label}
       </div>
-      <div className="truncate text-lg font-bold tabular-nums leading-tight">{value}</div>
+      <div className="mt-1 truncate text-sm font-bold tabular-nums leading-none">{value}</div>
     </div>
   </div>
 );
