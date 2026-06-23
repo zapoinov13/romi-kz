@@ -313,6 +313,25 @@ const DuplicateDialog = ({
         if (startTime) edits.start_time = new Date(startTime).toISOString();
         if (endTime) edits.end_time = new Date(endTime).toISOString();
       }
+      if (state.entity === "ad") {
+        const orig = details?.creative;
+        const link = orig?.object_story_spec?.link_data;
+        const video = orig?.object_story_spec?.video_data;
+        const origBody = link?.message ?? video?.message ?? "";
+        const origTitle = link?.name ?? video?.title ?? "";
+        const origDesc = link?.description ?? video?.link_description ?? "";
+        const origLink = link?.link ?? video?.call_to_action?.value?.link ?? "";
+        const origCta = link?.call_to_action?.type ?? video?.call_to_action?.type ?? "";
+        if (adBody !== origBody) edits.creative_body = adBody;
+        if (adTitle !== origTitle) edits.creative_title = adTitle;
+        if (adDescription !== origDesc) edits.creative_description = adDescription;
+        if (adLink !== origLink) edits.creative_link_url = adLink;
+        if (adCta && adCta !== origCta) edits.creative_cta = adCta;
+        if (adImageFile) {
+          edits.creative_image_b64 = await fileToBase64(adImageFile);
+        }
+      }
+
 
       const { data, error } = await supabase.functions.invoke("meta-copy-entity", {
         body: {
