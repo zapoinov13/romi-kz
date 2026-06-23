@@ -24,7 +24,7 @@ export function MobileBottomNav() {
       aria-label="Основная навигация"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border/60 bg-background/85 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:hidden"
     >
-      <div className="mx-auto grid h-[60px] max-w-lg grid-cols-5 px-1.5">
+      <div className="mx-auto grid h-[60px] max-w-lg grid-cols-3 px-1.5">
         {ITEMS.map((item) => {
           const active =
             pathname === item.url ||
