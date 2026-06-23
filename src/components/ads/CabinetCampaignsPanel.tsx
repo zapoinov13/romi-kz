@@ -240,6 +240,8 @@ const DuplicateDialog = ({
     setGender("all");
     setStartTime("");
     setEndTime("");
+    setAdBody(""); setAdTitle(""); setAdDescription(""); setAdLink(""); setAdCta("");
+    setAdImageFile(null); setAdImagePreview(""); setCurrentThumb(""); setIsVideoCreative(false);
     setLoadingDetails(true);
     (async () => {
       try {
