@@ -22,11 +22,11 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Settings as SettingsIcon } from "lucide-react";
 import {
-  MODULES,
   ROLE_LABELS,
   TeamMember,
   useTeamStore,
 } from "@/hooks/useTeamStore";
+
 import { toast } from "sonner";
 
 const ROLE_COLOR: Record<string, string> = {
@@ -153,27 +153,20 @@ export default function Settings() {
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">{m.email}</div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {m.modules.length === MODULES.length ? (
+                    <span className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
+                      Управление рекламой
+                    </span>
+                    {m.role === "admin" ? (
                       <span className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
-                        Полный доступ
+                        Все кабинеты
                       </span>
                     ) : (
-                      m.modules.slice(0, 6).map((k) => {
-                        const mod = MODULES.find((mm) => mm.key === k);
-                        if (!mod) return null;
-                        return (
-                          <span key={k} className="rounded-md border border-border/60 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {mod.label}
-                          </span>
-                        );
-                      })
-                    )}
-                    {m.modules.length > 6 && m.modules.length < MODULES.length && (
-                      <span className="rounded-md bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                        +{m.modules.length - 6}
+                      <span className="rounded-md border border-border/60 bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        {m.cabinets.length} кабинет(ов)
                       </span>
                     )}
                   </div>
+
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => handleEdit(m)} className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Редактировать">

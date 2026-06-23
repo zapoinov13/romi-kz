@@ -237,7 +237,7 @@ export function useCrmAnalytics(
 
     // Manager stats
     const managerStats: ManagerStats[] = members
-      .filter((m) => m.role === "manager" || m.role === "admin")
+      .filter((m) => m.role === "marketer" || m.role === "director" || m.role === "admin")
       .map((member) => {
         const own = leads.filter((l) => l.assigneeId === member.id);
         const responded = own.filter((l) => l.firstResponseAt);

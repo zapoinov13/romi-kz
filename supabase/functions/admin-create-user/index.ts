@@ -41,13 +41,14 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
-    const { email, password, name, role, modules, invite } = body
+    const { email, password, name, role, modules, cabinets, invite } = body
     if (!email || !name) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-    if (role && role !== 'admin' && role !== 'manager') {
+    const allowedRoles = ['admin', 'marketer', 'director']
+    if (role && !allowedRoles.includes(role)) {
       return new Response(JSON.stringify({ error: 'Invalid role' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -111,6 +112,17 @@ Deno.serve(async (req) => {
         )
       }
     }
+
+    // cabinets access
+    if (Array.isArray(cabinets)) {
+      await admin.from('team_member_cabinets').delete().eq('user_id', newId)
+      if (cabinets.length) {
+        await admin.from('team_member_cabinets').insert(
+          cabinets.map((c: string) => ({ user_id: newId, cabinet_id: c })),
+        )
+      }
+    }
+
 
     return new Response(JSON.stringify({ id: newId, invited: !!invite }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
