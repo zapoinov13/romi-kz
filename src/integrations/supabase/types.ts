@@ -4263,6 +4263,39 @@ export type Database = {
           },
         ]
       }
+      team_member_cabinets: {
+        Row: {
+          cabinet_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          cabinet_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          cabinet_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_member_cabinets_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_member_cabinets_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_member_modules: {
         Row: {
           access_level: string
