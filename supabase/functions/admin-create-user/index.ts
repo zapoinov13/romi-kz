@@ -113,6 +113,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // cabinets access
+    if (Array.isArray(cabinets)) {
+      await admin.from('team_member_cabinets').delete().eq('user_id', newId)
+      if (cabinets.length) {
+        await admin.from('team_member_cabinets').insert(
+          cabinets.map((c: string) => ({ user_id: newId, cabinet_id: c })),
+        )
+      }
+    }
+
+
     return new Response(JSON.stringify({ id: newId, invited: !!invite }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
