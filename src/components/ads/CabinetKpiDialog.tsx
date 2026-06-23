@@ -253,44 +253,7 @@ export default function CabinetKpiDialog({ open, onOpenChange, cabinetId, cabine
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Целевой ROAS</Label>
-                <Input
-                  type="number" min={0} step={0.1}
-                  placeholder="напр. 3.0"
-                  value={row.target_roas ?? ""}
-                  onChange={(e) => updateField("target_roas", num(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label>Мин. ROAS</Label>
-                <Input
-                  type="number" min={0} step={0.1}
-                  value={row.min_roas ?? ""}
-                  onChange={(e) => updateField("min_roas", num(e.target.value))}
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Макс. частота (7д)</Label>
-                <Input
-                  type="number" min={0} step={0.1}
-                  value={row.max_frequency_7d ?? ""}
-                  onChange={(e) => updateField("max_frequency_7d", num(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label>Мин. CTR, %</Label>
-                <Input
-                  type="number" min={0} step={0.1}
-                  value={row.min_ctr_pct ?? ""}
-                  onChange={(e) => updateField("min_ctr_pct", num(e.target.value))}
-                />
-              </div>
-            </div>
 
             <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
               💡 На основе KPI бот будет автоматически рассчитывать статус каждой кампании (🟢 / 🟡 / 🔴),
