@@ -112,11 +112,10 @@ const GoalAssetsPicker = ({
   if (goal === "traffic") return null;
 
   if (goal === "whatsapp") {
-    if (!pageId) {
+    if (!pageId && !actId) {
       return (
         <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">
-          Заполните Page ID в настройках кабинета — без него нельзя получить
-          WhatsApp-номера.
+          Заполните Page ID или Ad Account ID в настройках кабинета - без них нельзя получить WhatsApp-номера.
         </div>
       );
     }
@@ -135,7 +134,7 @@ const GoalAssetsPicker = ({
                   ? "Загрузка..."
                   : wa.data.length === 0
                     ? "Нет привязанных номеров"
-                    : "Выберите номер"
+                    : `Выберите номер (${wa.data.length})`
               }
             />
           </SelectTrigger>
@@ -143,6 +142,7 @@ const GoalAssetsPicker = ({
             {wa.data.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.display_phone_number}
+                {p.verified_name ? ` - ${p.verified_name}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -150,6 +150,7 @@ const GoalAssetsPicker = ({
       </FieldShell>
     );
   }
+
 
   if (goal === "site-leads") {
     if (!actId) {
