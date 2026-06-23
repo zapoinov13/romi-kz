@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { ProjectSwitcher } from "./ProjectSwitcher";
+import romiLogo from "@/assets/romi-logo.png.asset.json";
+
 
 type NavItem = {
   title: string;
@@ -63,9 +65,25 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/60">
-      <SidebarHeader className="p-3">
+      <SidebarHeader className="gap-3 p-3">
+        <div className={cn("flex items-center gap-2.5 px-1", collapsed && "justify-center px-0")}>
+          <img
+            src={romiLogo.url}
+            alt="ROMI"
+            className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-primary/40"
+          />
+          {!collapsed && (
+            <div className="min-w-0 leading-tight">
+              <div className="text-base font-extrabold tracking-tight text-primary">ROMI</div>
+              <div className="truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                marketing agency
+              </div>
+            </div>
+          )}
+        </div>
         <ProjectSwitcher collapsed={collapsed} />
       </SidebarHeader>
+
 
       <SidebarContent className="px-2">
         {GROUPS.map((group) => (
