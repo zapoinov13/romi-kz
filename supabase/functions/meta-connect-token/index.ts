@@ -13,18 +13,26 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function validateMarketingPermissions(apiBase: string, token: string): Promise<string | null> {
-  const r = await fetch(`${apiBase}/me/permissions?access_token=${encodeURIComponent(token)}`);
+const API_BASE = "https://graph.facebook.com/v21.0";
+
+async function validateMarketingPermissions(token: string): Promise<string | null> {
+  const r = await fetch(`${API_BASE}/me/permissions?access_token=${encodeURIComponent(token)}`);
   const body = await r.json().catch(() => ({}));
   if (!r.ok) return body?.error?.message ?? "Не удалось проверить права Meta-токена";
-
   const granted = new Set(
     ((body?.data ?? []) as Array<{ permission?: string; status?: string }>)
       .filter((p) => p.status === "granted")
       .map((p) => p.permission),
   );
   if (granted.has("ads_read") || granted.has("ads_management")) return null;
-  return "Токен активный, но без доступа к рекламным кабинетам. Нужны права ads_read или ads_management у владельца Ad Account.";
+  return "Токен активный, но без прав ads_read / ads_management.";
+}
+
+async function fetchMe(token: string): Promise<{ id: string; name: string } | { error: string }> {
+  const r = await fetch(`${API_BASE}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
+  const me = await r.json().catch(() => ({}));
+  if (!r.ok) return { error: me?.error?.message ?? "Невалидный токен" };
+  return { id: String(me.id), name: String(me.name ?? me.id) };
 }
 
 Deno.serve(async (req) => {
@@ -47,7 +55,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // admin check
     const { data: roleRow } = await admin
       .from("user_roles")
       .select("role")
@@ -57,52 +64,87 @@ Deno.serve(async (req) => {
     if (!roleRow) return json({ error: "Forbidden" }, 403);
 
     const method = req.method;
-    const apiBase = "https://graph.facebook.com/v21.0";
 
     if (method === "GET") {
-      const { data: s } = await admin
-        .from("automation_settings")
-        .select("meta_access_token")
-        .eq("id", true)
-        .maybeSingle();
-      const token = s?.meta_access_token;
-      if (!token) return json({ ok: true, connected: false });
-      const r = await fetch(`${apiBase}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
-      const me = await r.json();
-      if (!r.ok) return json({ ok: true, connected: false, error: me?.error?.message ?? "Token invalid" });
-      const permissionError = await validateMarketingPermissions(apiBase, token);
-      if (permissionError) return json({ ok: true, connected: false, account: me, error: permissionError });
-      return json({ ok: true, connected: true, account: me });
+      const { data: rows, error: e } = await admin
+        .from("meta_tokens")
+        .select("id, label, fb_user_id, fb_user_name, created_at")
+        .order("created_at", { ascending: true });
+      if (e) return json({ error: e.message }, 500);
+      return json({ ok: true, tokens: rows ?? [] });
     }
 
     if (method === "POST") {
       const body = await req.json().catch(() => ({}));
       const token = typeof body.token === "string" ? body.token.trim() : "";
+      const label = typeof body.label === "string" && body.label.trim()
+        ? body.label.trim().slice(0, 80)
+        : "Meta аккаунт";
       if (!token) return json({ error: "Token обязателен" }, 400);
 
-      // verify token
-      const r = await fetch(`${apiBase}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
-      const me = await r.json();
-      if (!r.ok) {
-        return json({ error: me?.error?.message ?? "Невалидный токен" }, 400);
-      }
-      const permissionError = await validateMarketingPermissions(apiBase, token);
-      if (permissionError) return json({ error: permissionError }, 400);
+      const me = await fetchMe(token);
+      if ("error" in me) return json({ error: me.error }, 400);
 
-      const { error: upErr } = await admin
+      const permErr = await validateMarketingPermissions(token);
+      if (permErr) return json({ error: permErr }, 400);
+
+      const { data: inserted, error: insErr } = await admin
+        .from("meta_tokens")
+        .insert({
+          label,
+          access_token: token,
+          fb_user_id: me.id,
+          fb_user_name: me.name,
+          created_by: user.id,
+        })
+        .select("id, label, fb_user_id, fb_user_name, created_at")
+        .single();
+      if (insErr) return json({ error: insErr.message }, 500);
+
+      // Поддерживаем обратную совместимость: дублируем последний токен в automation_settings,
+      // чтобы старые места, читающие meta_access_token, продолжали работать.
+      await admin
         .from("automation_settings")
         .upsert({ id: true, meta_access_token: token }, { onConflict: "id" });
-      if (upErr) return json({ error: upErr.message }, 500);
 
-      return json({ ok: true, connected: true, account: me });
+      return json({ ok: true, token: inserted });
     }
 
     if (method === "DELETE") {
-      const { error: upErr } = await admin
-        .from("automation_settings")
-        .upsert({ id: true, meta_access_token: null }, { onConflict: "id" });
-      if (upErr) return json({ error: upErr.message }, 500);
-      return json({ ok: true, connected: false });
+      const url = new URL(req.url);
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "id обязателен" }, 400);
+
+      const { error: delErr } = await admin
+        .from("meta_tokens")
+        .delete()
+        .eq("id", id);
+      if (delErr) return json({ error: delErr.message }, 500);
+
+      // Если удалили последний — чистим легаси-поле.
+      const { count } = await admin
+        .from("meta_tokens")
+        .select("id", { count: "exact", head: true });
+      if (!count) {
+        await admin
+          .from("automation_settings")
+          .upsert({ id: true, meta_access_token: null }, { onConflict: "id" });
+      } else {
+        // Иначе обновим legacy на самый старый оставшийся.
+        const { data: rest } = await admin
+          .from("meta_tokens")
+          .select("access_token")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (rest?.access_token) {
+          await admin
+            .from("automation_settings")
+            .upsert({ id: true, meta_access_token: rest.access_token }, { onConflict: "id" });
+        }
+      }
+
+      return json({ ok: true });
     }
 
     return json({ error: "Method not allowed" }, 405);

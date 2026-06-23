@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { Camera, Edit2, Eye, Facebook, Globe, GitBranch, Link2, Megaphone, MessageCircle, Phone, Plus, Rocket, Search, Send, Sparkles, Trash2, UserCircle2, Users2, XCircle } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Edit2, Facebook, Megaphone, Plus, Search, Trash2, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,21 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
-import { SipuniSettings } from "@/components/settings/SipuniSettings";
-import { ProfileSettings } from "@/components/settings/ProfileSettings";
-import { PipelinesSettings } from "@/components/settings/PipelinesSettings";
-import { LossReasonsSettings } from "@/components/settings/LossReasonsSettings";
-import { InboundTokensSettings } from "@/components/settings/InboundTokensSettings";
-import { ClientDashTokensSettings } from "@/components/settings/ClientDashTokensSettings";
-import { InstagramOrganicSettings } from "@/components/settings/InstagramOrganicSettings";
-import { LovablePublishGuide } from "@/components/settings/LovablePublishGuide";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
-import { ProjectTelegramSettings } from "@/components/settings/ProjectTelegramSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
-import { ProviderKeysPanel } from "@/components/settings/content-factory/ProviderKeysPanel";
-import { BriefsEditor } from "@/components/settings/content-factory/BriefsEditor";
-import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { SiteIntakeCard } from "@/pages/SettingsConnection";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -50,9 +37,10 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "telegram", "telegram-ads", "content-factory", "content-briefs"] as const;
+const SETTINGS_TABS = ["team", "meta", "telegram-ads"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
+
 
 export default function Settings() {
   const [searchParams] = useSearchParams();
@@ -61,7 +49,7 @@ export default function Settings() {
     ? (tabParam as SettingsTab)
     : "team";
   const { members, removeMember } = useTeamStore();
-  const { activeId: activeProjectId } = useProjectsStore();
+  
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [query, setQuery] = useState("");
@@ -99,10 +87,7 @@ export default function Settings() {
         <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-card/40 p-1">
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
-          <TabsTrigger value="telegram" className="gap-2"><Send className="h-3.5 w-3.5" /> Telegram для контента</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
-          <TabsTrigger value="content-factory" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> Контент-завод · AI-провайдеры</TabsTrigger>
-          <TabsTrigger value="content-briefs" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> Контент-завод · ТЗ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-0">
@@ -209,23 +194,12 @@ export default function Settings() {
           <MetaConnectSettings />
         </TabsContent>
 
-        <TabsContent value="telegram" className="mt-0">
-          <ProjectTelegramSettings />
-        </TabsContent>
-
         <TabsContent value="telegram-ads" className="mt-0">
           <ProjectAdsTelegramSettings />
         </TabsContent>
 
-        <TabsContent value="content-factory" className="mt-0">
-          <ProviderKeysPanel projectId={activeProjectId || null} />
-        </TabsContent>
-
-        <TabsContent value="content-briefs" className="mt-0">
-          <BriefsEditor projectId={activeProjectId || null} />
-        </TabsContent>
-
       </Tabs>
+
 
       <AddMemberDialog open={open} onOpenChange={setOpen} editing={editing} />
 
