@@ -163,14 +163,6 @@ export function ProjectSwitcher({ collapsed }: Props) {
               <Plus className="h-4 w-4" />
               Быстрое создание
             </button>
-            <button
-              type="button"
-              onClick={() => { setOpen(false); navigate("/projects/new"); }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-primary hover:bg-primary/10"
-            >
-              <Settings2 className="h-4 w-4" />
-              Новый проект: полная настройка
-            </button>
           </div>
         </PopoverContent>
       </Popover>
