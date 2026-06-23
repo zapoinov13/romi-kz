@@ -23,7 +23,10 @@ export const GOAL_LABEL: Record<AdsGoal, string> = {
 
 /** CTA, валидные для каждой цели в Meta Ads. */
 export const CTA_BY_GOAL: Record<AdsGoal, { value: string; label: string }[]> = {
-  whatsapp: [{ value: "WHATSAPP_MESSAGE", label: "Написать в WhatsApp" }],
+  whatsapp: [
+    { value: "WHATSAPP_MESSAGE", label: "Написать в WhatsApp" },
+    { value: "LEARN_MORE", label: "Подробнее" },
+  ],
   "site-leads": [
     { value: "LEARN_MORE", label: "Подробнее" },
     { value: "SIGN_UP", label: "Зарегистрироваться" },
