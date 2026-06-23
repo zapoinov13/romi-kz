@@ -214,6 +214,16 @@ const DuplicateDialog = ({
   const [gender, setGender] = useState<"all" | "male" | "female">("all");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  // ad
+  const [adBody, setAdBody] = useState<string>("");
+  const [adTitle, setAdTitle] = useState<string>("");
+  const [adDescription, setAdDescription] = useState<string>("");
+  const [adLink, setAdLink] = useState<string>("");
+  const [adCta, setAdCta] = useState<string>("");
+  const [adImageFile, setAdImageFile] = useState<File | null>(null);
+  const [adImagePreview, setAdImagePreview] = useState<string>("");
+  const [currentThumb, setCurrentThumb] = useState<string>("");
+  const [isVideoCreative, setIsVideoCreative] = useState(false);
 
   const [busy, setBusy] = useState(false);
 
