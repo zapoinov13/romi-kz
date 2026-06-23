@@ -465,41 +465,67 @@ const DuplicateDialog = ({
             {state?.entity === "ad" && (
               <>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Изображение объявления</Label>
+                  <Label className="text-xs">{isVideoCreative ? "Видео объявления" : "Изображение объявления"}</Label>
                   <div className="flex items-start gap-3 rounded-md border border-border/50 bg-muted/20 p-2">
                     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-background/50">
-                      {(adImagePreview || currentThumb) ? (
+                      {isVideoCreative && adVideoPreview ? (
+                        <video src={adVideoPreview} className="h-full w-full object-cover" muted playsInline />
+                      ) : (adImagePreview || currentThumb) ? (
                         <img src={adImagePreview || currentThumb} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">нет превью</div>
                       )}
                     </div>
                     <div className="flex-1 space-y-1.5">
-                      <input
-                        id="dup-ad-image"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="block w-full text-[11px] file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-[11px] file:font-medium hover:file:bg-secondary/80"
-                        disabled={isVideoCreative}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] ?? null;
-                          setAdImageFile(f);
-                          if (adImagePreview) URL.revokeObjectURL(adImagePreview);
-                          setAdImagePreview(f ? URL.createObjectURL(f) : "");
-                        }}
-                      />
+                      {isVideoCreative ? (
+                        <input
+                          id="dup-ad-video"
+                          type="file"
+                          accept="video/mp4,video/quicktime,video/webm"
+                          className="block w-full text-[11px] file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-[11px] file:font-medium hover:file:bg-secondary/80"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] ?? null;
+                            setAdVideoFile(f);
+                            if (adVideoPreview) URL.revokeObjectURL(adVideoPreview);
+                            setAdVideoPreview(f ? URL.createObjectURL(f) : "");
+                          }}
+                        />
+                      ) : (
+                        <input
+                          id="dup-ad-image"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="block w-full text-[11px] file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-[11px] file:font-medium hover:file:bg-secondary/80"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] ?? null;
+                            setAdImageFile(f);
+                            if (adImagePreview) URL.revokeObjectURL(adImagePreview);
+                            setAdImagePreview(f ? URL.createObjectURL(f) : "");
+                          }}
+                        />
+                      )}
                       <div className="text-[10px] text-muted-foreground">
                         {isVideoCreative
-                          ? "У оригинала видео-креатив - замена медиа недоступна, можно править тексты."
+                          ? "Загрузите новое видео (MP4 / MOV / WEBM, до ~25 МБ). Оставьте пусто, чтобы сохранить текущее."
                           : "Оставьте пусто, чтобы сохранить текущее изображение. JPG / PNG / WEBP."}
                       </div>
-                      {adImageFile && (
+                      {(isVideoCreative ? adVideoFile : adImageFile) && (
                         <button
                           type="button"
-                          onClick={() => { setAdImageFile(null); if (adImagePreview) URL.revokeObjectURL(adImagePreview); setAdImagePreview(""); }}
+                          onClick={() => {
+                            if (isVideoCreative) {
+                              setAdVideoFile(null);
+                              if (adVideoPreview) URL.revokeObjectURL(adVideoPreview);
+                              setAdVideoPreview("");
+                            } else {
+                              setAdImageFile(null);
+                              if (adImagePreview) URL.revokeObjectURL(adImagePreview);
+                              setAdImagePreview("");
+                            }
+                          }}
                           className="text-[11px] text-muted-foreground underline hover:text-foreground"
                         >
-                          Убрать новое изображение
+                          Убрать новый файл
                         </button>
                       )}
                     </div>
