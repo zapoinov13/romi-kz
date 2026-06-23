@@ -93,7 +93,7 @@ export default function CabinetKpiDialog({ open, onOpenChange, cabinetId, cabine
         supabase.from("ad_cabinets").select("project_id").eq("id", cabinetId).maybeSingle(),
         supabase
         .from("ad_kpi_targets")
-        .select("id, goal_type, target_cpl_kzt, max_cpl_kzt, min_daily_leads, min_daily_spend_kzt, max_daily_spend_kzt, target_roas, min_roas, max_frequency_7d, min_ctr_pct, auto_mode, auto_pause_enabled, auto_budget_cut_enabled, budget_cut_pct, auto_budget_bump_enabled, budget_bump_pct, bump_max_daily_kzt, cooldown_minutes, daily_action_limit")
+        .select("id, goal_type, target_cpl_kzt, max_cpl_kzt, min_daily_leads, min_daily_spend_kzt, max_daily_spend_kzt, auto_mode, auto_pause_enabled, auto_budget_cut_enabled, budget_cut_pct, auto_budget_bump_enabled, budget_bump_pct, bump_max_daily_kzt, cooldown_minutes, daily_action_limit")
         .eq("cabinet_id", cabinetId)
         .is("campaign_id", null)
         .is("adset_id", null)
