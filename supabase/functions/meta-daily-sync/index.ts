@@ -243,9 +243,9 @@ Deno.serve(async (req) => {
         });
       }
     }
-    const META_ACCESS_TOKEN = await resolveMetaToken(adminPre, null);
-    if (!META_ACCESS_TOKEN) {
-      return new Response(JSON.stringify({ error: "Meta access token не настроен (Настройки → Подключить Meta)." }), {
+    const META_TOKENS = await resolveMetaTokens(adminPre, null);
+    if (META_TOKENS.length === 0) {
+      return new Response(JSON.stringify({ error: "Meta access token не настроен (Настройки → Facebook / Meta)." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
