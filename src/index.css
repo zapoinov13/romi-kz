@@ -2,101 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design system — Black/Navy with Emerald + Orange accents.
+/* ROMI design system — Charcoal + Neon Lime.
+   Inspired by romi.kz brand: matte dark gray surface, single neon-green accent.
    All colors in HSL.
 */
 
 @layer base {
   :root {
-    /* Surfaces — near-black with navy tint */
-    --background: 220 45% 5%;
-    --foreground: 210 25% 95%;
+    /* Surfaces — neutral charcoal (no color tint) */
+    --background: 0 0% 8%;
+    --foreground: 0 0% 96%;
 
-    --card: 220 40% 9%;
-    --card-foreground: 210 25% 95%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 42% 7%;
-    --popover-foreground: 210 25% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 96%;
 
-    /* Primary — emerald green */
-    --primary: 152 75% 48%;
-    --primary-foreground: 220 45% 5%;
-    --primary-glow: 152 75% 58%;
+    /* Primary — ROMI neon lime */
+    --primary: 75 92% 62%;
+    --primary-foreground: 0 0% 8%;
+    --primary-glow: 75 100% 70%;
 
-    --secondary: 220 38% 13%;
-    --secondary-foreground: 210 25% 95%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 96%;
 
-    --muted: 220 35% 11%;
-    --muted-foreground: 215 18% 62%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
 
-    /* Accent — vivid orange */
-    --accent: 24 95% 58%;
-    --accent-foreground: 220 45% 5%;
+    /* Accent — softer lime variant for variety */
+    --accent: 75 70% 52%;
+    --accent-foreground: 0 0% 8%;
 
     --destructive: 0 75% 58%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 152 75% 48%;
-    --warning: 24 95% 58%;
+    --success: 75 92% 62%;
+    --warning: 40 95% 60%;
 
-    --border: 220 30% 16%;
-    --input: 220 30% 16%;
-    --ring: 152 75% 48%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 75 92% 62%;
 
     --radius: 0.75rem;
 
-    /* Gradients & shadows — green + orange combo */
-    --gradient-primary: linear-gradient(135deg, hsl(152 75% 48%), hsl(152 75% 58%));
-    --gradient-accent: linear-gradient(135deg, hsl(24 95% 58%), hsl(14 90% 55%));
-    --gradient-hero: linear-gradient(135deg, hsl(152 75% 55%) 0%, hsl(24 95% 60%) 100%);
-    --gradient-card-hover: linear-gradient(135deg, hsl(152 75% 48% / 0.10), hsl(24 95% 58% / 0.05));
-    --shadow-glow: 0 0 32px hsl(152 75% 48% / 0.28);
-    --shadow-glow-accent: 0 0 32px hsl(24 95% 58% / 0.28);
-    --shadow-card: 0 2px 14px -4px hsl(220 60% 2% / 0.7);
-    --shadow-elevated: 0 18px 50px -16px hsl(152 75% 48% / 0.30);
+    /* Gradients & shadows — monochrome lime */
+    --gradient-primary: linear-gradient(135deg, hsl(75 92% 62%), hsl(75 100% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(75 70% 52%), hsl(75 92% 62%));
+    --gradient-hero: linear-gradient(135deg, hsl(75 100% 70%) 0%, hsl(75 70% 50%) 100%);
+    --gradient-card-hover: linear-gradient(135deg, hsl(75 92% 62% / 0.10), hsl(75 92% 62% / 0.04));
+    --shadow-glow: 0 0 32px hsl(75 92% 62% / 0.30);
+    --shadow-glow-accent: 0 0 32px hsl(75 92% 62% / 0.22);
+    --shadow-card: 0 2px 14px -4px hsl(0 0% 0% / 0.7);
+    --shadow-elevated: 0 18px 50px -16px hsl(75 92% 62% / 0.28);
 
     /* Sidebar */
-    --sidebar-background: 220 50% 4%;
-    --sidebar-foreground: 210 22% 78%;
-    --sidebar-primary: 152 75% 48%;
-    --sidebar-primary-foreground: 220 45% 5%;
-    --sidebar-accent: 220 38% 11%;
-    --sidebar-accent-foreground: 210 25% 95%;
-    --sidebar-border: 220 30% 14%;
-    --sidebar-ring: 152 75% 48%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 78%;
+    --sidebar-primary: 75 92% 62%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 13%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 75 92% 62%;
   }
 
   .dark {
-    --background: 220 45% 5%;
-    --foreground: 210 25% 95%;
-    --card: 220 40% 9%;
-    --card-foreground: 210 25% 95%;
-    --popover: 220 42% 7%;
-    --popover-foreground: 210 25% 95%;
-    --primary: 152 75% 48%;
-    --primary-foreground: 220 45% 5%;
-    --primary-glow: 152 75% 58%;
-    --secondary: 220 38% 13%;
-    --secondary-foreground: 210 25% 95%;
-    --muted: 220 35% 11%;
-    --muted-foreground: 215 18% 62%;
-    --accent: 24 95% 58%;
-    --accent-foreground: 220 45% 5%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 75 92% 62%;
+    --primary-foreground: 0 0% 8%;
+    --primary-glow: 75 100% 70%;
+    --secondary: 0 0% 16%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 62%;
+    --accent: 75 70% 52%;
+    --accent-foreground: 0 0% 8%;
     --destructive: 0 75% 58%;
     --destructive-foreground: 0 0% 98%;
-    --success: 152 75% 48%;
-    --warning: 24 95% 58%;
-    --border: 220 30% 16%;
-    --input: 220 30% 16%;
-    --ring: 152 75% 48%;
-    --sidebar-background: 220 50% 4%;
-    --sidebar-foreground: 210 22% 78%;
-    --sidebar-primary: 152 75% 48%;
-    --sidebar-primary-foreground: 220 45% 5%;
-    --sidebar-accent: 220 38% 11%;
-    --sidebar-accent-foreground: 210 25% 95%;
-    --sidebar-border: 220 30% 14%;
-    --sidebar-ring: 152 75% 48%;
+    --success: 75 92% 62%;
+    --warning: 40 95% 60%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 75 92% 62%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 78%;
+    --sidebar-primary: 75 92% 62%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 13%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 75 92% 62%;
   }
 }
 
@@ -116,8 +117,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background-image:
-      radial-gradient(ellipse 60% 35% at 15% -5%, hsl(152 75% 48% / 0.08), transparent 60%),
-      radial-gradient(ellipse 60% 35% at 90% 0%, hsl(24 95% 58% / 0.07), transparent 60%);
+      radial-gradient(ellipse 60% 35% at 15% -5%, hsl(75 92% 62% / 0.07), transparent 60%),
+      radial-gradient(ellipse 60% 35% at 90% 0%, hsl(75 92% 62% / 0.05), transparent 60%);
   }
 
   .tabular-nums {
