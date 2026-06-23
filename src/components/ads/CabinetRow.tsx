@@ -73,10 +73,10 @@ const Metric = ({
   value: React.ReactNode;
 }) => (
   <div>
-    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="text-[9px] uppercase tracking-wider text-muted-foreground/80 leading-none">
       {label}
     </div>
-    <div className="mt-1 text-base font-semibold">{value}</div>
+    <div className="mt-1 text-sm font-bold tabular-nums leading-none">{value}</div>
   </div>
 );
 
