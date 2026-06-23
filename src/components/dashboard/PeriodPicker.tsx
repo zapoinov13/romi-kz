@@ -26,6 +26,10 @@ function formatMonthLabel(from: Date): string {
   return `1 ${month}. – ${lastDay} ${month}. ${from.getFullYear()}`;
 }
 
+function formatMonthLabelShort(from: Date): string {
+  return `${MONTHS_RU[from.getMonth()]} ${from.getFullYear()}`;
+}
+
 interface Props {
   range: ReportPeriodRange;
   onChange: (range: ReportPeriodRange) => void;
