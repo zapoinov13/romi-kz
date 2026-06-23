@@ -264,6 +264,26 @@ const DuplicateDialog = ({
         setGender(GENDER_LABEL(t?.genders) as "all" | "male" | "female");
         if (d.start_time) setStartTime(d.start_time.slice(0, 16));
         if (d.end_time) setEndTime(d.end_time.slice(0, 16));
+        if (state.entity === "ad") {
+          const cr = d.creative;
+          const link = cr?.object_story_spec?.link_data;
+          const video = cr?.object_story_spec?.video_data;
+          if (link) {
+            setAdBody(link.message ?? "");
+            setAdTitle(link.name ?? "");
+            setAdDescription(link.description ?? "");
+            setAdLink(link.link ?? "");
+            setAdCta(link.call_to_action?.type ?? "");
+          } else if (video) {
+            setAdBody(video.message ?? "");
+            setAdTitle(video.title ?? "");
+            setAdDescription(video.link_description ?? "");
+            setAdLink(video.call_to_action?.value?.link ?? "");
+            setAdCta(video.call_to_action?.type ?? "");
+            setIsVideoCreative(true);
+          }
+          setCurrentThumb(cr?.thumbnail_url ?? cr?.image_url ?? link?.picture ?? video?.image_url ?? "");
+        }
       } catch (e) {
         toast.error((e as Error).message || "Не удалось загрузить текущие настройки");
       } finally {
