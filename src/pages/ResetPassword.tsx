@@ -83,7 +83,7 @@ export default function ResetPassword() {
               <Input id="cp" type={show ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} className="h-11" />
               {errors.confirm && <p className="text-xs text-destructive">{errors.confirm}</p>}
             </div>
-            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-white hover:bg-success/90">
+            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-success-foreground hover:bg-success/90">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Сохранить и войти <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
