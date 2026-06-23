@@ -188,6 +188,94 @@ Deno.serve(async (req) => {
         if (!r.ok) warnings.push(`adset: ${r.error}`);
       }
     }
+
+    if (entity === "ad") {
+      const eBody = (edits.creative_body as string | undefined) ?? undefined;
+      const eTitle = (edits.creative_title as string | undefined) ?? undefined;
+      const eDesc = (edits.creative_description as string | undefined) ?? undefined;
+      const eLink = (edits.creative_link_url as string | undefined) ?? undefined;
+      const eCta = (edits.creative_cta as string | undefined) ?? undefined;
+      const eImageB64 = (edits.creative_image_b64 as string | undefined) ?? undefined;
+
+      const needsCreativeChange = !!(eBody || eTitle || eDesc || eLink || eCta || eImageB64);
+      if (needsCreativeChange) {
+        try {
+          const adInfo = await metaGet(
+            workingToken,
+            copiedId,
+            "account_id,creative{id,name,object_story_spec,asset_feed_spec,object_type}",
+          );
+          if (!adInfo) throw new Error("не удалось прочитать объявление");
+          const accountId = adInfo.account_id as string | undefined;
+          const cr = adInfo.creative as Record<string, unknown> | undefined;
+          const spec = cr?.object_story_spec as Record<string, unknown> | undefined;
+          if (!accountId || !spec) throw new Error("у объявления нет object_story_spec (динамический креатив)");
+          const linkData = spec.link_data as Record<string, unknown> | undefined;
+          const videoData = spec.video_data as Record<string, unknown> | undefined;
+          const target = linkData ?? videoData;
+          if (!target) throw new Error("нет link_data/video_data для редактирования");
+
+          let newImageHash: string | null = null;
+          if (eImageB64 && linkData) {
+            const clean = eImageB64.replace(/^data:[^;]+;base64,/, "");
+            const imgParams = new URLSearchParams({ bytes: clean, access_token: workingToken });
+            const imgRes = await fetch(`${GRAPH}/act_${accountId}/adimages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: imgParams.toString(),
+            });
+            const imgText = await imgRes.text();
+            if (!imgRes.ok) throw new Error(`adimages: ${imgText.slice(0, 200)}`);
+            const imgPayload = JSON.parse(imgText) as { images?: Record<string, { hash?: string }> };
+            const first = Object.values(imgPayload.images ?? {})[0];
+            if (!first?.hash) throw new Error("Meta не вернула hash картинки");
+            newImageHash = first.hash;
+          }
+
+          if (eBody !== undefined) target.message = eBody;
+          if (eTitle !== undefined) target.name = eTitle;
+          if (eDesc !== undefined) target.description = eDesc;
+          if (eLink !== undefined) target.link = eLink;
+          if (eCta !== undefined) {
+            const cur = (target.call_to_action as Record<string, unknown> | undefined) ?? {};
+            cur.type = String(eCta).toUpperCase();
+            if (eLink !== undefined) cur.value = { link: eLink };
+            target.call_to_action = cur;
+          }
+          if (newImageHash && linkData) {
+            linkData.image_hash = newImageHash;
+            delete (linkData as Record<string, unknown>).picture;
+          }
+
+          const newSpec: Record<string, unknown> = { ...spec };
+          if (linkData) newSpec.link_data = target;
+          if (videoData && !linkData) newSpec.video_data = target;
+
+          const createParams = new URLSearchParams({
+            name: (cr?.name as string | undefined) ?? `creative_${copiedId}`,
+            object_story_spec: JSON.stringify(newSpec),
+            access_token: workingToken,
+          });
+          const createRes = await fetch(`${GRAPH}/act_${accountId}/adcreatives`, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: createParams.toString(),
+          });
+          const createText = await createRes.text();
+          if (!createRes.ok) throw new Error(`adcreatives: ${createText.slice(0, 200)}`);
+          const createPayload = JSON.parse(createText) as { id?: string };
+          const newCreativeId = createPayload.id;
+          if (!newCreativeId) throw new Error("Meta не вернула id креатива");
+
+          const attach = await metaPost(workingToken, copiedId, {
+            creative: JSON.stringify({ creative_id: newCreativeId }),
+          });
+          if (!attach.ok) throw new Error(attach.error);
+        } catch (e) {
+          warnings.push(`creative: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
   }
 
   return json({
