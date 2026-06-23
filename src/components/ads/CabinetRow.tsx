@@ -428,7 +428,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
 
 
       {expanded && (
-        <div className="border-t border-border/60 p-4 space-y-4 animate-fade-in-up">
+        <div className="space-y-4 border-t border-border/60 p-3 sm:p-4 animate-fade-in-up">
           {cabinet.provider !== "instagram_organic" && (
             <CabinetCampaignsPanel cabinetId={cabinet.id} currency={currency} />
           )}
