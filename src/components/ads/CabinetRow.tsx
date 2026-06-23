@@ -208,9 +208,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
   return (
     <article className="group rounded-xl border border-border/50 bg-card/40 transition-all hover:border-success/30 hover:bg-card/60">
       <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
-        <div className="flex items-center gap-3 lg:flex-1 lg:min-w-0">
+        {/* Header row: icon + name + actions (always on one row on mobile) */}
+        <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
           <span className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-colors",
+            "grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors lg:h-9 lg:w-9",
             cabinet.online ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground",
           )}>
             <Megaphone className="h-4 w-4" />
@@ -224,7 +225,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
                   Online
                 </span>
               )}
-              <span className="rounded-md bg-muted/30 px-1.5 py-0.5 text-[9px] uppercase text-muted-foreground">
+              <span className="hidden rounded-md bg-muted/30 px-1.5 py-0.5 text-[9px] uppercase text-muted-foreground sm:inline">
                 {cabinet.type}
               </span>
               {cabinet.type === "Агентский" && (
@@ -239,13 +240,77 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               )}
             </div>
-            <div className="mt-0.5 truncate text-[10px] text-muted-foreground/70 font-mono">
+            <div className="mt-0.5 hidden truncate font-mono text-[10px] text-muted-foreground/70 sm:block">
               {cabinet.externalId}
             </div>
           </div>
+
+          {/* Mobile-only actions cluster next to the name to save vertical space */}
+          <div className="flex items-center gap-0.5 lg:hidden">
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing}
+              aria-label="Получить статистику"
+              title="Получить статистику из Meta"
+              className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
+            >
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Действия"
+                  className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
+                  Получить статистику
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setKpiOpen(true)}>
+                  <Target className="mr-2 h-4 w-4" />
+                  Настроить KPI
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(cabinet.externalId);
+                    toast.success("ID скопирован");
+                  }}
+                >
+                  <Copy className="mr-2 h-4 w-4" /> Скопировать ID
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onToggleOnline(cabinet.id)}>
+                  <Power className="mr-2 h-4 w-4" />
+                  {cabinet.online ? "Поставить на паузу" : "Запустить"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => {
+                    if (confirm(`Удалить кабинет «${cabinet.name}»?`)) {
+                      onRemove(cabinet.id);
+                      toast.success("Кабинет удалён");
+                    }
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Удалить
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 lg:gap-5">
+        {/* Compact metrics — tap to expand on mobile */}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="grid w-full grid-cols-4 gap-2 rounded-lg border border-border/40 bg-background/30 p-2.5 text-left transition-colors hover:border-success/30 active:bg-background/50 lg:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:gap-5"
+        >
           <Metric
             label="Расход"
             value={formatMoney(totals?.spend ?? 0, currency)}
@@ -277,9 +342,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
               </span>
             }
           />
-        </div>
+        </button>
 
-        <div className="flex items-center gap-1 self-end lg:self-center">
+        {/* Desktop-only action cluster (mobile actions live next to the name above) */}
+        <div className="hidden items-center gap-1 self-center lg:flex">
           <button
             type="button"
             onClick={handleSync}
@@ -288,7 +354,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             className="flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-transparent px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-success/30 hover:bg-success/5 hover:text-success disabled:opacity-60"
           >
             {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
-            <span className="hidden sm:inline">{syncing ? "Загрузка" : "Статистика"}</span>
+            <span>{syncing ? "Загрузка" : "Статистика"}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -348,7 +414,18 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             />
           </button>
         </div>
+
+        {/* Mobile expand hint — full-width chevron under metrics */}
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex h-7 items-center justify-center gap-1 rounded-md text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
+        >
+          {expanded ? "Свернуть" : "Подробнее"}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+        </button>
       </div>
+
 
       {expanded && (
         <div className="border-t border-border/60 p-4 space-y-4 animate-fade-in-up">
