@@ -1,17 +1,15 @@
-import { Target, Wand2, TableProperties, FileBarChart2, Menu } from "lucide-react";
+import { Target, Settings, Menu } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/ui/sidebar";
 import { prefetchRoute } from "@/lib/routePrefetch";
 
-// HIDDEN: «Дашборд» (/dashboard) — скрыт по запросу.
 type NavItem = { title: string; url: string; icon: typeof Target; primary?: boolean };
 const ITEMS: readonly NavItem[] = [
-  { title: "Реклама", url: "/ads", icon: Target },
-  { title: "Контент", url: "/", icon: Wand2, primary: true },
-  { title: "Метрики", url: "/metrics", icon: TableProperties },
-  { title: "Отчёты", url: "/reports", icon: FileBarChart2 },
+  { title: "Реклама", url: "/ads", icon: Target, primary: true },
+  { title: "Настройки", url: "/settings", icon: Settings },
 ];
+
 
 
 
