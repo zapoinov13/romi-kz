@@ -455,6 +455,90 @@ const DuplicateDialog = ({
               </>
             )}
 
+            {state?.entity === "ad" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Изображение объявления</Label>
+                  <div className="flex items-start gap-3 rounded-md border border-border/50 bg-muted/20 p-2">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-background/50">
+                      {(adImagePreview || currentThumb) ? (
+                        <img src={adImagePreview || currentThumb} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">нет превью</div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        id="dup-ad-image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full text-[11px] file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-[11px] file:font-medium hover:file:bg-secondary/80"
+                        disabled={isVideoCreative}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          setAdImageFile(f);
+                          if (adImagePreview) URL.revokeObjectURL(adImagePreview);
+                          setAdImagePreview(f ? URL.createObjectURL(f) : "");
+                        }}
+                      />
+                      <div className="text-[10px] text-muted-foreground">
+                        {isVideoCreative
+                          ? "У оригинала видео-креатив - замена медиа недоступна, можно править тексты."
+                          : "Оставьте пусто, чтобы сохранить текущее изображение. JPG / PNG / WEBP."}
+                      </div>
+                      {adImageFile && (
+                        <button
+                          type="button"
+                          onClick={() => { setAdImageFile(null); if (adImagePreview) URL.revokeObjectURL(adImagePreview); setAdImagePreview(""); }}
+                          className="text-[11px] text-muted-foreground underline hover:text-foreground"
+                        >
+                          Убрать новое изображение
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-title">Заголовок</Label>
+                  <Input id="dup-ad-title" value={adTitle} onChange={(e) => setAdTitle(e.target.value)} maxLength={255} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-body">Основной текст</Label>
+                  <Textarea
+                    id="dup-ad-body"
+                    value={adBody}
+                    onChange={(e) => setAdBody(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-desc">Описание (под заголовком)</Label>
+                  <Input id="dup-ad-desc" value={adDescription} onChange={(e) => setAdDescription(e.target.value)} maxLength={255} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-ad-link">Ссылка</Label>
+                    <Input id="dup-ad-link" type="url" value={adLink} onChange={(e) => setAdLink(e.target.value)} placeholder="https://..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Кнопка (CTA)</Label>
+                    <Select value={adCta || "_keep"} onValueChange={(v) => setAdCta(v === "_keep" ? "" : v)}>
+                      <SelectTrigger><SelectValue placeholder="Не менять" /></SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        <SelectItem value="_keep">Оставить как есть</SelectItem>
+                        {CTA_OPTIONS.map((c) => (
+                          <SelectItem key={c} value={c}>{c.replace(/_/g, " ").toLowerCase()}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+
             <div className="space-y-1.5">
               <Label className="text-xs">Статус копии</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as "PAUSED" | "ACTIVE")}>
