@@ -222,6 +222,8 @@ const DuplicateDialog = ({
   const [adCta, setAdCta] = useState<string>("");
   const [adImageFile, setAdImageFile] = useState<File | null>(null);
   const [adImagePreview, setAdImagePreview] = useState<string>("");
+  const [adVideoFile, setAdVideoFile] = useState<File | null>(null);
+  const [adVideoPreview, setAdVideoPreview] = useState<string>("");
   const [currentThumb, setCurrentThumb] = useState<string>("");
   const [isVideoCreative, setIsVideoCreative] = useState(false);
 
