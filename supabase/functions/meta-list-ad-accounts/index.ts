@@ -84,26 +84,52 @@ Deno.serve(async (req) => {
       : [];
     const exclude = excludeRaw.map((x) => normalizeActId(String(x)));
 
-    const token = await resolveMetaToken(
+    const tokens = await resolveMetaTokens(
       typeof body.access_token === "string" ? body.access_token : null,
     );
-    if (!token) {
+    if (tokens.length === 0) {
       return jsonResponse({
-        error: "Meta access token не настроен. Укажите токен в Настройках → Автоматизация или в поле ниже.",
+        error: "Meta access token не настроен. Добавьте токен в Настройках → Facebook / Meta.",
         accounts: [],
       }, 400);
     }
 
-    const fetched = await fetchAllMetaAdAccounts(token);
-    const accounts = mapAdAccounts(fetched.rows, exclude);
+    const allRows: Array<Record<string, unknown>> = [];
+    const allSources: string[] = [];
+    const identities: Array<{ id: string; name: string }> = [];
+    const errors: string[] = [];
+
+    for (const token of tokens) {
+      try {
+        const fetched = await fetchAllMetaAdAccounts(token);
+        allRows.push(...fetched.rows);
+        if (fetched.token_identity) identities.push(fetched.token_identity);
+        for (const s of fetched.sources) allSources.push(s);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    // Дедуп по id
+    const seen = new Set<string>();
+    const dedup = allRows.filter((r) => {
+      const id = normalizeActId(String((r as { id?: string }).id ?? (r as { account_id?: string }).account_id ?? ""));
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    const accounts = mapAdAccounts(dedup as never, exclude);
     return jsonResponse({
       ok: true,
       accounts,
-      meta_hint: fetched.meta_hint,
-      token_identity: fetched.token_identity,
-      sources: fetched.sources,
-      raw_count: fetched.rows.length,
+      sources: allSources,
+      token_identities: identities,
+      raw_count: dedup.length,
+      tokens_used: tokens.length,
+      errors: errors.length ? errors : undefined,
     });
+
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return jsonResponse({ error: msg, accounts: [] }, 500);
