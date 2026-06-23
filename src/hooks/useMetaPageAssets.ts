@@ -77,11 +77,14 @@ export function useMetaPageAssets<K extends AssetKind>({
     async (force = false) => {
       if (!enabled) return;
       // Validate required params per kind
-      if (kind === "whatsapp" && !pageId) return;
+      // WhatsApp: достаточно pageId ИЛИ actId — edge-функция умеет тянуть
+      // номера из нескольких источников (WABA на Page, CTA, CTWA ad sets, ads).
+      if (kind === "whatsapp" && !pageId && !actId) return;
       if (kind === "pixels" && !actId) return;
       if (kind === "pixel_events" && !pixelId) return;
       if (kind === "lead_forms" && !pageId) return;
       if (kind === "pages" && !actId) return;
+
 
       const cached = cache.get(cacheKey);
       if (!force && cached && Date.now() - cached.ts < TTL) {
