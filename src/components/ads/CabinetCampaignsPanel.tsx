@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
@@ -145,8 +146,44 @@ type EntityDetails = {
     title?: string;
     call_to_action_type?: string;
     object_url?: string;
+    thumbnail_url?: string;
+    image_url?: string;
+    video_id?: string;
+    object_story_spec?: {
+      link_data?: {
+        message?: string;
+        name?: string;
+        description?: string;
+        link?: string;
+        picture?: string;
+        image_hash?: string;
+        call_to_action?: { type?: string; value?: { link?: string } };
+      };
+      video_data?: {
+        message?: string;
+        title?: string;
+        link_description?: string;
+        image_url?: string;
+        call_to_action?: { type?: string; value?: { link?: string } };
+      };
+    };
   };
 };
+
+const CTA_OPTIONS = [
+  "LEARN_MORE", "SHOP_NOW", "SIGN_UP", "SUBSCRIBE", "CONTACT_US",
+  "GET_OFFER", "ORDER_NOW", "APPLY_NOW", "BOOK_TRAVEL", "DOWNLOAD",
+  "MESSAGE_PAGE", "WHATSAPP_MESSAGE", "GET_QUOTE", "CALL_NOW", "INSTALL_MOBILE_APP",
+];
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const GENDER_LABEL = (g: number[] | undefined) => {
   if (!g || g.length === 0 || g.length === 2) return "all";
@@ -177,6 +214,16 @@ const DuplicateDialog = ({
   const [gender, setGender] = useState<"all" | "male" | "female">("all");
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  // ad
+  const [adBody, setAdBody] = useState<string>("");
+  const [adTitle, setAdTitle] = useState<string>("");
+  const [adDescription, setAdDescription] = useState<string>("");
+  const [adLink, setAdLink] = useState<string>("");
+  const [adCta, setAdCta] = useState<string>("");
+  const [adImageFile, setAdImageFile] = useState<File | null>(null);
+  const [adImagePreview, setAdImagePreview] = useState<string>("");
+  const [currentThumb, setCurrentThumb] = useState<string>("");
+  const [isVideoCreative, setIsVideoCreative] = useState(false);
 
   const [busy, setBusy] = useState(false);
 
@@ -193,6 +240,8 @@ const DuplicateDialog = ({
     setGender("all");
     setStartTime("");
     setEndTime("");
+    setAdBody(""); setAdTitle(""); setAdDescription(""); setAdLink(""); setAdCta("");
+    setAdImageFile(null); setAdImagePreview(""); setCurrentThumb(""); setIsVideoCreative(false);
     setLoadingDetails(true);
     (async () => {
       try {
@@ -215,6 +264,26 @@ const DuplicateDialog = ({
         setGender(GENDER_LABEL(t?.genders) as "all" | "male" | "female");
         if (d.start_time) setStartTime(d.start_time.slice(0, 16));
         if (d.end_time) setEndTime(d.end_time.slice(0, 16));
+        if (state.entity === "ad") {
+          const cr = d.creative;
+          const link = cr?.object_story_spec?.link_data;
+          const video = cr?.object_story_spec?.video_data;
+          if (link) {
+            setAdBody(link.message ?? "");
+            setAdTitle(link.name ?? "");
+            setAdDescription(link.description ?? "");
+            setAdLink(link.link ?? "");
+            setAdCta(link.call_to_action?.type ?? "");
+          } else if (video) {
+            setAdBody(video.message ?? "");
+            setAdTitle(video.title ?? "");
+            setAdDescription(video.link_description ?? "");
+            setAdLink(video.call_to_action?.value?.link ?? "");
+            setAdCta(video.call_to_action?.type ?? "");
+            setIsVideoCreative(true);
+          }
+          setCurrentThumb(cr?.thumbnail_url ?? cr?.image_url ?? link?.picture ?? video?.image_url ?? "");
+        }
       } catch (e) {
         toast.error((e as Error).message || "Не удалось загрузить текущие настройки");
       } finally {
@@ -244,6 +313,25 @@ const DuplicateDialog = ({
         if (startTime) edits.start_time = new Date(startTime).toISOString();
         if (endTime) edits.end_time = new Date(endTime).toISOString();
       }
+      if (state.entity === "ad") {
+        const orig = details?.creative;
+        const link = orig?.object_story_spec?.link_data;
+        const video = orig?.object_story_spec?.video_data;
+        const origBody = link?.message ?? video?.message ?? "";
+        const origTitle = link?.name ?? video?.title ?? "";
+        const origDesc = link?.description ?? video?.link_description ?? "";
+        const origLink = link?.link ?? video?.call_to_action?.value?.link ?? "";
+        const origCta = link?.call_to_action?.type ?? video?.call_to_action?.type ?? "";
+        if (adBody !== origBody) edits.creative_body = adBody;
+        if (adTitle !== origTitle) edits.creative_title = adTitle;
+        if (adDescription !== origDesc) edits.creative_description = adDescription;
+        if (adLink !== origLink) edits.creative_link_url = adLink;
+        if (adCta && adCta !== origCta) edits.creative_cta = adCta;
+        if (adImageFile) {
+          edits.creative_image_b64 = await fileToBase64(adImageFile);
+        }
+      }
+
 
       const { data, error } = await supabase.functions.invoke("meta-copy-entity", {
         body: {
@@ -367,6 +455,90 @@ const DuplicateDialog = ({
               </>
             )}
 
+            {state?.entity === "ad" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Изображение объявления</Label>
+                  <div className="flex items-start gap-3 rounded-md border border-border/50 bg-muted/20 p-2">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-md bg-background/50">
+                      {(adImagePreview || currentThumb) ? (
+                        <img src={adImagePreview || currentThumb} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">нет превью</div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        id="dup-ad-image"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full text-[11px] file:mr-2 file:rounded-md file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-[11px] file:font-medium hover:file:bg-secondary/80"
+                        disabled={isVideoCreative}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] ?? null;
+                          setAdImageFile(f);
+                          if (adImagePreview) URL.revokeObjectURL(adImagePreview);
+                          setAdImagePreview(f ? URL.createObjectURL(f) : "");
+                        }}
+                      />
+                      <div className="text-[10px] text-muted-foreground">
+                        {isVideoCreative
+                          ? "У оригинала видео-креатив - замена медиа недоступна, можно править тексты."
+                          : "Оставьте пусто, чтобы сохранить текущее изображение. JPG / PNG / WEBP."}
+                      </div>
+                      {adImageFile && (
+                        <button
+                          type="button"
+                          onClick={() => { setAdImageFile(null); if (adImagePreview) URL.revokeObjectURL(adImagePreview); setAdImagePreview(""); }}
+                          className="text-[11px] text-muted-foreground underline hover:text-foreground"
+                        >
+                          Убрать новое изображение
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-title">Заголовок</Label>
+                  <Input id="dup-ad-title" value={adTitle} onChange={(e) => setAdTitle(e.target.value)} maxLength={255} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-body">Основной текст</Label>
+                  <Textarea
+                    id="dup-ad-body"
+                    value={adBody}
+                    onChange={(e) => setAdBody(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-ad-desc">Описание (под заголовком)</Label>
+                  <Input id="dup-ad-desc" value={adDescription} onChange={(e) => setAdDescription(e.target.value)} maxLength={255} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-ad-link">Ссылка</Label>
+                    <Input id="dup-ad-link" type="url" value={adLink} onChange={(e) => setAdLink(e.target.value)} placeholder="https://..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Кнопка (CTA)</Label>
+                    <Select value={adCta || "_keep"} onValueChange={(v) => setAdCta(v === "_keep" ? "" : v)}>
+                      <SelectTrigger><SelectValue placeholder="Не менять" /></SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        <SelectItem value="_keep">Оставить как есть</SelectItem>
+                        {CTA_OPTIONS.map((c) => (
+                          <SelectItem key={c} value={c}>{c.replace(/_/g, " ").toLowerCase()}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+
             <div className="space-y-1.5">
               <Label className="text-xs">Статус копии</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as "PAUSED" | "ACTIVE")}>
@@ -387,7 +559,7 @@ const DuplicateDialog = ({
                   {details.destination_type && <li>Назначение: {details.destination_type}</li>}
                   {state?.entity === "campaign" && <li>Все группы и объявления (deep copy)</li>}
                   {state?.entity === "adset" && <li>Креативы из оригинальной группы</li>}
-                  {state?.entity === "ad" && <li>Креатив, ссылки, CTA</li>}
+                  {state?.entity === "ad" && <li>Pixel, события, привязка к группе</li>}
                 </ul>
               </details>
             )}
