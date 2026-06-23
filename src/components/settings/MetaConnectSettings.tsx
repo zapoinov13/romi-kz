@@ -72,23 +72,6 @@ export function MetaConnectSettings() {
     load();
   };
 
-  const handleDelete = async (id: string) => {
-    setLoading(true);
-    const { data, error: err } = await supabase.functions.invoke("meta-connect-token", {
-      method: "DELETE",
-      body: {},
-      headers: {},
-    } as never);
-    // supabase-js не пробрасывает query параметры — вызовем напрямую:
-    if (err || data?.error) {
-      // fallback через fetch
-    }
-    setLoading(false);
-    setConfirmDel(null);
-    load();
-  };
-
-  // прямой DELETE с query параметром
   const handleDeleteDirect = async (id: string) => {
     setLoading(true);
     try {
