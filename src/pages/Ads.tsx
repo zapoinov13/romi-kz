@@ -39,15 +39,15 @@ const StatChip = ({
   accent: string;
   icon: LucideIcon;
 }) => (
-  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-3 py-2">
-    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${accent}`}>
-      <Icon className="h-4 w-4" />
+  <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-card/40 px-3 py-2">
+    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
+      <Icon className="h-3.5 w-3.5" />
     </span>
     <div className="min-w-0 flex-1">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-none">
         {label}
       </div>
-      <div className="truncate text-lg font-bold tabular-nums leading-tight">{value}</div>
+      <div className="mt-1 truncate text-sm font-bold tabular-nums leading-none">{value}</div>
     </div>
   </div>
 );
@@ -142,12 +142,12 @@ const Ads = () => {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl border-border/60"
+              className="h-9 w-9 rounded-lg border-border/50"
               aria-label="Обновить"
               onClick={handleRefresh}
               title="Обновить данные"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
             </Button>
 
             <Button
@@ -155,17 +155,19 @@ const Ads = () => {
                 setAddInitialStep("pick");
                 setAddOpen(true);
               }}
-              className="h-10 gap-2 rounded-xl border border-success/30 bg-transparent text-success hover:bg-success/10"
+              size="sm"
+              className="h-9 gap-1.5 rounded-lg border border-success/30 bg-transparent text-success hover:bg-success/10"
             >
-              <Zap className="h-4 w-4" />
+              <Zap className="h-3.5 w-3.5" />
               Добавить кабинет
             </Button>
 
             <Button
               onClick={() => setCampaignOpen(true)}
-              className="h-10 gap-2 rounded-xl bg-success font-bold text-slate-950 shadow-[0_8px_24px_-8px_hsl(var(--success)/0.6)] hover:bg-success/90"
+              size="sm"
+              className="h-9 gap-1.5 rounded-lg bg-success font-semibold text-slate-950 shadow-[0_4px_14px_-4px_hsl(var(--success)/0.5)] hover:bg-success/90"
             >
-              <Rocket className="h-4 w-4" />
+              <Rocket className="h-3.5 w-3.5" />
               Создать кампанию
             </Button>
           </>
@@ -174,7 +176,7 @@ const Ads = () => {
 
       {/* Aggregate KPIs — only when multiple cabinets (otherwise the row itself shows the same numbers) */}
       {showAggregate && (
-        <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <StatChip
             label="Расход за месяц"
             value={`${Math.round(totalSpend).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`}

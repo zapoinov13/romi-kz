@@ -73,10 +73,10 @@ const Metric = ({
   value: React.ReactNode;
 }) => (
   <div>
-    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="text-[9px] uppercase tracking-wider text-muted-foreground/80 leading-none">
       {label}
     </div>
-    <div className="mt-1 text-base font-semibold">{value}</div>
+    <div className="mt-1 text-sm font-bold tabular-nums leading-none">{value}</div>
   </div>
 );
 
@@ -206,46 +206,46 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
     upsertManual(isoDate, { manual_revenue: v });
 
   return (
-    <article className="rounded-2xl border border-border/60 bg-card/60 transition-colors hover:border-border">
-      <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:gap-6">
-        <div className="flex items-center gap-4 lg:flex-1">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-success/15 text-success">
-            <Megaphone className="h-5 w-5" />
+    <article className="group rounded-xl border border-border/50 bg-card/40 transition-all hover:border-success/30 hover:bg-card/60">
+      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
+        <div className="flex items-center gap-3 lg:flex-1 lg:min-w-0">
+          <span className={cn(
+            "grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-colors",
+            cabinet.online ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground",
+          )}>
+            <Megaphone className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-bold italic tracking-wide">{cabinet.name}</h3>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h3 className="truncate text-sm font-bold tracking-tight">{cabinet.name}</h3>
               {cabinet.online && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-success">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                <span className="inline-flex items-center gap-1 rounded-md bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-success">
+                  <span className="h-1 w-1 rounded-full bg-success" />
                   Online
                 </span>
               )}
-              <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+              <span className="rounded-md bg-muted/30 px-1.5 py-0.5 text-[9px] uppercase text-muted-foreground">
                 {cabinet.type}
               </span>
               {cabinet.type === "Агентский" && (
                 <span
                   title="Агентский кабинет: данные не попадают в Дашборд / CRM / Аналитику"
-                  className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning"
+                  className="rounded-md bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-warning"
                 >
                   Только список
                 </span>
               )}
               {loading && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Загрузка…
-                </span>
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               )}
             </div>
-            <div className="mt-0.5 truncate text-xs text-muted-foreground">
-              ID: {cabinet.externalId}
+            <div className="mt-0.5 truncate text-[10px] text-muted-foreground/70 font-mono">
+              {cabinet.externalId}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:gap-6">
+        <div className="grid grid-cols-4 gap-3 lg:gap-5">
           <Metric
             label="Расход"
             value={formatMoney(totals?.spend ?? 0, currency)}
@@ -254,9 +254,9 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             label="Лиды"
             value={
               <span>
-                {formatNumber(totals?.leads ?? 0)}{" "}
-                <span className="text-xs text-muted-foreground">
-                  ({cpl > 0 ? formatMoney(cpl, currency) : "—"})
+                <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>{" "}
+                <span className="text-[10px] font-normal text-muted-foreground">
+                  {cpl > 0 ? formatMoney(cpl, currency) : ""}
                 </span>
               </span>
             }
@@ -285,18 +285,18 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             onClick={handleSync}
             disabled={syncing}
             title="Получить статистику из Meta"
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-border/60 bg-card/40 px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-transparent px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-success/30 hover:bg-success/5 hover:text-success disabled:opacity-60"
           >
-            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{syncing ? "Загрузка…" : "Получить статистику"}</span>
+            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
+            <span className="hidden sm:inline">{syncing ? "Загрузка" : "Статистика"}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="Действия"
-                className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+                className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -338,11 +338,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
           <button
             aria-label="Раскрыть"
             onClick={onToggle}
-            className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <ChevronDown
               className={cn(
-                "h-4 w-4 transition-transform",
+                "h-3.5 w-3.5 transition-transform",
                 expanded && "rotate-180",
               )}
             />
