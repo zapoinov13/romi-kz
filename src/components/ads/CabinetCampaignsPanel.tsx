@@ -559,7 +559,7 @@ const DuplicateDialog = ({
                   {details.destination_type && <li>Назначение: {details.destination_type}</li>}
                   {state?.entity === "campaign" && <li>Все группы и объявления (deep copy)</li>}
                   {state?.entity === "adset" && <li>Креативы из оригинальной группы</li>}
-                  {state?.entity === "ad" && <li>Креатив, ссылки, CTA</li>}
+                  {state?.entity === "ad" && <li>Pixel, события, привязка к группе</li>}
                 </ul>
               </details>
             )}
