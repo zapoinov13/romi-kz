@@ -332,6 +332,11 @@ const DuplicateDialog = ({
         if (adImageFile) {
           edits.creative_image_b64 = await fileToBase64(adImageFile);
         }
+        if (adVideoFile) {
+          edits.creative_video_b64 = await fileToBase64(adVideoFile);
+          edits.creative_video_mime = adVideoFile.type || "video/mp4";
+          edits.creative_video_name = adVideoFile.name || "upload.mp4";
+        }
       }
 
 
