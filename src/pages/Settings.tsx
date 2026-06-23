@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { Camera, Edit2, Eye, Facebook, Globe, GitBranch, Link2, Megaphone, MessageCircle, Phone, Plus, Rocket, Search, Send, Sparkles, Trash2, UserCircle2, Users2, XCircle } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Edit2, Facebook, Megaphone, Plus, Search, Trash2, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,21 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
-import { SipuniSettings } from "@/components/settings/SipuniSettings";
-import { ProfileSettings } from "@/components/settings/ProfileSettings";
-import { PipelinesSettings } from "@/components/settings/PipelinesSettings";
-import { LossReasonsSettings } from "@/components/settings/LossReasonsSettings";
-import { InboundTokensSettings } from "@/components/settings/InboundTokensSettings";
-import { ClientDashTokensSettings } from "@/components/settings/ClientDashTokensSettings";
-import { InstagramOrganicSettings } from "@/components/settings/InstagramOrganicSettings";
-import { LovablePublishGuide } from "@/components/settings/LovablePublishGuide";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
-import { ProjectTelegramSettings } from "@/components/settings/ProjectTelegramSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
-import { ProviderKeysPanel } from "@/components/settings/content-factory/ProviderKeysPanel";
-import { BriefsEditor } from "@/components/settings/content-factory/BriefsEditor";
-import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { SiteIntakeCard } from "@/pages/SettingsConnection";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Settings as SettingsIcon } from "lucide-react";
@@ -50,9 +37,10 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "telegram", "telegram-ads", "content-factory", "content-briefs"] as const;
+const SETTINGS_TABS = ["team", "meta", "telegram-ads"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
+
 
 export default function Settings() {
   const [searchParams] = useSearchParams();
