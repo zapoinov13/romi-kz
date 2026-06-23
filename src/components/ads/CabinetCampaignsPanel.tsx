@@ -120,6 +120,41 @@ type DuplicateState = {
   baseName: string;
 };
 
+type EntityDetails = {
+  name?: string;
+  daily_budget?: number | string | null;
+  lifetime_budget?: number | string | null;
+  status?: string;
+  effective_status?: string;
+  objective?: string;
+  destination_type?: string;
+  optimization_goal?: string;
+  start_time?: string;
+  end_time?: string;
+  stop_time?: string;
+  targeting?: {
+    geo_locations?: { countries?: string[] };
+    age_min?: number;
+    age_max?: number;
+    genders?: number[];
+  };
+  campaign_id?: string;
+  adset_id?: string;
+  creative?: {
+    body?: string;
+    title?: string;
+    call_to_action_type?: string;
+    object_url?: string;
+  };
+};
+
+const GENDER_LABEL = (g: number[] | undefined) => {
+  if (!g || g.length === 0 || g.length === 2) return "all";
+  if (g[0] === 1) return "male";
+  if (g[0] === 2) return "female";
+  return "all";
+};
+
 const DuplicateDialog = ({
   state, onClose, onDuplicated,
 }: {
@@ -127,15 +162,65 @@ const DuplicateDialog = ({
   onClose: () => void;
   onDuplicated: () => void;
 }) => {
-  const [suffix, setSuffix] = useState(" - копия");
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [details, setDetails] = useState<EntityDetails | null>(null);
+  const [currency, setCurrency] = useState("USD");
+
+  const [name, setName] = useState("");
   const [status, setStatus] = useState<"PAUSED" | "ACTIVE">("PAUSED");
+  // campaign / adset
+  const [dailyBudget, setDailyBudget] = useState<string>("");
+  // adset
+  const [countries, setCountries] = useState<string>("");
+  const [ageMin, setAgeMin] = useState<string>("");
+  const [ageMax, setAgeMax] = useState<string>("");
+  const [gender, setGender] = useState<"all" | "male" | "female">("all");
+  const [startTime, setStartTime] = useState<string>("");
+  const [endTime, setEndTime] = useState<string>("");
+
   const [busy, setBusy] = useState(false);
 
+  // Reset & fetch when dialog opens for a new entity
   useEffect(() => {
-    if (state) {
-      setSuffix(" - копия");
-      setStatus("PAUSED");
-    }
+    if (!state) return;
+    setDetails(null);
+    setName(`${state.baseName} - копия`);
+    setStatus("PAUSED");
+    setDailyBudget("");
+    setCountries("");
+    setAgeMin("");
+    setAgeMax("");
+    setGender("all");
+    setStartTime("");
+    setEndTime("");
+    setLoadingDetails(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("meta-entity-get", {
+          body: { entity: state.entity, meta_id: state.metaId },
+        });
+        if (error) throw error;
+        const payload = (data ?? {}) as { ok?: boolean; error?: string; data?: EntityDetails; currency?: string };
+        if (!payload.ok) throw new Error(payload.error || "Не удалось получить настройки");
+        const d = payload.data || {};
+        setDetails(d);
+        setCurrency(payload.currency || "USD");
+        if (d.daily_budget != null) {
+          setDailyBudget(String(Math.round(Number(d.daily_budget) / 100)));
+        }
+        const t = d.targeting;
+        if (t?.geo_locations?.countries) setCountries(t.geo_locations.countries.join(", "));
+        if (t?.age_min != null) setAgeMin(String(t.age_min));
+        if (t?.age_max != null) setAgeMax(String(t.age_max));
+        setGender(GENDER_LABEL(t?.genders) as "all" | "male" | "female");
+        if (d.start_time) setStartTime(d.start_time.slice(0, 16));
+        if (d.end_time) setEndTime(d.end_time.slice(0, 16));
+      } catch (e) {
+        toast.error((e as Error).message || "Не удалось загрузить текущие настройки");
+      } finally {
+        setLoadingDetails(false);
+      }
+    })();
   }, [state?.metaId, state?.entity]);
 
   const submit = async () => {
@@ -143,21 +228,42 @@ const DuplicateDialog = ({
     setBusy(true);
     const t = toast.loading("Дублируем в Meta...");
     try {
+      const edits: Record<string, unknown> = {};
+      if (state.entity === "campaign" || state.entity === "adset") {
+        const v = Number(dailyBudget);
+        if (Number.isFinite(v) && v > 0) edits.daily_budget = v;
+      }
+      if (state.entity === "adset") {
+        const list = countries.split(/[\s,;]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+        if (list.length > 0) edits.targeting_countries = list;
+        const aMin = Number(ageMin); if (Number.isFinite(aMin) && aMin > 0) edits.age_min = aMin;
+        const aMax = Number(ageMax); if (Number.isFinite(aMax) && aMax > 0) edits.age_max = aMax;
+        if (gender === "male") edits.genders = [1];
+        else if (gender === "female") edits.genders = [2];
+        else edits.genders = [];
+        if (startTime) edits.start_time = new Date(startTime).toISOString();
+        if (endTime) edits.end_time = new Date(endTime).toISOString();
+      }
+
       const { data, error } = await supabase.functions.invoke("meta-copy-entity", {
         body: {
           entity: state.entity,
           meta_id: state.metaId,
-          rename_suffix: suffix,
+          new_name: name.trim() || undefined,
           status_option: status,
+          edits,
         },
       });
       if (error) throw error;
-      const payload = (data ?? {}) as { ok?: boolean; error?: string; copied_id?: string | null };
+      const payload = (data ?? {}) as { ok?: boolean; error?: string; copied_id?: string | null; warnings?: string[] };
       if (!payload.ok) throw new Error(payload.error || "Meta вернула ошибку");
       toast.success(
         `Дубль создан${payload.copied_id ? ` · ID ${payload.copied_id}` : ""}`,
         { id: t },
       );
+      if (payload.warnings?.length) {
+        toast.warning(`Часть правок не применилась: ${payload.warnings.join("; ")}`, { duration: 10000 });
+      }
       onDuplicated();
       onClose();
     } catch (e) {
@@ -173,49 +279,124 @@ const DuplicateDialog = ({
       ? "Дублировать группу объявлений"
       : "Дублировать объявление";
 
+  const showBudget = state?.entity === "campaign" || state?.entity === "adset";
+  const showAdsetFields = state?.entity === "adset";
+
   return (
     <Dialog open={!!state} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Создаст полную копию в Meta. Все настройки таргетинга, бюджет и креативы сохраняются.
+            Текущие настройки подтянуты из Meta. Поменяйте что нужно - дубль создастся с этими значениями.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Исходное название</Label>
-            <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-              {state?.baseName || "—"}
+
+        {loadingDetails ? (
+          <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Тянем настройки из Meta...
+          </div>
+        ) : (
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs" htmlFor="dup-name">Название копии</Label>
+              <Input id="dup-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs" htmlFor="dup-suffix">Суффикс к названию</Label>
-            <Input
-              id="dup-suffix"
-              value={suffix}
-              onChange={(e) => setSuffix(e.target.value)}
-              maxLength={80}
-              placeholder=" - копия"
-            />
-            <div className="text-[11px] text-muted-foreground">
-              Будет: {(state?.baseName ?? "") + suffix}
+
+            {showBudget && (
+              <div className="space-y-1.5">
+                <Label className="text-xs" htmlFor="dup-budget">Дневной бюджет ({currency})</Label>
+                <Input
+                  id="dup-budget"
+                  type="number"
+                  inputMode="numeric"
+                  value={dailyBudget}
+                  onChange={(e) => setDailyBudget(e.target.value)}
+                  placeholder="напр. 50"
+                />
+                {details?.lifetime_budget && Number(details.lifetime_budget) > 0 && (
+                  <div className="text-[11px] text-warning">
+                    В оригинале задан общий бюджет, не дневной. Введите дневной или оставьте пусто.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showAdsetFields && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs" htmlFor="dup-geo">Страны (ISO-2 через запятую)</Label>
+                  <Input
+                    id="dup-geo"
+                    value={countries}
+                    onChange={(e) => setCountries(e.target.value)}
+                    placeholder="KZ, RU"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-age-min">Возраст от</Label>
+                    <Input id="dup-age-min" type="number" min={13} max={65} value={ageMin} onChange={(e) => setAgeMin(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-age-max">до</Label>
+                    <Input id="dup-age-max" type="number" min={13} max={65} value={ageMax} onChange={(e) => setAgeMax(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Пол</Label>
+                    <Select value={gender} onValueChange={(v) => setGender(v as typeof gender)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Все</SelectItem>
+                        <SelectItem value="male">Мужчины</SelectItem>
+                        <SelectItem value="female">Женщины</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-start">Старт</Label>
+                    <Input id="dup-start" type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs" htmlFor="dup-end">Окончание</Label>
+                    <Input id="dup-end" type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Статус копии</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as "PAUSED" | "ACTIVE")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PAUSED">На паузе (рекомендуется)</SelectItem>
+                  <SelectItem value="ACTIVE">Сразу активна</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {details && (
+              <details className="rounded-md border border-border/40 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer">Что сохраняется без изменений</summary>
+                <ul className="mt-2 space-y-0.5">
+                  {details.objective && <li>Цель: {details.objective}</li>}
+                  {details.optimization_goal && <li>Оптимизация: {details.optimization_goal}</li>}
+                  {details.destination_type && <li>Назначение: {details.destination_type}</li>}
+                  {state?.entity === "campaign" && <li>Все группы и объявления (deep copy)</li>}
+                  {state?.entity === "adset" && <li>Креативы из оригинальной группы</li>}
+                  {state?.entity === "ad" && <li>Креатив, ссылки, CTA</li>}
+                </ul>
+              </details>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Статус копии</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as "PAUSED" | "ACTIVE")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PAUSED">На паузе (рекомендуется)</SelectItem>
-                <SelectItem value="ACTIVE">Сразу активна</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={busy}>Отмена</Button>
-          <Button onClick={submit} disabled={busy}>
+          <Button onClick={submit} disabled={busy || loadingDetails}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
             Дублировать
           </Button>
