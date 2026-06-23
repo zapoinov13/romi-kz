@@ -196,8 +196,11 @@ Deno.serve(async (req) => {
       const eLink = (edits.creative_link_url as string | undefined) ?? undefined;
       const eCta = (edits.creative_cta as string | undefined) ?? undefined;
       const eImageB64 = (edits.creative_image_b64 as string | undefined) ?? undefined;
+      const eVideoB64 = (edits.creative_video_b64 as string | undefined) ?? undefined;
+      const eVideoMime = (edits.creative_video_mime as string | undefined) ?? "video/mp4";
+      const eVideoName = (edits.creative_video_name as string | undefined) ?? "upload.mp4";
 
-      const needsCreativeChange = !!(eBody || eTitle || eDesc || eLink || eCta || eImageB64);
+      const needsCreativeChange = !!(eBody || eTitle || eDesc || eLink || eCta || eImageB64 || eVideoB64);
       if (needsCreativeChange) {
         try {
           const adInfo = await metaGet(
@@ -232,6 +235,51 @@ Deno.serve(async (req) => {
             newImageHash = first.hash;
           }
 
+          let newVideoId: string | null = null;
+          let newVideoThumb: string | null = null;
+          if (eVideoB64 && videoData) {
+            const clean = eVideoB64.replace(/^data:[^;]+;base64,/, "");
+            const bin = Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
+            const form = new FormData();
+            form.append("access_token", workingToken);
+            form.append("source", new Blob([bin], { type: eVideoMime }), eVideoName);
+            const vRes = await fetch(`${GRAPH}/act_${accountId}/advideos`, { method: "POST", body: form });
+            const vText = await vRes.text();
+            if (!vRes.ok) throw new Error(`advideos: ${vText.slice(0, 200)}`);
+            const vPayload = JSON.parse(vText) as { id?: string };
+            if (!vPayload.id) throw new Error("Meta не вернула id видео");
+            newVideoId = vPayload.id;
+
+            // Wait for processing (Meta won't accept the video in a creative until ready)
+            const deadline = Date.now() + 60_000;
+            while (Date.now() < deadline) {
+              await new Promise((r) => setTimeout(r, 3000));
+              const statusRes = await fetch(
+                `${GRAPH}/${newVideoId}?fields=status&access_token=${encodeURIComponent(workingToken)}`,
+              );
+              const statusJson = (await statusRes.json().catch(() => ({}))) as {
+                status?: { video_status?: string; processing_phase?: { status?: string } };
+              };
+              const vs = statusJson?.status?.video_status ?? statusJson?.status?.processing_phase?.status;
+              if (vs === "ready") break;
+              if (vs === "error") throw new Error("Meta не смогла обработать видео");
+            }
+
+            // Try to fetch an auto-generated thumbnail to satisfy required image_url
+            try {
+              const thRes = await fetch(
+                `${GRAPH}/${newVideoId}/thumbnails?access_token=${encodeURIComponent(workingToken)}`,
+              );
+              const thJson = (await thRes.json().catch(() => ({}))) as {
+                data?: Array<{ uri?: string; is_preferred?: boolean }>;
+              };
+              const preferred = thJson.data?.find((t) => t.is_preferred) ?? thJson.data?.[0];
+              if (preferred?.uri) newVideoThumb = preferred.uri;
+            } catch {
+              // not fatal
+            }
+          }
+
           if (eBody !== undefined) target.message = eBody;
           if (eTitle !== undefined) target.name = eTitle;
           if (eDesc !== undefined) target.description = eDesc;
@@ -245,6 +293,10 @@ Deno.serve(async (req) => {
           if (newImageHash && linkData) {
             linkData.image_hash = newImageHash;
             delete (linkData as Record<string, unknown>).picture;
+          }
+          if (newVideoId && videoData) {
+            videoData.video_id = newVideoId;
+            if (newVideoThumb) videoData.image_url = newVideoThumb;
           }
 
           const newSpec: Record<string, unknown> = { ...spec };
