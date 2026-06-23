@@ -3421,6 +3421,39 @@ export type Database = {
           },
         ]
       }
+      meta_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          created_by: string | null
+          fb_user_id: string | null
+          fb_user_name: string | null
+          id: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          created_by?: string | null
+          fb_user_id?: string | null
+          fb_user_name?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          created_by?: string | null
+          fb_user_id?: string | null
+          fb_user_name?: string | null
+          id?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monthly_finance: {
         Row: {
           created_by: string | null
