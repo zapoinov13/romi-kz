@@ -47,14 +47,14 @@ export function PeriodPicker({ range, onChange, className }: Props) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1 rounded-2xl border border-border/60 bg-card/60 px-2 py-1.5",
+        "inline-flex shrink-0 items-center gap-0.5 rounded-xl border border-border/60 bg-card/60 px-1 py-1 sm:gap-1 sm:rounded-2xl sm:px-2 sm:py-1.5",
         className,
       )}
     >
       <button
         type="button"
         onClick={() => shiftMonth(-1)}
-        className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="grid h-8 w-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:h-9 sm:w-9 sm:rounded-xl"
         aria-label="Предыдущий месяц"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -64,11 +64,12 @@ export function PeriodPicker({ range, onChange, className }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex items-center gap-2 rounded-xl px-3 py-1 text-sm font-semibold tabular-nums transition-colors hover:bg-secondary"
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] font-semibold tabular-nums whitespace-nowrap transition-colors hover:bg-secondary sm:gap-2 sm:rounded-xl sm:px-3 sm:text-sm"
             aria-label="Выбрать месяц"
           >
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            {formatMonthLabel(range.from)}
+            <CalendarDays className="hidden h-4 w-4 text-muted-foreground sm:inline" />
+            <span className="sm:hidden">{formatMonthLabelShort(range.from)}</span>
+            <span className="hidden sm:inline">{formatMonthLabel(range.from)}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="center">
@@ -91,7 +92,7 @@ export function PeriodPicker({ range, onChange, className }: Props) {
       <button
         type="button"
         onClick={() => shiftMonth(1)}
-        className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="grid h-8 w-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:h-9 sm:w-9 sm:rounded-xl"
         aria-label="Следующий месяц"
       >
         <ChevronRight className="h-4 w-4" />
