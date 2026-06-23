@@ -1462,7 +1462,7 @@ const CreateCampaignDialog = ({
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="h-12 w-full rounded-xl bg-success text-white hover:bg-success/90"
+              className="h-12 w-full rounded-xl bg-success text-success-foreground hover:bg-success/90"
             >
               {submitting
                 ? bakeStatus
@@ -1539,7 +1539,7 @@ const CreateCampaignDialog = ({
 
             <Button
               onClick={() => setSuccessOpen(false)}
-              className="mt-2 h-11 w-full rounded-xl bg-success text-white hover:bg-success/90"
+              className="mt-2 h-11 w-full rounded-xl bg-success text-success-foreground hover:bg-success/90"
             >
               Отлично
             </Button>

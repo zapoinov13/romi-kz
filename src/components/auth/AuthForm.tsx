@@ -178,7 +178,7 @@ export function AuthForm() {
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
 
-            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-white shadow-lg shadow-success/30 hover:bg-success/90">
+            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-success-foreground shadow-lg shadow-success/30 hover:bg-success/90">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Войти в платформу <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
@@ -222,7 +222,7 @@ export function AuthForm() {
               </div>
               {errors.forgot && <p className="text-xs text-destructive">{errors.forgot}</p>}
             </div>
-            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-white hover:bg-success/90">
+            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-success-foreground hover:bg-success/90">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Отправить ссылку <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
@@ -241,7 +241,7 @@ export function AuthForm() {
           <p className="mt-2 text-sm text-muted-foreground">
             Мы отправили инструкцию на <span className="font-semibold text-foreground">{forgotEmail}</span>. Проверьте папку «Входящие» и «Спам».
           </p>
-          <Button onClick={() => { setMode("signin"); setForgotEmail(""); }} className="mt-6 h-11 w-full bg-success text-white hover:bg-success/90">
+          <Button onClick={() => { setMode("signin"); setForgotEmail(""); }} className="mt-6 h-11 w-full bg-success text-success-foreground hover:bg-success/90">
             Вернуться ко входу
           </Button>
         </div>

@@ -539,7 +539,7 @@ const AddCabinetDialog = ({
                 </div>
               </div>
               <div className="border-t border-border/60 px-6 py-4">
-                <Button onClick={handleSubmit} className="h-12 w-full rounded-xl bg-success text-white">
+                <Button onClick={handleSubmit} className="h-12 w-full rounded-xl bg-success text-success-foreground">
                   <Crosshair className="h-4 w-4" />
                   Подключить кабинет
                 </Button>
