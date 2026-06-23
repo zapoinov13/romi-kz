@@ -503,8 +503,9 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             ))}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-border/60">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border border-border/60">
+            <table className="w-full min-w-[520px] text-sm">
+
               <thead className="bg-background/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
