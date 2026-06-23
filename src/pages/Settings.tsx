@@ -49,7 +49,7 @@ export default function Settings() {
     ? (tabParam as SettingsTab)
     : "team";
   const { members, removeMember } = useTeamStore();
-  const { activeId: activeProjectId } = useProjectsStore();
+  
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [query, setQuery] = useState("");
