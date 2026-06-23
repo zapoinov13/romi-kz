@@ -22,11 +22,11 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Settings as SettingsIcon } from "lucide-react";
 import {
-  MODULES,
   ROLE_LABELS,
   TeamMember,
   useTeamStore,
 } from "@/hooks/useTeamStore";
+
 import { toast } from "sonner";
 
 const ROLE_COLOR: Record<string, string> = {
