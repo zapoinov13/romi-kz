@@ -2,20 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 
-export type TeamRole = "admin" | "manager";
+export type TeamRole = "admin" | "marketer" | "director";
 
 export const ROLE_LABELS: Record<TeamRole, string> = {
   admin: "Админ",
-  manager: "Менеджер",
+  marketer: "Таргетолог",
+  director: "Тим лид",
 };
 
+// Legacy module key kept for backward compatibility — only "ads" is used now.
 export type ModuleKey = "ads" | "factory" | "metrics" | "reports";
 
 export const MODULES: { key: ModuleKey; label: string }[] = [
   { key: "ads", label: "Управление рекламой" },
-  { key: "factory", label: "Контент-завод" },
-  { key: "metrics", label: "Таблица показателей" },
-  { key: "reports", label: "Отчётность" },
 ];
 
 export type TeamMember = {
@@ -24,27 +23,28 @@ export type TeamMember = {
   email: string;
   role: TeamRole;
   modules: ModuleKey[];
+  cabinets: string[];
   createdAt: string;
 };
 
-export function defaultModulesForRole(role: TeamRole): ModuleKey[] {
-  if (role === "admin") return MODULES.map((m) => m.key);
-  return ["reports"];
+export function defaultModulesForRole(_role: TeamRole): ModuleKey[] {
+  return ["ads"];
 }
 
 export function useTeamStore() {
   const [members, setMembers] = useState<TeamMember[]>([]);
 
   const refetch = useCallback(async () => {
-    const [{ data: profiles }, { data: roles }, { data: modules }] = await Promise.all([
+    const [{ data: profiles }, { data: roles }, { data: modules }, { data: cabinets }] = await Promise.all([
       supabase.from("profiles").select("id, name, display_role, created_at"),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("team_member_modules").select("user_id, module_key"),
+      supabase.from("team_member_cabinets").select("user_id, cabinet_id"),
     ]);
 
     const roleByUser = new Map<string, TeamRole>();
     (roles ?? []).forEach((r: { user_id: string; role: string }) => {
-      if (r.role === "admin" || r.role === "manager") {
+      if (r.role === "admin" || r.role === "marketer" || r.role === "director") {
         roleByUser.set(r.user_id, r.role as TeamRole);
       }
     });
@@ -56,15 +56,22 @@ export function useTeamStore() {
       }
       modsByUser.set(m.user_id, arr);
     });
+    const cabsByUser = new Map<string, string[]>();
+    (cabinets ?? []).forEach((c: { user_id: string; cabinet_id: string }) => {
+      const arr = cabsByUser.get(c.user_id) ?? [];
+      arr.push(c.cabinet_id);
+      cabsByUser.set(c.user_id, arr);
+    });
 
     const list: TeamMember[] = (profiles ?? []).map((p: any) => {
-      const role = roleByUser.get(p.id) ?? "manager";
+      const role = roleByUser.get(p.id) ?? "marketer";
       return {
         id: p.id,
         name: p.name ?? "",
         email: p.email ?? "",
         role,
         modules: modsByUser.get(p.id) ?? defaultModulesForRole(role),
+        cabinets: cabsByUser.get(p.id) ?? [],
         createdAt: p.created_at,
       };
     });
@@ -75,6 +82,7 @@ export function useTeamStore() {
   useRealtimeTable("profiles", refetch);
   useRealtimeTable("user_roles", refetch);
   useRealtimeTable("team_member_modules", refetch);
+  useRealtimeTable("team_member_cabinets", refetch);
 
   const addMember = useCallback(async (m: Omit<TeamMember, "id" | "createdAt">) => {
     const { data, error } = await supabase.functions.invoke("admin-create-user", {
@@ -82,7 +90,8 @@ export function useTeamStore() {
         email: m.email,
         name: m.name,
         role: m.role,
-        modules: m.modules,
+        modules: ["ads"],
+        cabinets: m.cabinets,
         invite: true,
       },
     });
@@ -102,11 +111,11 @@ export function useTeamStore() {
       await supabase.from("user_roles").delete().eq("user_id", id);
       await supabase.from("user_roles").insert({ user_id: id, role: patch.role });
     }
-    if (patch.modules !== undefined) {
-      await supabase.from("team_member_modules").delete().eq("user_id", id);
-      if (patch.modules.length) {
-        await supabase.from("team_member_modules").insert(
-          patch.modules.map((mod) => ({ user_id: id, module_key: mod })),
+    if (patch.cabinets !== undefined) {
+      await supabase.from("team_member_cabinets").delete().eq("user_id", id);
+      if (patch.cabinets.length) {
+        await supabase.from("team_member_cabinets").insert(
+          patch.cabinets.map((cid) => ({ user_id: id, cabinet_id: cid })),
         );
       }
     }
