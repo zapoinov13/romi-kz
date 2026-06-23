@@ -18,22 +18,43 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-async function resolveMetaToken(
+async function resolveMetaTokens(
   bodyToken: string | null | undefined,
-): Promise<string | null> {
-  if (bodyToken?.trim()) return bodyToken.trim();
+): Promise<string[]> {
+  if (bodyToken?.trim()) return [bodyToken.trim()];
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const { data: settings } = await admin
-    .from("automation_settings")
-    .select("meta_access_token")
-    .eq("id", true)
-    .maybeSingle();
-  return settings?.meta_access_token ?? Deno.env.get("META_ACCESS_TOKEN") ?? null;
+
+  const out: string[] = [];
+
+  const { data: tokens } = await admin
+    .from("meta_tokens")
+    .select("access_token")
+    .order("created_at", { ascending: true });
+  for (const row of tokens ?? []) {
+    if (row?.access_token) out.push(row.access_token as string);
+  }
+
+  if (out.length === 0) {
+    const { data: settings } = await admin
+      .from("automation_settings")
+      .select("meta_access_token")
+      .eq("id", true)
+      .maybeSingle();
+    if (settings?.meta_access_token) out.push(settings.meta_access_token as string);
+  }
+
+  if (out.length === 0) {
+    const env = Deno.env.get("META_ACCESS_TOKEN");
+    if (env) out.push(env);
+  }
+
+  return out;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
