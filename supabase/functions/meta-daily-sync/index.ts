@@ -124,19 +124,42 @@ async function getRatesForDates(
   return map;
 }
 
+async function resolveMetaTokens(
+  admin: ReturnType<typeof createClient>,
+  bodyToken: string | null | undefined,
+): Promise<string[]> {
+  if (bodyToken?.trim()) return [bodyToken.trim()];
+  const out: string[] = [];
+  const { data: tokens } = await admin
+    .from("meta_tokens")
+    .select("access_token")
+    .order("created_at", { ascending: true });
+  for (const row of tokens ?? []) {
+    if (row?.access_token) out.push(row.access_token as string);
+  }
+  if (out.length === 0) {
+    const { data: settings } = await admin
+      .from("automation_settings")
+      .select("meta_access_token")
+      .eq("id", true)
+      .maybeSingle();
+    const legacy = (settings as { meta_access_token?: string | null } | null)?.meta_access_token;
+    if (legacy) out.push(legacy);
+  }
+  if (out.length === 0) {
+    const env = Deno.env.get("META_ACCESS_TOKEN");
+    if (env) out.push(env);
+  }
+  // де-дуп
+  return Array.from(new Set(out));
+}
+
 async function resolveMetaToken(
   admin: ReturnType<typeof createClient>,
   bodyToken: string | null | undefined,
 ): Promise<string | null> {
-  if (bodyToken?.trim()) return bodyToken.trim();
-  const { data: settings } = await admin
-    .from("automation_settings")
-    .select("meta_access_token")
-    .eq("id", true)
-    .maybeSingle();
-  return (settings as { meta_access_token?: string | null } | null)?.meta_access_token
-    ?? Deno.env.get("META_ACCESS_TOKEN")
-    ?? null;
+  const all = await resolveMetaTokens(admin, bodyToken);
+  return all[0] ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -220,9 +243,9 @@ Deno.serve(async (req) => {
         });
       }
     }
-    const META_ACCESS_TOKEN = await resolveMetaToken(adminPre, null);
-    if (!META_ACCESS_TOKEN) {
-      return new Response(JSON.stringify({ error: "Meta access token не настроен (Настройки → Подключить Meta)." }), {
+    const META_TOKENS = await resolveMetaTokens(adminPre, null);
+    if (META_TOKENS.length === 0) {
+      return new Response(JSON.stringify({ error: "Meta access token не настроен (Настройки → Facebook / Meta)." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -291,22 +314,38 @@ Deno.serve(async (req) => {
 
       const fields = ["date_start", "spend", "impressions", "clicks", "actions", "action_values"].join(",");
       const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
-      const apiUrl =
+      const buildInsightsUrl = (tok: string) =>
         `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights` +
         `?fields=${fields}&time_range=${timeRange}&time_increment=1&level=account&limit=500` +
-        `&access_token=${encodeURIComponent(META_ACCESS_TOKEN)}`;
-      const accountUrl =
+        `&access_token=${encodeURIComponent(tok)}`;
+      const buildAccountUrl = (tok: string) =>
         `https://graph.facebook.com/${META_API_VERSION}/${actId}` +
-        `?fields=currency&access_token=${encodeURIComponent(META_ACCESS_TOKEN)}`;
+        `?fields=currency&access_token=${encodeURIComponent(tok)}`;
 
       try {
-        const [iRes, aRes] = await Promise.all([fetchWithRetry(apiUrl), fetchWithRetry(accountUrl)]);
-        const iJson = await iRes.json();
-        const aJson = await aRes.json().catch(() => ({}));
-        if (!iRes.ok) {
-          const errMsg = iJson?.error?.message ?? `HTTP ${iRes.status}`;
-          results.push({ cabinet_id: cab.id, cabinet: cabName, ok: false, error: errMsg, code: iJson?.error?.code });
-          console.error(`[meta-daily-sync] cabinet=${ext} meta error: ${errMsg}`);
+        // Перебираем все Meta токены, пока какой-нибудь не получит доступ к кабинету.
+        // Это нужно при подключённых нескольких Business Manager (несколько токенов).
+        let iRes: Response | null = null;
+        let aRes: Response | null = null;
+        let iJson: any = null;
+        let aJson: any = {};
+        let lastErr: { msg: string; code?: unknown } | null = null;
+        for (const tok of META_TOKENS) {
+          const [ir, ar] = await Promise.all([
+            fetchWithRetry(buildInsightsUrl(tok)),
+            fetchWithRetry(buildAccountUrl(tok)),
+          ]);
+          const ij = await ir.json();
+          if (ir.ok) {
+            iRes = ir; aRes = ar; iJson = ij;
+            aJson = await ar.json().catch(() => ({}));
+            break;
+          }
+          lastErr = { msg: ij?.error?.message ?? `HTTP ${ir.status}`, code: ij?.error?.code };
+        }
+        if (!iRes || !iRes.ok || !iJson) {
+          results.push({ cabinet_id: cab.id, cabinet: cabName, ok: false, error: lastErr?.msg ?? "no token has access", code: lastErr?.code });
+          console.error(`[meta-daily-sync] cabinet=${ext} no token has access: ${lastErr?.msg}`);
           continue;
         }
         const accountCurrency: string = aJson?.currency ?? "USD";
