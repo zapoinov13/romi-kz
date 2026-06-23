@@ -124,19 +124,42 @@ async function getRatesForDates(
   return map;
 }
 
+async function resolveMetaTokens(
+  admin: ReturnType<typeof createClient>,
+  bodyToken: string | null | undefined,
+): Promise<string[]> {
+  if (bodyToken?.trim()) return [bodyToken.trim()];
+  const out: string[] = [];
+  const { data: tokens } = await admin
+    .from("meta_tokens")
+    .select("access_token")
+    .order("created_at", { ascending: true });
+  for (const row of tokens ?? []) {
+    if (row?.access_token) out.push(row.access_token as string);
+  }
+  if (out.length === 0) {
+    const { data: settings } = await admin
+      .from("automation_settings")
+      .select("meta_access_token")
+      .eq("id", true)
+      .maybeSingle();
+    const legacy = (settings as { meta_access_token?: string | null } | null)?.meta_access_token;
+    if (legacy) out.push(legacy);
+  }
+  if (out.length === 0) {
+    const env = Deno.env.get("META_ACCESS_TOKEN");
+    if (env) out.push(env);
+  }
+  // де-дуп
+  return Array.from(new Set(out));
+}
+
 async function resolveMetaToken(
   admin: ReturnType<typeof createClient>,
   bodyToken: string | null | undefined,
 ): Promise<string | null> {
-  if (bodyToken?.trim()) return bodyToken.trim();
-  const { data: settings } = await admin
-    .from("automation_settings")
-    .select("meta_access_token")
-    .eq("id", true)
-    .maybeSingle();
-  return (settings as { meta_access_token?: string | null } | null)?.meta_access_token
-    ?? Deno.env.get("META_ACCESS_TOKEN")
-    ?? null;
+  const all = await resolveMetaTokens(admin, bodyToken);
+  return all[0] ?? null;
 }
 
 Deno.serve(async (req) => {
