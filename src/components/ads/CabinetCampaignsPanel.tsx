@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Clock3, Loader2, RefreshCw, Power, ExternalLink, Eye, EyeOff } from "lucide-react";
+import {
+  AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock3,
+  Copy, ExternalLink, Eye, EyeOff, Loader2, Power, RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { StatusBadge, type CampaignHealth } from "@/components/ads/StatusBadge";
 import AutoActionsLog from "@/components/ads/AutoActionsLog";
+
+type EntityKind = "campaign" | "adset" | "ad";
 
 type MetaCampaign = {
   id: string;
@@ -18,6 +33,19 @@ type MetaCampaign = {
   daily_budget: number | null;
   lifetime_budget: number | null;
   last_synced_at: string | null;
+};
+
+type MetaChild = {
+  id: string;             // Meta numeric id
+  name: string;
+  status: string | null;
+  effective_status: string | null;
+  daily_budget?: number | null;
+  lifetime_budget?: number | null;
+  destination_type?: string | null;
+  optimization_goal?: string | null;
+  adset_id?: string | null;
+  thumbnail_url?: string | null;
 };
 
 type LaunchCampaign = {
@@ -42,28 +70,20 @@ const statusColor = (s: string | null) => {
   return "border-warning/30 bg-warning/10 text-warning";
 };
 
-const statusLabel = (s: string | null) => {
-  const v = (s ?? "").toUpperCase();
-  const map: Record<string, string> = {
-    ACTIVE: "Активна",
-    PAUSED: "На паузе",
-    DELETED: "Удалена",
-    ARCHIVED: "Архив",
-    IN_PROCESS: "Запускается",
-    WITH_ISSUES: "С ошибками",
-    DISAPPROVED: "Отклонена",
-    PENDING_REVIEW: "На модерации",
-    PREAPPROVED: "Предварительно одобрена",
-    CAMPAIGN_PAUSED: "Кампания на паузе",
-  };
-  return map[v] ?? v ?? "—";
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Активна", PAUSED: "На паузе", DELETED: "Удалена", ARCHIVED: "Архив",
+  IN_PROCESS: "Запускается", WITH_ISSUES: "С ошибками",
+  DISAPPROVED: "Отклонена", PENDING_REVIEW: "На модерации",
+  PREAPPROVED: "Предварительно одобрена", CAMPAIGN_PAUSED: "Кампания на паузе",
+  ADSET_PAUSED: "Группа на паузе",
 };
+const statusLabel = (s: string | null) =>
+  STATUS_LABELS[(s ?? "").toUpperCase()] ?? s ?? "—";
 
 const isLaunchStale = (s: string | null, updatedAt?: string | null) => {
   const v = (s ?? "queued").toLowerCase();
   return ["queued", "running"].includes(v) && !!updatedAt && Date.now() - new Date(updatedAt).getTime() > 10 * 60 * 1000;
 };
-
 const launchStatus = (s: string | null, updatedAt?: string | null) => {
   const v = (s ?? "queued").toLowerCase();
   if (isLaunchStale(s, updatedAt)) return { label: "Нет финального статуса", icon: AlertCircle, cls: "border-destructive/30 bg-destructive/10 text-destructive" };
@@ -73,12 +93,346 @@ const launchStatus = (s: string | null, updatedAt?: string | null) => {
   return { label: "Отправлено", icon: Clock3, cls: "border-warning/30 bg-warning/10 text-warning" };
 };
 
-const launchDetail = (l: LaunchCampaign) => {
-  if (isLaunchStale(l.status, l.status_updated_at || l.created_at)) {
-    return l.last_error || "Запуск ушёл в n8n, но n8n не вернул статус. Проверьте workflow ai-target-launch: он должен быть включён и отправлять callbackUrl с X-Callback-Secret.";
-  }
-  return l.last_error || l.status_message || l.status_step || (l.meta_campaign_id ? `Meta ID: ${l.meta_campaign_id}` : `Launch ID: ${l.launch_id}`);
+async function toggleEntity(entity: EntityKind, metaId: string, nextStatus: "ACTIVE" | "PAUSED") {
+  const { data, error } = await supabase.functions.invoke("meta-entity-toggle", {
+    body: { entity, meta_id: metaId, status: nextStatus },
+  });
+  if (error) throw error;
+  const payload = (data ?? {}) as { ok?: boolean; error?: string };
+  if (!payload.ok) throw new Error(payload.error || "Meta вернула ошибку");
+}
+
+async function browseChildren(cabinetId: string, level: "adsets" | "ads", parentId: string): Promise<MetaChild[]> {
+  const { data, error } = await supabase.functions.invoke("meta-structure-browse", {
+    body: { cabinet_id: cabinetId, level, parent_id: parentId },
+  });
+  if (error) throw error;
+  const payload = (data ?? {}) as { ok?: boolean; error?: string; items?: MetaChild[] };
+  if (!payload.ok) throw new Error(payload.error || "Meta вернула ошибку");
+  return payload.items ?? [];
+}
+
+// ------------------ Duplicate dialog ------------------
+
+type DuplicateState = {
+  entity: EntityKind;
+  metaId: string;
+  baseName: string;
 };
+
+const DuplicateDialog = ({
+  state, onClose, onDuplicated,
+}: {
+  state: DuplicateState | null;
+  onClose: () => void;
+  onDuplicated: () => void;
+}) => {
+  const [suffix, setSuffix] = useState(" - копия");
+  const [status, setStatus] = useState<"PAUSED" | "ACTIVE">("PAUSED");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (state) {
+      setSuffix(" - копия");
+      setStatus("PAUSED");
+    }
+  }, [state?.metaId, state?.entity]);
+
+  const submit = async () => {
+    if (!state) return;
+    setBusy(true);
+    const t = toast.loading("Дублируем в Meta...");
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-copy-entity", {
+        body: {
+          entity: state.entity,
+          meta_id: state.metaId,
+          rename_suffix: suffix,
+          status_option: status,
+        },
+      });
+      if (error) throw error;
+      const payload = (data ?? {}) as { ok?: boolean; error?: string; copied_id?: string | null };
+      if (!payload.ok) throw new Error(payload.error || "Meta вернула ошибку");
+      toast.success(
+        `Дубль создан${payload.copied_id ? ` · ID ${payload.copied_id}` : ""}`,
+        { id: t },
+      );
+      onDuplicated();
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message || "Ошибка", { id: t, duration: 8000 });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const title = state?.entity === "campaign"
+    ? "Дублировать кампанию"
+    : state?.entity === "adset"
+      ? "Дублировать группу объявлений"
+      : "Дублировать объявление";
+
+  return (
+    <Dialog open={!!state} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Создаст полную копию в Meta. Все настройки таргетинга, бюджет и креативы сохраняются.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Исходное название</Label>
+            <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+              {state?.baseName || "—"}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="dup-suffix">Суффикс к названию</Label>
+            <Input
+              id="dup-suffix"
+              value={suffix}
+              onChange={(e) => setSuffix(e.target.value)}
+              maxLength={80}
+              placeholder=" - копия"
+            />
+            <div className="text-[11px] text-muted-foreground">
+              Будет: {(state?.baseName ?? "") + suffix}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Статус копии</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as "PAUSED" | "ACTIVE")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PAUSED">На паузе (рекомендуется)</SelectItem>
+                <SelectItem value="ACTIVE">Сразу активна</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Отмена</Button>
+          <Button onClick={submit} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Copy className="mr-2 h-4 w-4" />}
+            Дублировать
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ------------------ Ads list (inside an adset) ------------------
+
+const AdsList = ({
+  cabinetId, adsetId, onDuplicate, refreshKey,
+}: {
+  cabinetId: string;
+  adsetId: string;
+  onDuplicate: (s: DuplicateState) => void;
+  refreshKey: number;
+}) => {
+  const [items, setItems] = useState<MetaChild[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<Record<string, boolean>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await browseChildren(cabinetId, "ads", adsetId);
+      setItems(items);
+    } catch (e) {
+      toast.error((e as Error).message || "Не удалось загрузить объявления");
+    } finally { setLoading(false); }
+  }, [cabinetId, adsetId]);
+
+  useEffect(() => { void load(); }, [load, refreshKey]);
+
+  const toggle = async (ad: MetaChild) => {
+    const next = (ad.status ?? "").toUpperCase() === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    setToggling((s) => ({ ...s, [ad.id]: true }));
+    const t = toast.loading(next === "ACTIVE" ? "Запускаем объявление..." : "Ставим на паузу...");
+    try {
+      await toggleEntity("ad", ad.id, next);
+      setItems((arr) => arr.map((x) => x.id === ad.id ? { ...x, status: next, effective_status: next } : x));
+      toast.success(next === "ACTIVE" ? "Объявление запущено" : "Объявление на паузе", { id: t });
+    } catch (e) {
+      toast.error((e as Error).message || "Ошибка", { id: t, duration: 8000 });
+    } finally {
+      setToggling((s) => ({ ...s, [ad.id]: false }));
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground">
+      <Loader2 className="h-3 w-3 animate-spin" /> Загружаем объявления...
+    </div>;
+  }
+  if (items.length === 0) {
+    return <div className="px-3 py-2 text-[11px] text-muted-foreground">В этой группе нет объявлений.</div>;
+  }
+  return (
+    <div className="space-y-1.5 pl-2">
+      {items.map((ad) => {
+        const isActive = (ad.status ?? "").toUpperCase() === "ACTIVE";
+        const eff = ad.effective_status ?? ad.status;
+        return (
+          <div key={ad.id} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/40 px-2.5 py-1.5">
+            {ad.thumbnail_url
+              ? <img src={ad.thumbnail_url} alt="" className="h-8 w-8 rounded object-cover" />
+              : <div className="h-8 w-8 rounded bg-muted/40" />}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <Power className={cn("h-3 w-3", isActive ? "text-success" : "text-muted-foreground")} />
+                <div className="truncate text-xs font-medium">{ad.name || "Без названия"}</div>
+                <span className={cn("rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase", statusColor(eff))}>
+                  {statusLabel(eff)}
+                </span>
+              </div>
+              <div className="text-[10px] text-muted-foreground">ID: {ad.id}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onDuplicate({ entity: "ad", metaId: ad.id, baseName: ad.name })}
+              className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Дублировать объявление"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <Switch
+              checked={isActive}
+              disabled={!!toggling[ad.id]}
+              onCheckedChange={() => toggle(ad)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ------------------ Adsets list (inside a campaign) ------------------
+
+const AdsetsList = ({
+  cabinetId, campaignId, currency, onDuplicate, refreshKey,
+}: {
+  cabinetId: string;
+  campaignId: string;
+  currency: string;
+  onDuplicate: (s: DuplicateState) => void;
+  refreshKey: number;
+}) => {
+  const [items, setItems] = useState<MetaChild[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [toggling, setToggling] = useState<Record<string, boolean>>({});
+  const [childKey, setChildKey] = useState(0);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await browseChildren(cabinetId, "adsets", campaignId);
+      setItems(items);
+    } catch (e) {
+      toast.error((e as Error).message || "Не удалось загрузить группы");
+    } finally { setLoading(false); }
+  }, [cabinetId, campaignId]);
+
+  useEffect(() => { void load(); }, [load, refreshKey]);
+
+  const toggle = async (adset: MetaChild) => {
+    const next = (adset.status ?? "").toUpperCase() === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    setToggling((s) => ({ ...s, [adset.id]: true }));
+    const t = toast.loading(next === "ACTIVE" ? "Запускаем группу..." : "Ставим группу на паузу...");
+    try {
+      await toggleEntity("adset", adset.id, next);
+      setItems((arr) => arr.map((x) => x.id === adset.id ? { ...x, status: next, effective_status: next } : x));
+      toast.success(next === "ACTIVE" ? "Группа запущена" : "Группа на паузе", { id: t });
+    } catch (e) {
+      toast.error((e as Error).message || "Ошибка", { id: t, duration: 8000 });
+    } finally {
+      setToggling((s) => ({ ...s, [adset.id]: false }));
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center gap-2 px-3 py-2 text-[11px] text-muted-foreground">
+      <Loader2 className="h-3 w-3 animate-spin" /> Загружаем группы объявлений...
+    </div>;
+  }
+  if (items.length === 0) {
+    return <div className="px-3 py-2 text-[11px] text-muted-foreground">В этой кампании нет групп объявлений.</div>;
+  }
+  return (
+    <div className="space-y-1.5 pl-3">
+      {items.map((adset) => {
+        const isActive = (adset.status ?? "").toUpperCase() === "ACTIVE";
+        const eff = adset.effective_status ?? adset.status;
+        const isOpen = !!expanded[adset.id];
+        return (
+          <div key={adset.id} className="rounded-md border border-border/50 bg-background/30">
+            <div className="flex items-center gap-2 px-2.5 py-2">
+              <button
+                type="button"
+                onClick={() => setExpanded((s) => ({ ...s, [adset.id]: !s[adset.id] }))}
+                className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                aria-label="Развернуть группу"
+              >
+                {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Power className={cn("h-3 w-3", isActive ? "text-success" : "text-muted-foreground")} />
+                  <div className="truncate text-xs font-semibold">{adset.name || "Без названия"}</div>
+                  <span className={cn("rounded-full border px-1.5 py-0 text-[9px] font-semibold uppercase", statusColor(eff))}>
+                    {statusLabel(eff)}
+                  </span>
+                  {adset.optimization_goal && (
+                    <span className="rounded-full border border-border/60 px-1.5 py-0 text-[9px] uppercase text-muted-foreground">
+                      {adset.optimization_goal}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  ID: {adset.id}
+                  {adset.daily_budget ? ` · Бюджет: ${Math.round(adset.daily_budget).toLocaleString("ru-RU")} ${currency}` : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onDuplicate({ entity: "adset", metaId: adset.id, baseName: adset.name })}
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                title="Дублировать группу"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+              <Switch
+                checked={isActive}
+                disabled={!!toggling[adset.id]}
+                onCheckedChange={() => toggle(adset)}
+              />
+            </div>
+            {isOpen && (
+              <div className="border-t border-border/40 px-2 py-2">
+                <AdsList
+                  cabinetId={cabinetId}
+                  adsetId={adset.id}
+                  onDuplicate={(s) => { onDuplicate(s); setChildKey((k) => k + 1); }}
+                  refreshKey={childKey}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ------------------ Main panel ------------------
 
 const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string }) => {
   const [items, setItems] = useState<MetaCampaign[]>([]);
@@ -88,6 +442,9 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<"active" | "paused" | "all">("active");
   const [health, setHealth] = useState<Record<string, CampaignHealth>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [duplicateState, setDuplicateState] = useState<DuplicateState | null>(null);
+  const [childRefreshKey, setChildRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,38 +457,30 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
     else if (filter === "paused") q = q.eq("status", "PAUSED");
     const [{ data, error }, launchRes] = await Promise.all([
       q,
-      supabase
-        .from("ad_campaigns")
+      supabase.from("ad_campaigns")
         .select("id,goal,status,status_step,status_message,last_error,launch_id,meta_campaign_id,created_at,status_updated_at")
         .eq("cabinet_id", cabinetId)
         .in("status", ["running", "success"])
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      setItems((data ?? []) as MetaCampaign[]);
-    }
+    if (error) toast.error(error.message);
+    else setItems((data ?? []) as MetaCampaign[]);
     if (launchRes.error) toast.error(launchRes.error.message);
     else {
-      // Прячем «зависшие» запуски без финального статуса — показываем только
-      // активно создающиеся (running) и успешно завершённые (success).
       const rows = (launchRes.data ?? []) as LaunchCampaign[];
-      const visible = rows.filter((l) => {
+      setLaunches(rows.filter((l) => {
         const s = (l.status ?? "").toLowerCase();
         if (s === "success") return true;
         if (s === "running" && !isLaunchStale(l.status, l.status_updated_at || l.created_at)) return true;
         return false;
-      });
-      setLaunches(visible);
+      }));
     }
     setLoading(false);
   }, [cabinetId, filter]);
 
   useEffect(() => { void load(); }, [load]);
 
-  // Подгружаем последние снапшоты статусов из v_latest_campaign_status
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -150,7 +499,7 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
   }, [cabinetId, items.length]);
 
   const evaluateNow = async () => {
-    const t = toast.loading("Оцениваем кампании…");
+    const t = toast.loading("Оцениваем кампании...");
     try {
       const { data, error } = await supabase.functions.invoke("kpi-evaluator", {
         body: { cabinet_id: cabinetId },
@@ -175,7 +524,7 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
 
   const sync = async () => {
     setSyncing(true);
-    const t = toast.loading("Обновляем кампании из Meta…");
+    const t = toast.loading("Обновляем кампании из Meta...");
     try {
       const { data, error } = await supabase.functions.invoke("meta-structure-sync", {
         body: { cabinet_id: cabinetId },
@@ -185,6 +534,7 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
       if (res && !res.ok) throw new Error(res.error || "Meta вернула ошибку");
       toast.success(`Загружено кампаний: ${res?.campaigns ?? 0}`, { id: t });
       await load();
+      setChildRefreshKey((k) => k + 1);
     } catch (e) {
       toast.error((e as Error).message || "Не удалось обновить", { id: t, duration: 8000 });
     } finally {
@@ -195,14 +545,9 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
   const toggle = async (c: MetaCampaign) => {
     const next = (c.status ?? "").toUpperCase() === "ACTIVE" ? "PAUSED" : "ACTIVE";
     setToggling((s) => ({ ...s, [c.campaign_id]: true }));
-    const t = toast.loading(next === "ACTIVE" ? "Запускаем кампанию…" : "Ставим на паузу…");
+    const t = toast.loading(next === "ACTIVE" ? "Запускаем кампанию..." : "Ставим на паузу...");
     try {
-      const { data, error } = await supabase.functions.invoke("meta-campaign-toggle", {
-        body: { campaign_id: c.campaign_id, status: next },
-      });
-      if (error) throw error;
-      const payload = (data ?? {}) as { ok?: boolean; error?: string };
-      if (!payload.ok) throw new Error(payload.error || "Meta вернула ошибку");
+      await toggleEntity("campaign", c.campaign_id, next);
       setItems((arr) => arr.map((x) => x.campaign_id === c.campaign_id ? { ...x, status: next, effective_status: next } : x));
       toast.success(next === "ACTIVE" ? "Кампания запущена" : "Кампания на паузе", { id: t });
     } catch (e) {
@@ -224,11 +569,9 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
           <div className="text-sm font-semibold">Кампании в Meta</div>
           <div className="text-[11px] text-muted-foreground">
             {loading
-              ? "Загрузка…"
-              : filter === "active"
-                ? `Активных: ${items.length}`
-                : filter === "paused"
-                  ? `На паузе: ${items.length}`
+              ? "Загрузка..."
+              : filter === "active" ? `Активных: ${items.length}`
+                : filter === "paused" ? `На паузе: ${items.length}`
                   : `Всего: ${items.length}`}
           </div>
         </div>
@@ -296,7 +639,7 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
                   </span>
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {launchDetail(l)}
+                  {l.last_error || l.status_message || l.status_step || (l.meta_campaign_id ? `Meta ID: ${l.meta_campaign_id}` : `Launch ID: ${l.launch_id}`)}
                 </div>
               </div>
             );
@@ -306,12 +649,12 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
 
       {loading ? (
         <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Загрузка…
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Загрузка...
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
           {filter === "active"
-            ? "Активных кампаний нет. После запуска кампания появляется здесь через 1–2 минуты."
+            ? "Активных кампаний нет. После запуска кампания появляется здесь через 1-2 минуты."
             : filter === "paused"
               ? "Нет кампаний на паузе."
               : "Кампаний нет. Нажмите «Обновить из Meta»."}
@@ -321,49 +664,79 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
           {items.map((c) => {
             const isActive = (c.status ?? "").toUpperCase() === "ACTIVE";
             const eff = c.effective_status ?? c.status;
+            const isOpen = !!expanded[c.campaign_id];
             return (
-              <div
-                key={c.id}
-                className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/40 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Power className={cn("h-3.5 w-3.5", isActive ? "text-success" : "text-muted-foreground")} />
-                    <div className="truncate text-sm font-semibold">{c.name || "Без названия"}</div>
-                    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", statusColor(eff))}>
-                      {statusLabel(eff)}
-                    </span>
-                    {health[c.campaign_id] && <StatusBadge health={health[c.campaign_id]} />}
-                    {c.objective && (
-                      <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
-                        {c.objective}
-                      </span>
-                    )}
+              <div key={c.id} className="rounded-lg border border-border/60 bg-card/40">
+                <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((s) => ({ ...s, [c.campaign_id]: !s[c.campaign_id] }))}
+                      className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      aria-label="Развернуть кампанию"
+                      title="Показать группы объявлений"
+                    >
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Power className={cn("h-3.5 w-3.5", isActive ? "text-success" : "text-muted-foreground")} />
+                        <div className="truncate text-sm font-semibold">{c.name || "Без названия"}</div>
+                        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", statusColor(eff))}>
+                          {statusLabel(eff)}
+                        </span>
+                        {health[c.campaign_id] && <StatusBadge health={health[c.campaign_id]} />}
+                        {c.objective && (
+                          <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                            {c.objective}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                        <span>ID: {c.campaign_id}</span>
+                        <span>Дневной бюджет: {fmtBudget(c.daily_budget)}</span>
+                        {c.last_synced_at && (
+                          <span>Обновлено: {new Date(c.last_synced_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                    <span>ID: {c.campaign_id}</span>
-                    <span>Дневной бюджет: {fmtBudget(c.daily_budget)}</span>
-                    {c.last_synced_at && (
-                      <span>Обновлено: {new Date(c.last_synced_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                    )}
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => setDuplicateState({ entity: "campaign", metaId: c.campaign_id, baseName: c.name })}
+                      className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      title="Дублировать кампанию"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <a
+                      href={`https://business.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${c.campaign_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      title="Открыть в Ads Manager"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    <Switch
+                      checked={isActive}
+                      disabled={!!toggling[c.campaign_id]}
+                      onCheckedChange={() => toggle(c)}
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 self-end sm:self-center">
-                  <a
-                    href={`https://business.facebook.com/adsmanager/manage/campaigns?selected_campaign_ids=${c.campaign_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    title="Открыть в Ads Manager"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                  <Switch
-                    checked={isActive}
-                    disabled={!!toggling[c.campaign_id]}
-                    onCheckedChange={() => toggle(c)}
-                  />
-                </div>
+                {isOpen && (
+                  <div className="border-t border-border/40 px-3 py-2">
+                    <AdsetsList
+                      cabinetId={cabinetId}
+                      campaignId={c.campaign_id}
+                      currency={currency}
+                      onDuplicate={setDuplicateState}
+                      refreshKey={childRefreshKey}
+                    />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -373,6 +746,16 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
       <div className="mt-4 border-t border-border/60 pt-3">
         <AutoActionsLog cabinetId={cabinetId} />
       </div>
+
+      <DuplicateDialog
+        state={duplicateState}
+        onClose={() => setDuplicateState(null)}
+        onDuplicated={() => {
+          // Refresh children that may now show the new entity, and resync campaigns from Meta.
+          setChildRefreshKey((k) => k + 1);
+          void sync();
+        }}
+      />
     </div>
   );
 };
