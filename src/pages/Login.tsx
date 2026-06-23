@@ -9,10 +9,10 @@ export default function Login() {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session) navigate("/dashboard", { replace: true });
+      if (session) navigate("/ads", { replace: true });
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/dashboard", { replace: true });
+      if (session) navigate("/ads", { replace: true });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
