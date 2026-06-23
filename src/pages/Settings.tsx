@@ -87,10 +87,7 @@ export default function Settings() {
         <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-card/40 p-1">
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
-          <TabsTrigger value="telegram" className="gap-2"><Send className="h-3.5 w-3.5" /> Telegram для контента</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
-          <TabsTrigger value="content-factory" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> Контент-завод · AI-провайдеры</TabsTrigger>
-          <TabsTrigger value="content-briefs" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> Контент-завод · ТЗ</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-0">
@@ -197,23 +194,12 @@ export default function Settings() {
           <MetaConnectSettings />
         </TabsContent>
 
-        <TabsContent value="telegram" className="mt-0">
-          <ProjectTelegramSettings />
-        </TabsContent>
-
         <TabsContent value="telegram-ads" className="mt-0">
           <ProjectAdsTelegramSettings />
         </TabsContent>
 
-        <TabsContent value="content-factory" className="mt-0">
-          <ProviderKeysPanel projectId={activeProjectId || null} />
-        </TabsContent>
-
-        <TabsContent value="content-briefs" className="mt-0">
-          <BriefsEditor projectId={activeProjectId || null} />
-        </TabsContent>
-
       </Tabs>
+
 
       <AddMemberDialog open={open} onOpenChange={setOpen} editing={editing} />
 
