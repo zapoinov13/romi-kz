@@ -39,7 +39,7 @@ const StatChip = ({
   accent: string;
   icon: LucideIcon;
 }) => (
-  <div className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-card/40 px-3 py-2">
+  <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2 py-2 sm:gap-2.5 sm:px-3">
     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
       <Icon className="h-3.5 w-3.5" />
     </span>
@@ -47,7 +47,7 @@ const StatChip = ({
       <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-none">
         {label}
       </div>
-      <div className="mt-1 truncate text-sm font-bold tabular-nums leading-none">{value}</div>
+      <div className="mt-1 truncate text-[13px] sm:text-sm font-bold tabular-nums leading-none">{value}</div>
     </div>
   </div>
 );
@@ -136,13 +136,13 @@ const Ads = () => {
             )
         }
         actions={
-          <>
+          <div className="flex w-full items-center gap-1.5 sm:w-auto sm:gap-2">
             <PeriodPicker range={period} onChange={setPeriod} />
 
             <Button
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-lg border-border/50"
+              className="h-9 w-9 shrink-0 rounded-lg border-border/50"
               aria-label="Обновить"
               onClick={handleRefresh}
               title="Обновить данные"
@@ -156,21 +156,23 @@ const Ads = () => {
                 setAddOpen(true);
               }}
               size="sm"
-              className="h-9 gap-1.5 rounded-lg border border-success/30 bg-transparent text-success hover:bg-success/10"
+              aria-label="Добавить кабинет"
+              title="Добавить кабинет"
+              className="h-9 w-9 shrink-0 gap-0 rounded-lg border border-success/30 bg-transparent px-0 text-success hover:bg-success/10 sm:w-auto sm:gap-1.5 sm:px-3"
             >
               <Zap className="h-3.5 w-3.5" />
-              Добавить кабинет
+              <span className="hidden sm:inline">Кабинет</span>
             </Button>
 
             <Button
               onClick={() => setCampaignOpen(true)}
               size="sm"
-              className="h-9 gap-1.5 rounded-lg bg-success font-semibold text-slate-950 shadow-[0_4px_14px_-4px_hsl(var(--success)/0.5)] hover:bg-success/90"
+              className="h-9 flex-1 gap-1.5 rounded-lg bg-success font-semibold text-slate-950 shadow-[0_4px_14px_-4px_hsl(var(--success)/0.5)] hover:bg-success/90 sm:flex-none"
             >
               <Rocket className="h-3.5 w-3.5" />
-              Создать кампанию
+              <span>Кампания</span>
             </Button>
-          </>
+          </div>
         }
       />
 
