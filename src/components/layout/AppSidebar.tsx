@@ -1,11 +1,5 @@
-import {
-  LayoutGrid,
-  Target,
-  Wand2,
-  TableProperties,
-  FileBarChart2,
-  Settings,
-} from "lucide-react";
+import { LayoutGrid, Target, Settings } from "lucide-react";
+
 
 import { NavLink, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/lib/routePrefetch";
@@ -37,18 +31,6 @@ type NavItem = {
 
 const marketing: NavItem[] = [
   { title: "Управление рекламой", url: "/ads", icon: Target },
-  { title: "Контент-завод", url: "/", icon: Wand2 },
-];
-
-// HIDDEN (по запросу пользователя — возможно вернуть позже):
-// - Marketing OS «Стратегия» (/projects/:id/strategy)
-// - Продажи: CRM (/crm), AI РОП (/sales-ai)
-// - Аналитика: Сквозная аналитика (/analytics), Контент-аналитика,
-//   Воронка по креативам, Финансы (/finance)
-
-const analytics: NavItem[] = [
-  { title: "Таблица показателей", url: "/metrics", icon: TableProperties },
-  { title: "Отчётность", url: "/reports", icon: FileBarChart2 },
 ];
 
 const system: NavItem[] = [
@@ -58,9 +40,9 @@ const system: NavItem[] = [
 function buildGroups(_activeProjectId: string): { label: string; items: NavItem[] }[] {
   return [
     { label: "Маркетинг", items: marketing },
-    { label: "Аналитика", items: analytics },
   ];
 }
+
 
 
 

@@ -1,17 +1,15 @@
-import { Target, Wand2, TableProperties, FileBarChart2, Menu } from "lucide-react";
+import { Target, Settings, Menu } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/ui/sidebar";
 import { prefetchRoute } from "@/lib/routePrefetch";
 
-// HIDDEN: «Дашборд» (/dashboard) — скрыт по запросу.
 type NavItem = { title: string; url: string; icon: typeof Target; primary?: boolean };
 const ITEMS: readonly NavItem[] = [
-  { title: "Реклама", url: "/ads", icon: Target },
-  { title: "Контент", url: "/", icon: Wand2, primary: true },
-  { title: "Метрики", url: "/metrics", icon: TableProperties },
-  { title: "Отчёты", url: "/reports", icon: FileBarChart2 },
+  { title: "Реклама", url: "/ads", icon: Target, primary: true },
+  { title: "Настройки", url: "/settings", icon: Settings },
 ];
+
 
 
 
@@ -26,7 +24,7 @@ export function MobileBottomNav() {
       aria-label="Основная навигация"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border/60 bg-background/85 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.5)] backdrop-blur-2xl md:hidden"
     >
-      <div className="mx-auto grid h-[60px] max-w-lg grid-cols-5 px-1.5">
+      <div className="mx-auto grid h-[60px] max-w-lg grid-cols-3 px-1.5">
         {ITEMS.map((item) => {
           const active =
             pathname === item.url ||
