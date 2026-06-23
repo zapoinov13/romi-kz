@@ -243,7 +243,7 @@ const DuplicateDialog = ({
     setStartTime("");
     setEndTime("");
     setAdBody(""); setAdTitle(""); setAdDescription(""); setAdLink(""); setAdCta("");
-    setAdImageFile(null); setAdImagePreview(""); setCurrentThumb(""); setIsVideoCreative(false);
+    setAdImageFile(null); setAdImagePreview(""); setAdVideoFile(null); setAdVideoPreview(""); setCurrentThumb(""); setIsVideoCreative(false);
     setLoadingDetails(true);
     (async () => {
       try {
