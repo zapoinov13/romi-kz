@@ -146,8 +146,44 @@ type EntityDetails = {
     title?: string;
     call_to_action_type?: string;
     object_url?: string;
+    thumbnail_url?: string;
+    image_url?: string;
+    video_id?: string;
+    object_story_spec?: {
+      link_data?: {
+        message?: string;
+        name?: string;
+        description?: string;
+        link?: string;
+        picture?: string;
+        image_hash?: string;
+        call_to_action?: { type?: string; value?: { link?: string } };
+      };
+      video_data?: {
+        message?: string;
+        title?: string;
+        link_description?: string;
+        image_url?: string;
+        call_to_action?: { type?: string; value?: { link?: string } };
+      };
+    };
   };
 };
+
+const CTA_OPTIONS = [
+  "LEARN_MORE", "SHOP_NOW", "SIGN_UP", "SUBSCRIBE", "CONTACT_US",
+  "GET_OFFER", "ORDER_NOW", "APPLY_NOW", "BOOK_TRAVEL", "DOWNLOAD",
+  "MESSAGE_PAGE", "WHATSAPP_MESSAGE", "GET_QUOTE", "CALL_NOW", "INSTALL_MOBILE_APP",
+];
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Не удалось прочитать файл"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const GENDER_LABEL = (g: number[] | undefined) => {
   if (!g || g.length === 0 || g.length === 2) return "all";
