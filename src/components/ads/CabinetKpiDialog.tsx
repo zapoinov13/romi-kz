@@ -32,10 +32,8 @@ type KpiRow = {
   min_daily_leads: number | null;
   min_daily_spend_kzt: number | null;
   max_daily_spend_kzt: number | null;
-  target_roas: number | null;
-  min_roas: number | null;
-  max_frequency_7d: number | null;
-  min_ctr_pct: number | null;
+
+
   auto_mode: "off" | "suggest" | "enforce";
   auto_pause_enabled: boolean;
   auto_budget_cut_enabled: boolean;
