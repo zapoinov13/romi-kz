@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { useMetaPageAssets } from "@/hooks/useMetaPageAssets";
 import GoalAssetsPicker from "./GoalAssetsPicker";
+import MessageTemplatesPanel from "./MessageTemplatesPanel";
 import { cropImageFile, computeSourceRect, type Fit } from "@/lib/cropMedia";
 import { GEO_COUNTRIES, findCountry } from "@/data/geoTargets";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
