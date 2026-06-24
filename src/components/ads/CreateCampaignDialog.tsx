@@ -417,6 +417,7 @@ const CreateCampaignDialog = ({
 }: CreateCampaignDialogProps) => {
   const { activeId: projectId, active: activeProject } = useProjectsStore();
   const [cabinetId, setCabinetId] = useState<string>(cabinets[0]?.id ?? "");
+  const [messageTemplateId, setMessageTemplateId] = useState<string | null>(null);
   const [goal, setGoal] = useState<Goal>("whatsapp");
   const [budget, setBudget] = useState("50");
   const [feed, setFeed] = useState<File | null>(null);
