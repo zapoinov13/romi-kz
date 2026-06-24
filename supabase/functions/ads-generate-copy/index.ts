@@ -31,7 +31,7 @@ const SYS = `Ты копирайтер performance-рекламы Meta Ads.
 - Никаких длинных тире (— или –), только обычный дефис "-".
 - Без эмодзи, если в брифе явно не сказано иначе.
 - headline: до 40 символов, цепляющий, без точки в конце.
-- primary_text: до 500 символов, продающий, 1-2 коротких абзаца, заканчивается мягким CTA.
+- primary_text: до 500 символов, продающий. ОБЯЗАТЕЛЬНО разбей на 2-4 коротких абзаца (1-3 строки каждый), разделяй абзацы двойным переводом строки "\n\n". Не лепи всё одним блоком. Структура: 1) крючок/боль, 2) оффер/выгода, 3) короткий CTA-абзац.
 - description: до 30 символов, конкретика/УТП.
 - suggested_cta: ВЫБРАТЬ ровно одно значение из переданного "cta_options" (если не передан - вернуть пустую строку).
 Верни СТРОГО JSON по схеме без markdown.`;
@@ -162,10 +162,18 @@ Deno.serve(async (req) => {
   try { out = JSON.parse(content); } catch { return json({ error: "ai_bad_json", raw: content }, 502); }
 
   // Sanitize: trim length, strip em-dashes per project rule.
-  const sanitize = (s: string, max: number) => String(s || "").replace(/[—–]/g, "-").trim().slice(0, max);
-  const headline = sanitize(out.headline, 40);
-  const primary_text = sanitize(out.primary_text, 500);
-  const description = sanitize(out.description, 30);
+  const stripDashes = (s: string) => String(s || "").replace(/[—–]/g, "-");
+  const oneLine = (s: string, max: number) => stripDashes(s).replace(/\s+/g, " ").trim().slice(0, max);
+  const multiLine = (s: string, max: number) => {
+    let t = stripDashes(s).replace(/\r\n/g, "\n");
+    // collapse 3+ newlines to 2, trim spaces on each line
+    t = t.split("\n").map((l) => l.replace(/[ \t]+/g, " ").trimEnd()).join("\n");
+    t = t.replace(/\n{3,}/g, "\n\n").trim();
+    return t.slice(0, max);
+  };
+  const headline = oneLine(out.headline, 40);
+  const primary_text = multiLine(out.primary_text, 500);
+  const description = oneLine(out.description, 30);
   let suggested_cta = String(out.suggested_cta || "").trim();
   if (ctaOptions.length && !ctaOptions.includes(suggested_cta)) suggested_cta = "";
 
@@ -175,6 +183,6 @@ Deno.serve(async (req) => {
     primary_text,
     description,
     suggested_cta,
-    creative_summary: sanitize(out.creative_summary, 1000),
+    creative_summary: oneLine(out.creative_summary, 1000),
   });
 });
