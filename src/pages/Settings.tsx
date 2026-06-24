@@ -193,6 +193,10 @@ export default function Settings() {
           <ProjectAdsTelegramSettings />
         </TabsContent>
 
+        <TabsContent value="openai" className="mt-0">
+          <OpenAiKeySettings />
+        </TabsContent>
+
       </Tabs>
 
 
