@@ -183,6 +183,6 @@ Deno.serve(async (req) => {
     primary_text,
     description,
     suggested_cta,
-    creative_summary: sanitize(out.creative_summary, 1000),
+    creative_summary: oneLine(out.creative_summary, 1000),
   });
 });
