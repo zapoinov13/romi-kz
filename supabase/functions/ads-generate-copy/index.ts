@@ -162,10 +162,18 @@ Deno.serve(async (req) => {
   try { out = JSON.parse(content); } catch { return json({ error: "ai_bad_json", raw: content }, 502); }
 
   // Sanitize: trim length, strip em-dashes per project rule.
-  const sanitize = (s: string, max: number) => String(s || "").replace(/[—–]/g, "-").trim().slice(0, max);
-  const headline = sanitize(out.headline, 40);
-  const primary_text = sanitize(out.primary_text, 500);
-  const description = sanitize(out.description, 30);
+  const stripDashes = (s: string) => String(s || "").replace(/[—–]/g, "-");
+  const oneLine = (s: string, max: number) => stripDashes(s).replace(/\s+/g, " ").trim().slice(0, max);
+  const multiLine = (s: string, max: number) => {
+    let t = stripDashes(s).replace(/\r\n/g, "\n");
+    // collapse 3+ newlines to 2, trim spaces on each line
+    t = t.split("\n").map((l) => l.replace(/[ \t]+/g, " ").trimEnd()).join("\n");
+    t = t.replace(/\n{3,}/g, "\n\n").trim();
+    return t.slice(0, max);
+  };
+  const headline = oneLine(out.headline, 40);
+  const primary_text = multiLine(out.primary_text, 500);
+  const description = oneLine(out.description, 30);
   let suggested_cta = String(out.suggested_cta || "").trim();
   if (ctaOptions.length && !ctaOptions.includes(suggested_cta)) suggested_cta = "";
 
