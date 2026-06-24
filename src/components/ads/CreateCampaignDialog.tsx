@@ -66,6 +66,61 @@ function readVideoNaturalSize(file: File): Promise<{ w: number; h: number }> {
   });
 }
 
+/** Возвращает чистый base64 (без data:) JPEG из файла-картинки или кадра видео.
+ *  Картинку и кадр уменьшаем до maxSide, чтобы не раздуть payload. */
+async function fileToAnalyzableJpegBase64(file: File, maxSide = 1280): Promise<string> {
+  const isVideo = file.type.startsWith("video/");
+  const url = URL.createObjectURL(file);
+  try {
+    if (isVideo) {
+      return await new Promise<string>((resolve, reject) => {
+        const v = document.createElement("video");
+        v.preload = "auto";
+        v.muted = true;
+        v.playsInline = true;
+        v.src = url;
+        const fail = (msg: string) => reject(new Error(msg));
+        v.onerror = () => fail("Не удалось прочитать видео");
+        v.onloadedmetadata = () => {
+          try { v.currentTime = Math.min(0.3, (v.duration || 1) * 0.05); }
+          catch { fail("seek error"); }
+        };
+        v.onseeked = () => {
+          try {
+            const vw = v.videoWidth, vh = v.videoHeight;
+            if (!vw || !vh) return fail("empty video frame");
+            const scale = Math.min(1, maxSide / Math.max(vw, vh));
+            const w = Math.round(vw * scale), h = Math.round(vh * scale);
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const ctx = c.getContext("2d");
+            if (!ctx) return fail("no canvas");
+            ctx.drawImage(v, 0, 0, w, h);
+            const dataUrl = c.toDataURL("image/jpeg", 0.8);
+            resolve(dataUrl.split(",")[1] || "");
+          } catch (e) { fail(String((e as Error).message || e)); }
+        };
+        setTimeout(() => fail("timeout"), 15000);
+      });
+    }
+    // image
+    const img = new Image();
+    img.src = url;
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("image load failed")); });
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    if (!ctx) throw new Error("no canvas");
+    ctx.drawImage(img, 0, 0, w, h);
+    const dataUrl = c.toDataURL("image/jpeg", 0.85);
+    return dataUrl.split(",")[1] || "";
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /**
  * View-state, который ребёнок-CreativeUpload отдаёт наверх при каждом изменении.
  * Нужен, чтобы при сабмите «запечь» точно то, что видит пользователь.
