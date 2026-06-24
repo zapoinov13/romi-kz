@@ -1435,9 +1435,45 @@ const CreateCampaignDialog = ({
               </div>
 
               <div className="space-y-3 rounded-2xl border border-border/60 bg-background/40 p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Тексты и нейминг
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Тексты и нейминг
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleAiGenerateCopy}
+                  disabled={aiGenStatus === "running" || (!feed && !stories)}
+                  className={cn(
+                    "group flex w-full items-start gap-3 rounded-xl border p-3 text-left transition",
+                    aiGenStatus === "running"
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-primary/40 bg-gradient-to-br from-primary/10 to-primary/5 hover:border-primary hover:from-primary/15",
+                    (!feed && !stories) && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/20 text-primary">
+                    <Sparkles className={cn("h-4 w-4", aiGenStatus === "running" && "animate-pulse")} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold">
+                      {aiGenStatus === "running"
+                        ? "Анализирую креатив..."
+                        : aiGenStatus === "done"
+                          ? "Сгенерировать заново"
+                          : "Сгенерировать тексты по креативу"}
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {!feed && !stories
+                        ? "Сначала загрузите фото или видео"
+                        : aiGenStatus === "error" && aiGenError
+                          ? aiGenError
+                          : "GPT-4o Vision разберет, что на креативе, и напишет заголовок, текст и описание. Ключ OpenAI берется из Настроек."}
+                    </div>
+                  </div>
+                </button>
+
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
