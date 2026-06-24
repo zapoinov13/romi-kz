@@ -1574,6 +1574,16 @@ const CreateCampaignDialog = ({
                   </p>
                 </div>
               </div>
+
+              {cabinetId && projectId && (
+                <MessageTemplatesPanel
+                  cabinetId={cabinetId}
+                  projectId={projectId}
+                  pageId={effectivePageId}
+                  selectedTemplateId={messageTemplateId}
+                  onSelectedTemplateChange={setMessageTemplateId}
+                />
+              )}
             </div>
 
             <div className="overflow-y-auto px-6 py-5">
