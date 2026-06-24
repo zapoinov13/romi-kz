@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { useMetaPageAssets } from "@/hooks/useMetaPageAssets";
 import GoalAssetsPicker from "./GoalAssetsPicker";
+import MessageTemplatesPanel from "./MessageTemplatesPanel";
 import { cropImageFile, computeSourceRect, type Fit } from "@/lib/cropMedia";
 import { GEO_COUNTRIES, findCountry } from "@/data/geoTargets";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -416,6 +417,7 @@ const CreateCampaignDialog = ({
 }: CreateCampaignDialogProps) => {
   const { activeId: projectId, active: activeProject } = useProjectsStore();
   const [cabinetId, setCabinetId] = useState<string>(cabinets[0]?.id ?? "");
+  const [messageTemplateId, setMessageTemplateId] = useState<string | null>(null);
   const [goal, setGoal] = useState<Goal>("whatsapp");
   const [budget, setBudget] = useState("50");
   const [feed, setFeed] = useState<File | null>(null);
@@ -1572,6 +1574,16 @@ const CreateCampaignDialog = ({
                   </p>
                 </div>
               </div>
+
+              {cabinetId && projectId && (
+                <MessageTemplatesPanel
+                  cabinetId={cabinetId}
+                  projectId={projectId}
+                  pageId={effectivePageId}
+                  selectedTemplateId={messageTemplateId}
+                  onSelectedTemplateChange={setMessageTemplateId}
+                />
+              )}
             </div>
 
             <div className="overflow-y-auto px-6 py-5">

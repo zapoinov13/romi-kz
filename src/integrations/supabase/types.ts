@@ -1903,6 +1903,96 @@ export type Database = {
         }
         Relationships: []
       }
+      cabinet_message_templates: {
+        Row: {
+          cabinet_id: string
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          cta_payload: string | null
+          greeting: string
+          ice_breakers: Json
+          id: string
+          is_default: boolean
+          meta_last_error: string | null
+          meta_sync_status: string
+          meta_synced_at: string | null
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          cabinet_id: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_payload?: string | null
+          greeting?: string
+          ice_breakers?: Json
+          id?: string
+          is_default?: boolean
+          meta_last_error?: string | null
+          meta_sync_status?: string
+          meta_synced_at?: string | null
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          cabinet_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          cta_payload?: string | null
+          greeting?: string
+          ice_breakers?: Json
+          id?: string
+          is_default?: boolean
+          meta_last_error?: string | null
+          meta_sync_status?: string
+          meta_synced_at?: string | null
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cabinet_message_templates_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cabinet_message_templates_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cabinet_message_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "cabinet_message_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cabinet_message_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communications: {
         Row: {
           channel: Database["public"]["Enums"]["communication_channel"] | null
