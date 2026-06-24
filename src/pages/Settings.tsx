@@ -18,9 +18,10 @@ import {
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
+import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Sparkles } from "lucide-react";
 import {
   ROLE_LABELS,
   TeamMember,
