@@ -56,7 +56,10 @@ async function metaPost(
   path: string,
   body: Record<string, unknown>,
   accessToken: string,
-): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; error: string; subcode?: number; code?: number }
+> {
   try {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(body)) {
@@ -71,12 +74,17 @@ async function metaPost(
       signal: AbortSignal.timeout(30_000),
     });
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
-      error?: { message?: string; error_user_msg?: string };
+      error?: { message?: string; error_user_msg?: string; error_subcode?: number; code?: number };
     };
     if (!res.ok || json.error) {
       const msg = json.error?.error_user_msg || json.error?.message || `HTTP ${res.status}`;
       console.error(`[metaPost ${path}] ${msg}`, JSON.stringify(json).slice(0, 600));
-      return { ok: false, error: msg };
+      return {
+        ok: false,
+        error: msg,
+        subcode: json.error?.error_subcode,
+        code: json.error?.code,
+      };
     }
     return { ok: true, data: json };
   } catch (e) {
