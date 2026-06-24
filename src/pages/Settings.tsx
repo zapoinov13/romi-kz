@@ -18,9 +18,10 @@ import {
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
+import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, Sparkles } from "lucide-react";
 import {
   ROLE_LABELS,
   TeamMember,
@@ -37,7 +38,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "telegram-ads"] as const;
+const SETTINGS_TABS = ["team", "meta", "telegram-ads", "openai"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
@@ -88,6 +89,7 @@ export default function Settings() {
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
+          <TabsTrigger value="openai" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> OpenAI</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-0">
@@ -189,6 +191,10 @@ export default function Settings() {
 
         <TabsContent value="telegram-ads" className="mt-0">
           <ProjectAdsTelegramSettings />
+        </TabsContent>
+
+        <TabsContent value="openai" className="mt-0">
+          <OpenAiKeySettings />
         </TabsContent>
 
       </Tabs>

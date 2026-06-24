@@ -66,6 +66,61 @@ function readVideoNaturalSize(file: File): Promise<{ w: number; h: number }> {
   });
 }
 
+/** Возвращает чистый base64 (без data:) JPEG из файла-картинки или кадра видео.
+ *  Картинку и кадр уменьшаем до maxSide, чтобы не раздуть payload. */
+async function fileToAnalyzableJpegBase64(file: File, maxSide = 1280): Promise<string> {
+  const isVideo = file.type.startsWith("video/");
+  const url = URL.createObjectURL(file);
+  try {
+    if (isVideo) {
+      return await new Promise<string>((resolve, reject) => {
+        const v = document.createElement("video");
+        v.preload = "auto";
+        v.muted = true;
+        v.playsInline = true;
+        v.src = url;
+        const fail = (msg: string) => reject(new Error(msg));
+        v.onerror = () => fail("Не удалось прочитать видео");
+        v.onloadedmetadata = () => {
+          try { v.currentTime = Math.min(0.3, (v.duration || 1) * 0.05); }
+          catch { fail("seek error"); }
+        };
+        v.onseeked = () => {
+          try {
+            const vw = v.videoWidth, vh = v.videoHeight;
+            if (!vw || !vh) return fail("empty video frame");
+            const scale = Math.min(1, maxSide / Math.max(vw, vh));
+            const w = Math.round(vw * scale), h = Math.round(vh * scale);
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const ctx = c.getContext("2d");
+            if (!ctx) return fail("no canvas");
+            ctx.drawImage(v, 0, 0, w, h);
+            const dataUrl = c.toDataURL("image/jpeg", 0.8);
+            resolve(dataUrl.split(",")[1] || "");
+          } catch (e) { fail(String((e as Error).message || e)); }
+        };
+        setTimeout(() => fail("timeout"), 15000);
+      });
+    }
+    // image
+    const img = new Image();
+    img.src = url;
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("image load failed")); });
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    if (!ctx) throw new Error("no canvas");
+    ctx.drawImage(img, 0, 0, w, h);
+    const dataUrl = c.toDataURL("image/jpeg", 0.85);
+    return dataUrl.split(",")[1] || "";
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /**
  * View-state, который ребёнок-CreativeUpload отдаёт наверх при каждом изменении.
  * Нужен, чтобы при сабмите «запечь» точно то, что видит пользователь.
@@ -374,6 +429,68 @@ const CreateCampaignDialog = ({
   const [headline, setHeadline] = useState("");
   const [description, setDescription] = useState("");
   const [cta, setCta] = useState<string>(defaultCtaForGoal("whatsapp"));
+  const [aiGenStatus, setAiGenStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [aiGenError, setAiGenError] = useState<string | null>(null);
+
+  const handleAiGenerateCopy = async () => {
+    const source = feed ?? stories;
+    if (!source) {
+      toast.error("Сначала загрузите креатив (фото или видео)");
+      return;
+    }
+    if (!projectId) {
+      toast.error("Нет активного проекта");
+      return;
+    }
+    setAiGenStatus("running");
+    setAiGenError(null);
+    try {
+      const image_base64 = await fileToAnalyzableJpegBase64(source);
+      const ctaList = CTA_BY_GOAL[goal as AdsGoal]?.map((c) => c.value) ?? [];
+      const { data, error } = await supabase.functions.invoke<{
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        headline?: string;
+        primary_text?: string;
+        description?: string;
+        suggested_cta?: string;
+      }>("ads-generate-copy", {
+        body: {
+          project_id: projectId,
+          image_base64,
+          mime: "image/jpeg",
+          goal,
+          cta_options: ctaList,
+          current_cta: cta,
+          language: "ru",
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) {
+        const msg = data?.message || data?.error || "Не удалось сгенерировать";
+        throw new Error(msg);
+      }
+      if (data.headline) setHeadline(data.headline.slice(0, 40));
+      if (data.primary_text) setPrimaryText(data.primary_text.slice(0, 500));
+      if (data.description) setDescription(data.description.slice(0, 30));
+      if (data.suggested_cta && ctaList.includes(data.suggested_cta)) {
+        setCta(data.suggested_cta);
+      }
+      setAiGenStatus("done");
+      toast.success("Тексты сгенерированы. Проверьте и поправьте при необходимости.");
+    } catch (e: any) {
+      const msg = e?.message || "Ошибка генерации";
+      setAiGenError(msg);
+      setAiGenStatus("error");
+      if (msg.includes("no_openai_key") || msg.includes("Подключите ключ OpenAI")) {
+        toast.error("Подключите ключ OpenAI в Настройках -> OpenAI");
+      } else {
+        toast.error(msg);
+      }
+    }
+  };
+
   // Стабильный launchId на весь жизненный цикл диалога — нужен для имён.
   const [launchId] = useState<string>(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1318,9 +1435,45 @@ const CreateCampaignDialog = ({
               </div>
 
               <div className="space-y-3 rounded-2xl border border-border/60 bg-background/40 p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Тексты и нейминг
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Тексты и нейминг
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleAiGenerateCopy}
+                  disabled={aiGenStatus === "running" || (!feed && !stories)}
+                  className={cn(
+                    "group flex w-full items-start gap-3 rounded-xl border p-3 text-left transition",
+                    aiGenStatus === "running"
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-primary/40 bg-gradient-to-br from-primary/10 to-primary/5 hover:border-primary hover:from-primary/15",
+                    (!feed && !stories) && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/20 text-primary">
+                    <Sparkles className={cn("h-4 w-4", aiGenStatus === "running" && "animate-pulse")} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold">
+                      {aiGenStatus === "running"
+                        ? "Анализирую креатив..."
+                        : aiGenStatus === "done"
+                          ? "Сгенерировать заново"
+                          : "Сгенерировать тексты по креативу"}
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      {!feed && !stories
+                        ? "Сначала загрузите фото или видео"
+                        : aiGenStatus === "error" && aiGenError
+                          ? aiGenError
+                          : "GPT-4o Vision разберет, что на креативе, и напишет заголовок, текст и описание. Ключ OpenAI берется из Настроек."}
+                    </div>
+                  </div>
+                </button>
+
 
                 <div className="space-y-1.5">
                   <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">

@@ -1,94 +1,114 @@
-## Цель
 
-Заменить текущий единый `factory-generate` на масштабируемую очередь генерации на Supabase (без n8n). 4 карточки на экране = 4 значения `content_type`, шарят один пайплайн. Стартуем с `insta-carousel`, остальные 3 включаются добавлением строк в `prompt_templates` без правки кода.
+## Что делаем
 
-## Архитектура
+Две связанные фичи:
 
-```text
-UI (ContentTypeGrid) ──click──> форма брифа ──POST──> clony-ingest (EF)
-                                                          │
-                                                          ▼
-                                                  generation_jobs (queued)
-                                                          │
-                                            pg_cron 10s ──┼──> pg_net ──> clony-worker (EF)
-                                                          │
-                       ┌──────────────────────────────────┼──────────────────────────────────┐
-                       │  state machine (1 step per tick) │                                   │
-                       ▼                                                                      │
-   queued -> routed -> generating -> qa -> (regen<=3) -> compositing -> delivering -> done    │
-                                              │                                               │
-                                              └─ failed (после regen лимита)                  │
-                                                                                              │
-                                  job_slides (idx, prompt, image_url, qa_verdict) ◄───────────┘
+1. В Настройках — отдельная вкладка «OpenAI», где можно вставить токен, проверить его (валиден/невалиден, баланс/модель) и увидеть, для чего он используется.
+2. В диалоге запуска рекламы (`CreateCampaignDialog`) — кнопка «Сгенерировать тексты по креативу». Берёт уже загруженное видео/изображение, отправляет в GPT-4o Vision (или для видео — извлекаем кадры), получает обратно заголовок (до 40), основной текст (до 500), описание ссылки (до 30) и предлагаемый CTA. Пользователь может одним кликом подставить или отредактировать.
 
-                          UI ◄── Supabase Realtime (generation_jobs + job_slides)
+---
+
+## 1. Настройки → вкладка «OpenAI»
+
+Файл: `src/pages/Settings.tsx` — добавить таб `openai` рядом с `team / meta / telegram-ads`.
+
+Новый компонент `src/components/settings/OpenAiKeySettings.tsx`:
+- Поле «API-ключ» (password input, маска `sk-...****1234`).
+- Кнопка «Сохранить и проверить» — вызывает edge-функцию `openai-key-check`.
+- Бейджи статуса: «Работает / Ошибка / Не проверен», модель по умолчанию (gpt-4o-mini для Vision), дата последней проверки.
+- Блок-подсказка «Для чего используется»:
+  - Авто-генерация заголовка, текста и описания рекламы по загруженному фото/видео.
+  - В будущем — анализ комментариев, расшифровка звонков и т.д. (только описание, без реализации сейчас).
+- Кнопка «Удалить ключ».
+
+### Хранение токена
+
+Ключ хранится в БД, шифруется через тот же подход, что и `content_factory_provider_keys` (есть проверенный паттерн в проекте). Делаем НЕ через project-secret, а через таблицу — потому что ключ привязан к проекту, и нужны статус/баланс/last_checked_at.
+
+Миграция: новая таблица `project_openai_keys`
 ```
-
-## Объём работ
-
-### 1. Миграция БД (одна миграция)
-
-- `generation_jobs` (id, content_type, status default 'queued', payload jsonb, context jsonb, slides_total int, attempts int, error, locked_at, chat_id, created_at, updated_at).
-- `job_slides` (id, job_id fk on delete cascade, idx, status default 'pending', prompt, image_url, qa_verdict jsonb, attempts int).
-- `prompt_templates` (content_type pk, model, system_prompt, user_prompt, options jsonb).
-- GRANT для `authenticated` (read свои jobs/slides) и `service_role` (всё). RLS: пользователь видит только jobs, где `payload->>'user_id' = auth.uid()::text` (id владельца кладёт ingest). `prompt_templates` - read для authenticated, write только service_role.
-- Триггер `updated_at`.
-- Добавить таблицы в `supabase_realtime` publication.
-- Seed: одна строка `prompt_templates` для `insta-carousel` (system+user из ТЗ карусели, что прислал ранее).
-- Включить `pg_cron` и `pg_net`.
-
-### 2. Edge Function `clony-ingest`
-
-- POST `{ content_type, payload }`. Валидация zod: `content_type` ∈ {ad-creative, marketplace, insta-carousel, warmup}. `payload` — произвольный объект с брифом/ссылками на загруженные ассеты.
-- Берёт `auth.uid()` из JWT (`verify_jwt=true`), кладёт в `payload.user_id`.
-- INSERT `generation_jobs` со `status='queued'`, возвращает `{ job_id }`. Никакой генерации.
-
-### 3. Edge Function `clony-worker`
-
-- Вход: `{ job_id? }`. Если пусто — берёт ближайшие jobs `FOR UPDATE SKIP LOCKED LIMIT 5`, где `locked_at IS NULL OR locked_at < now()-interval '2 min'`.
-- Делает **ровно один шаг** state machine на job за тик:
-  - `queued -> routed`: читает `prompt_templates`, дергает Gemini 2.5 Pro (стратегия), создаёт строки `job_slides` (для carousel - 10).
-  - `routed -> generating`: помечает первый pending slide, дергает `gemini-3-pro-image-preview`, пишет image_url (временно raw URL), переход не происходит пока все слайды не сгенерены.
-  - `generating -> qa`: когда все slides готовы, гонит каждый через `gemini-2.5-flash` (проверка текста). При плохом QA — увеличиваем `slide.attempts`, возвращаем в `pending` (regen). Если все попытки >3 и QA плохой - помечаем как принят-с-предупреждением.
-  - `qa -> compositing`: накладывает лого/лицо через Cloudinary transform, заливает финал, апдейтит `image_url`.
-  - `compositing -> delivering`: если `chat_id` есть - шлём в Telegram.
-  - `delivering -> done`.
-- Ошибки: `attempts++`, при `attempts>=3` -> `failed` с `error`.
-
-### 4. pg_cron + pg_net
-
-Через `supabase--insert` (содержит project URL и anon key), не миграцию:
-
-```sql
-select cron.schedule('clony-worker-tick', '*/10 * * * * *',
-  $$ select net.http_post(url:='https://<ref>.supabase.co/functions/v1/clony-worker',
-       headers:='{"Content-Type":"application/json","Authorization":"Bearer <service_role>"}'::jsonb,
-       body:='{}'::jsonb); $$);
+id uuid pk, project_id uuid fk projects, key_ciphertext text, key_hint text,
+status text ('ok'|'error'|'unknown'), last_checked_at timestamptz,
+last_error text, model_default text default 'gpt-4o-mini',
+created_at, updated_at
 ```
+RLS: чтение/запись — только участники проекта (`is_project_member(project_id)`), `GRANT` для `authenticated` + `service_role`. Сам `key_ciphertext` НЕ отдаём в API — выбираем только `key_hint, status, last_checked_at, last_error, model_default` через view `project_openai_keys_public` либо через REVOKE на колонку (как сделано с токенами в недавнем security-фиксе).
 
-### 5. UI
+### Edge-функции
 
-- `ContentTypeGrid` уже маршрутизирует на `CreateStep1/2/3`. Не ломаем существующий поток — добавляем **параллельный** новый submit в конце мастера: на финальном шаге вместо `factory-generate` зовём `clony-ingest`, получаем `job_id`, переходим на новую страницу `/factory/job/:id`.
-- `src/pages/FactoryJob.tsx`: подписка `useRealtimeTable('generation_jobs')` + `job_slides` с фильтром по job_id, статус-бар `queued → generating → qa → done`, grid готовых картинок.
+- `openai-key-save` — принимает `{ project_id, api_key }`, шифрует, делает тест-запрос `GET https://api.openai.com/v1/models`, сохраняет статус.
+- `openai-key-check` — перепроверяет уже сохранённый ключ.
+- `openai-key-delete` — удаляет.
+- `ads-generate-copy` — основная функция для фичи №2 (см. ниже).
 
-### 6. Секреты
+Все вызовы OpenAI идут ТОЛЬКО из edge-функций. Ключ в браузер не уходит никогда.
 
-Перед деплоем `clony-worker` запрошу через `add_secret`:
-`GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, CLOUDINARY_URL, SPEECHMATICS_KEY, APIFY_TOKEN, TELEGRAM_BOT_TOKEN, SCRAPINGBEE_KEY`.
-`SUPABASE_SERVICE_ROLE_KEY` на Lovable Cloud недоступен — будем подписывать pg_cron вызов anon-key + проверять секретный заголовок (`X-Worker-Secret`, заводим через add_secret как `CLONY_WORKER_SECRET`).
+---
+
+## 2. Авто-генерация текстов в `CreateCampaignDialog`
+
+Файл: `src/components/ads/CreateCampaignDialog.tsx` (блок «Тексты и нейминг», строки ~1320-1395).
+
+Добавляем над полем «Заголовок» кнопку-карточку:
+```
+[✨ Сгенерировать тексты по креативу]
+```
+Состояния: idle / analyzing («Анализирую видео…») / done / error.
+
+### Логика
+
+1. Берём текущий выбранный медиа-ассет креатива (там уже есть видео или картинка — у компонента есть `mediaUrl/videoUrl/imageUrl`, нужно найти точное имя при имплементации).
+2. POST в edge-функцию `ads-generate-copy`:
+   ```
+   { project_id, cabinet_id, media_url, media_type: 'image'|'video',
+     goal, cta, brand_hint?: string }
+   ```
+3. Edge-функция:
+   - Достаёт ключ OpenAI проекта (расшифровывает).
+   - Если `image` — отправляет URL в `gpt-4o-mini` через `chat.completions` с `image_url` content-блоком.
+   - Если `video` — через `ffmpeg` (есть в окружении edge? — если нет, fallback: берём только обложку/poster. Альтернатива: загружаем видео в Lovable AI Gateway Gemini, который поддерживает видео нативно). В плане: **по умолчанию для видео используем Gemini (Lovable AI), для фото — OpenAI Vision (ключ пользователя)**. Это снимает проблему с обработкой видео и оставляет OpenAI там, где пользователь явно хотел.
+   - Промпт: «Опиши, что на креативе. Сгенерируй для рекламы Meta Ads на цель {goal}: заголовок ≤40, текст ≤500, описание ≤30. Верни JSON».
+   - Возвращает `{ headline, primary_text, description, suggested_cta }`.
+4. UI подставляет поля. Каждое поле остаётся редактируемым. Тост «Готово, проверьте и поправьте».
+
+### Edge-функция кода
+
+`supabase/functions/ads-generate-copy/index.ts`:
+- CORS, валидация Zod.
+- Проверка прав через JWT → `is_project_member`.
+- Расшифровка ключа.
+- Вызов OpenAI / Lovable AI.
+- Лимит длины, обрезка.
+
+---
 
 ## Технические детали
 
-- Edge functions: Deno, `npm:@supabase/supabase-js@2`, zod, `corsHeaders` из `npm:@supabase/supabase-js@2/cors`.
-- Прогресс пишем атомарно: `UPDATE ... WHERE id=? AND status=?` (оптимистическая блокировка), `locked_at=now()` в начале шага и `NULL` в конце.
-- Картинки сначала складываем в Storage bucket `clony-generations` (private, signed URLs), Cloudinary только для композитинга если потребуется.
-- Старый `factory-generate` оставляем рабочим до отдельной команды на удаление.
+- Шифрование ключа: переиспользуем helper из `_shared/` (тот же, что у `content_factory_provider_keys`), чтобы не плодить схемы.
+- Все edge-функции с `verify_jwt = true` (дефолт) — нужен авторизованный пользователь.
+- Никаких ключей OpenAI в `.env` проекта — каждый клиент вводит свой.
+- На фронте использовать существующий паттерн `useContentFactoryProviders` как образец для нового хука `useOpenAiKey(projectId)`.
+- Security: `key_ciphertext` колонку — `REVOKE SELECT ... FROM authenticated, anon`, выдать только `service_role`. Клиент читает только безопасные поля.
 
-## Открытые вопросы (до старта реализации)
+---
 
-1. **Старая страница финального шага**: оставить как есть и добавить кнопку «Новый пайплайн (beta)», или переключить дефолт на `clony-ingest`?
-2. **Storage**: достаточно ли Supabase Storage, или ассеты обязательно через Cloudinary (CLOUDINARY_URL)?
-3. **Telegram доставка**: нужна сразу для всех форматов или включаем только если `chat_id` явно пришёл в payload?
-4. **Все 8 секретов сразу** или достаточно `GEMINI_API_KEY` + `CLOUDINARY_URL` для MVP `insta-carousel`?
+## Что меняется по файлам
 
-Ответьте на 1-4 — начну с миграции.
+- `supabase/migrations/<new>.sql` — таблица `project_openai_keys` + RLS + GRANT + REVOKE на ciphertext.
+- `supabase/functions/openai-key-save/index.ts` — новая.
+- `supabase/functions/openai-key-check/index.ts` — новая.
+- `supabase/functions/openai-key-delete/index.ts` — новая.
+- `supabase/functions/ads-generate-copy/index.ts` — новая.
+- `src/components/settings/OpenAiKeySettings.tsx` — новый компонент.
+- `src/hooks/useOpenAiKey.ts` — новый хук.
+- `src/pages/Settings.tsx` — добавить таб OpenAI.
+- `src/components/ads/CreateCampaignDialog.tsx` — кнопка «Сгенерировать тексты», обработчик, состояния.
+
+---
+
+## Открытые вопросы (нужны ответы перед сборкой)
+
+1. **Видео**: ок ли, что для видео мы используем Lovable AI Gemini (бесплатно для тебя, нативная поддержка видео), а OpenAI ключ — только для фото? Или строго всё через OpenAI (тогда для видео берём только poster-кадр, качество анализа хуже)?
+2. **Язык генерации**: всегда русский, или брать язык из настроек проекта / выбранной аудитории?
+3. **Тон/стиль**: подтягивать из бренд-брифа проекта (если есть в `project_briefs`), или сейчас просто «продающий, короткий»?
+4. **CTA**: GPT может предложить новый CTA, но в Meta доступен ограниченный список (`CTA_BY_GOAL`). Подставлять ближайший из разрешённых — ок?
