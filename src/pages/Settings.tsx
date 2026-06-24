@@ -38,7 +38,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "telegram-ads"] as const;
+const SETTINGS_TABS = ["team", "meta", "telegram-ads", "openai"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
