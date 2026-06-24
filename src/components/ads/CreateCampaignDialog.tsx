@@ -429,6 +429,68 @@ const CreateCampaignDialog = ({
   const [headline, setHeadline] = useState("");
   const [description, setDescription] = useState("");
   const [cta, setCta] = useState<string>(defaultCtaForGoal("whatsapp"));
+  const [aiGenStatus, setAiGenStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [aiGenError, setAiGenError] = useState<string | null>(null);
+
+  const handleAiGenerateCopy = async () => {
+    const source = feed ?? stories;
+    if (!source) {
+      toast.error("Сначала загрузите креатив (фото или видео)");
+      return;
+    }
+    if (!projectId) {
+      toast.error("Нет активного проекта");
+      return;
+    }
+    setAiGenStatus("running");
+    setAiGenError(null);
+    try {
+      const image_base64 = await fileToAnalyzableJpegBase64(source);
+      const ctaList = CTA_BY_GOAL[goal as AdsGoal]?.map((c) => c.value) ?? [];
+      const { data, error } = await supabase.functions.invoke<{
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        headline?: string;
+        primary_text?: string;
+        description?: string;
+        suggested_cta?: string;
+      }>("ads-generate-copy", {
+        body: {
+          project_id: projectId,
+          image_base64,
+          mime: "image/jpeg",
+          goal,
+          cta_options: ctaList,
+          current_cta: cta,
+          language: "ru",
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.ok) {
+        const msg = data?.message || data?.error || "Не удалось сгенерировать";
+        throw new Error(msg);
+      }
+      if (data.headline) setHeadline(data.headline.slice(0, 40));
+      if (data.primary_text) setPrimaryText(data.primary_text.slice(0, 500));
+      if (data.description) setDescription(data.description.slice(0, 30));
+      if (data.suggested_cta && ctaList.includes(data.suggested_cta)) {
+        setCta(data.suggested_cta);
+      }
+      setAiGenStatus("done");
+      toast.success("Тексты сгенерированы. Проверьте и поправьте при необходимости.");
+    } catch (e: any) {
+      const msg = e?.message || "Ошибка генерации";
+      setAiGenError(msg);
+      setAiGenStatus("error");
+      if (msg.includes("no_openai_key") || msg.includes("Подключите ключ OpenAI")) {
+        toast.error("Подключите ключ OpenAI в Настройках -> OpenAI");
+      } else {
+        toast.error(msg);
+      }
+    }
+  };
+
   // Стабильный launchId на весь жизненный цикл диалога — нужен для имён.
   const [launchId] = useState<string>(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
