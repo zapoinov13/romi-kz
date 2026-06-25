@@ -1,7 +1,7 @@
 {
-  "git_sha": "64bc9cc",
-  "git_sha_full": "64bc9cc8261ea74f8244722b299dd0848a7acc47",
-  "updated_at": "2026-06-08T07:14:44Z",
-  "label": "feat(ads): mobile-first creatives layout — readable previews and touch UX",
+  "git_sha": "f32dfe0",
+  "git_sha_full": "f32dfe0a5d45a07cdbdb335e74967ea473ffb26b",
+  "updated_at": "2026-06-25T05:55:36Z",
+  "label": "Исправил пиксель на OUTCOME_LEADS",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
