@@ -36,12 +36,33 @@ export default function MessageTemplatesPanel({
   selectedTemplateId,
   onSelectedTemplateChange,
 }: Props) {
-  const { rows, loading, create, update, duplicate, remove, syncToMeta } =
+  const { rows, loading, create, update, duplicate, remove, syncToMeta, importFromMeta } =
     useCabinetMessageTemplates(cabinetId, projectId);
 
   const [editing, setEditing] = useState<CabinetMessageTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  async function handleImport() {
+    if (!pageId) {
+      toast.error("У кабинета не указана Facebook-страница");
+      return;
+    }
+    setImporting(true);
+    try {
+      const res = await importFromMeta();
+      if (res?.imported && res.imported > 0) {
+        toast.success("Шаблоны из Meta загружены");
+      } else {
+        toast.info(res?.message || "В Meta пока нет шаблонов на этой странице");
+      }
+    } catch (e) {
+      toast.error((e as Error).message || "Не удалось импортировать");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function handleSync(id: string) {
     if (!pageId) {
