@@ -1,7 +1,7 @@
 {
-  "git_sha": "95e4c95",
-  "git_sha_full": "95e4c95ae410ca7f813694c93cc3eb243dc870d7",
-  "updated_at": "2026-06-25T13:39:27+05:00",
-  "label": "chore: trigger Vercel deploy with valid commit author email",
+  "git_sha": "14edbb7",
+  "git_sha_full": "14edbb7ca9d11e2d089c423eb4e3500ff47a8a44",
+  "updated_at": "2026-06-25T13:46:21+05:00",
+  "label": "chore: redeploy production with verified Git author",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
