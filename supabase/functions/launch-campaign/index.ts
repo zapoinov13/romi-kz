@@ -651,11 +651,12 @@ Deno.serve(async (req) => {
       if (adsetRes.subcode === 2446814) {
         const ev = (pixelEvent || "Lead").toUpperCase();
         humanMsg = isWebsiteGoal
-          ? `Пиксель ещё не получил ни одного события "${ev}". Откройте Events Manager в Meta, проверьте что пиксель ${pixelId} активен и присылает "${ev}", либо выберите другое событие (например PAGE_VIEW / VIEW_CONTENT) в настройках кабинета. После первого события подождите 15-30 минут и повторите запуск.`
+          ? `Событие "${ev}" недоступно для цели "${siteLeadsObjective}" у пикселя ${pixelId}. Это значит либо событие не приходит на пиксель (проверьте Events Manager в Meta - оно должно гореть зелёным за последние 7 дней), либо событие относится к другой категории (Purchase → OUTCOME_SALES, Lead → OUTCOME_LEADS). Поменяйте событие в настройках кабинета или дождитесь первых событий.`
           : `Выбранное событие конверсии "${ev}" недоступно для этой цели. Поменяйте событие в настройках кабинета.`;
       }
       return await fail("creating_adset", humanMsg);
     }
+
     const metaAdsetId = String(adsetRes.data.id ?? "");
     if (!metaAdsetId) return await fail("creating_adset", "Meta не вернула id adset");
     updateLaunchAsync({ meta_adset_id: metaAdsetId, status_step: "creating_creative", status_message: "Создаём креатив" });
