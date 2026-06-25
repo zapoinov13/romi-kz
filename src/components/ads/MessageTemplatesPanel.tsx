@@ -127,14 +127,27 @@ export default function MessageTemplatesPanel({
       )}
 
       {!loading && rows.length === 0 && (
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-[12px] text-muted-foreground hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
-        >
-          <Plus className="h-4 w-4" />
-          Создать первый шаблон переписки
-        </button>
+        <div className="space-y-2">
+          {pageId && (
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importing}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-[12px] text-foreground hover:border-primary/70 hover:bg-primary/10 disabled:opacity-60"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Загрузить шаблоны из Meta (страница уже подключена)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-[12px] text-muted-foreground hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Создать новый шаблон переписки
+          </button>
+        </div>
       )}
 
       <div className="space-y-2">
