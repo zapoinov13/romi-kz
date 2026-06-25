@@ -492,6 +492,42 @@ async function maybeBumpAction(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Auth: service-role bearer (internal cron) OR an admin JWT. Everyone else rejected.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const presented = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let allowed = false;
+  if (presented && presented === SUPABASE_SERVICE_ROLE_KEY) {
+    allowed = true;
+  } else if (presented) {
+    try {
+      const sb = createClient(
+        SUPABASE_URL,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: `Bearer ${presented}` } } },
+      );
+      const { data, error } = await sb.auth.getClaims(presented);
+      if (!error && data?.claims?.sub) {
+        const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: roleRow } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.claims.sub)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (roleRow) allowed = true;
+      }
+    } catch {
+      // reject below
+    }
+  }
+  if (!allowed) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const result = await run({ cabinet_id: body?.cabinet_id, project_id: body?.project_id });

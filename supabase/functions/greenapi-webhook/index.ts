@@ -167,7 +167,10 @@ async function projectFromInstance(
   const expected = row.webhook_token ?? null;
   const envToken = Deno.env.get("GREENAPI_WEBHOOK_TOKEN") ?? null;
   const required = expected || envToken;
-  if (required && required !== presentedToken) {
+  // Fail-closed: if neither a per-instance webhook_token nor the env token is
+  // configured, reject all webhook traffic. This prevents an unauthenticated
+  // caller from injecting fake messages / leads.
+  if (!required || required !== presentedToken) {
     return {
       projectId: row.project_id ?? null,
       ok: false,
