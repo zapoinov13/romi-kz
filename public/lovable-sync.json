@@ -1,7 +1,7 @@
 {
-  "git_sha": "a96160a",
-  "git_sha_full": "a96160accbd69b13cc6a02fa05fb3990e5c69fd3",
-  "updated_at": "2026-06-25T13:04:26+05:00",
-  "label": "Fix Meta campaign launch flow, logo, and campaigns UI.",
+  "git_sha": "95e4c95",
+  "git_sha_full": "95e4c95ae410ca7f813694c93cc3eb243dc870d7",
+  "updated_at": "2026-06-25T13:39:27+05:00",
+  "label": "chore: trigger Vercel deploy with valid commit author email",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
