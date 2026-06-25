@@ -438,16 +438,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Объекты конверсий маппятся к objective Meta:
+    // - Lead/CompleteRegistration/Contact/SubmitApplication/Schedule → OUTCOME_LEADS
+    // - Purchase/AddToCart/InitiateCheckout/AddPaymentInfo → OUTCOME_SALES
+    // - ViewContent/PageView → OUTCOME_ENGAGEMENT (traffic-like)
+    const evUp = (pixelEvent || "Lead").toUpperCase();
+    const salesEvents = new Set(["PURCHASE", "ADD_TO_CART", "INITIATE_CHECKOUT", "ADD_PAYMENT_INFO", "SUBSCRIBE", "START_TRIAL"]);
+    const siteLeadsObjective = salesEvents.has(evUp) ? "OUTCOME_SALES" : "OUTCOME_LEADS";
+
     const campaignBody: Record<string, unknown> = {
       name: inCampaignName,
       objective: isWebsiteGoal
-        ? "OUTCOME_SALES"
+        ? siteLeadsObjective
         : isMetaForm
           ? "OUTCOME_LEADS"
           : isTraffic
             ? "OUTCOME_TRAFFIC"
             : "OUTCOME_ENGAGEMENT",
       special_ad_categories: [],
+
       status: "ACTIVE",
       access_token: accessToken,
     };
