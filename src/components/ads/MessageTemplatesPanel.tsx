@@ -89,16 +89,30 @@ export default function MessageTemplatesPanel({
             Переписки (шаблоны)
           </div>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => setCreating(true)}
-          className="h-7 gap-1 rounded-lg px-2 text-[11px]"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Новый
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleImport}
+            disabled={importing || !pageId}
+            title={pageId ? "Загрузить существующие шаблоны со страницы Facebook" : "В кабинете не указана FB-страница"}
+            className="h-7 gap-1 rounded-lg px-2 text-[11px]"
+          >
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Из Meta
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setCreating(true)}
+            className="h-7 gap-1 rounded-lg px-2 text-[11px]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Новый
+          </Button>
+        </div>
       </div>
 
       <p className="text-[11px] leading-snug text-muted-foreground">
