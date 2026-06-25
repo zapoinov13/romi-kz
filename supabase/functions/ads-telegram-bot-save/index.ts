@@ -15,7 +15,7 @@ function json(body: unknown, status = 200) {
 async function sha256Base64Url(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  let b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 

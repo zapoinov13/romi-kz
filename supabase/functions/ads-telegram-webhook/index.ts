@@ -27,7 +27,7 @@ function json(body: unknown, status = 200) {
 async function sha256Base64Url(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  let b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(digest)));
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
@@ -195,7 +195,7 @@ const HELP_TEXT =
   "Бот найдёт пост в подключённом IG-аккаунте и предложит подтвердить запуск.\n\n" +
   "Русские синонимы: <code>запусти</code>, <code>статус</code>, <code>помощь</code>, <code>кабинеты</code>, <code>дефолты</code>.";
 
-const IG_URL_RE = /https?:\/\/(?:www\.)?instagram\.com\/(?:[^\/\s?]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i;
+const IG_URL_RE = /https?:\/\/(?:www\.)?instagram\.com\/(?:[^/\s?]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i;
 
 function extractIgShortcode(text: string): { shortcode: string; permalink: string } | null {
   const m = text.match(IG_URL_RE);
@@ -210,7 +210,7 @@ async function resolveIgMedia(
   accessToken: string,
 ): Promise<{ id: string; caption: string | null; media_type: string | null; permalink: string | null } | null> {
   let url: string | null =
-    `https://graph.facebook.com/v19.0/${igUserId}/media?fields=id,shortcode,caption,media_type,permalink&limit=100&access_token=${encodeURIComponent(accessToken)}`;
+    `https://graph.facebook.com/v21.0/${igUserId}/media?fields=id,shortcode,caption,media_type,permalink&limit=100&access_token=${encodeURIComponent(accessToken)}`;
   for (let page = 0; page < 5 && url; page++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });

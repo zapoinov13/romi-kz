@@ -207,7 +207,7 @@ export const openai = {
     const t = await r.text();
     if (!r.ok) throw new ProviderError(classify(r.status, t), r.status, t.slice(0, 300));
     // Try OpenAI billing endpoint (works for some legacy keys). Soft-fail otherwise.
-    let balance: any = { amount: null, unit: null, currency: "USD", checked_at: new Date().toISOString() };
+    const balance: Record<string, unknown> = { amount: null, unit: null, currency: "USD", checked_at: new Date().toISOString() };
     try {
       const br = await fetch(`${OPENAI_BASE}/dashboard/billing/credit_grants`, {
         headers: { Authorization: `Bearer ${apiKey}` },

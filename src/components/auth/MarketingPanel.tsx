@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, Target, Megaphone, BarChart3, Sparkles } from "lucide-react";
-import romiLogo from "@/assets/romi-logo.png.asset.json";
+import { RomiLogo } from "@/components/brand/RomiLogo";
 
 const features = [
   {
@@ -42,18 +42,8 @@ export function MarketingPanel() {
       />
 
       {/* nav */}
-      <header className="relative z-10 flex items-center gap-3 px-10 pt-8 text-sm">
-        <img
-          src={romiLogo.url}
-          alt="ROMI"
-          className="h-10 w-10 rounded-full object-cover ring-1 ring-primary/40"
-        />
-        <div className="leading-tight">
-          <div className="text-base font-extrabold tracking-tight text-primary">ROMI</div>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            marketing agency
-          </div>
-        </div>
+      <header className="relative z-10 px-10 pt-8">
+        <RomiLogo size="lg" />
       </header>
 
       {/* content */}

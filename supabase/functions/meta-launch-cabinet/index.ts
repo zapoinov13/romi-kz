@@ -206,6 +206,14 @@ Deno.serve(async (req) => {
   }
 
   // ───── LAUNCH ─────
+  if (cabinet.meta_launched_campaign_id) {
+    return json({
+      error:
+        "Кампания уже запущена в Meta. Используйте pause/resume или создайте новый запуск через мастер.",
+      campaign_id: cabinet.meta_launched_campaign_id,
+    }, 409);
+  }
+
   // Валидация обязательных полей
   const missing: string[] = [];
   if (!cabinet.page_id) missing.push("Facebook Page ID");
@@ -266,7 +274,10 @@ Deno.serve(async (req) => {
       billing_event: "IMPRESSIONS",
       optimization_goal: "CONVERSATIONS",
       destination_type: "WHATSAPP",
-      promoted_object: { page_id: cabinet.page_id },
+      promoted_object: {
+        page_id: cabinet.page_id,
+        whatsapp_phone_number: waPhone,
+      },
       targeting,
       start_time: startISO,
       status: "PAUSED",
@@ -274,7 +285,7 @@ Deno.serve(async (req) => {
     });
 
     // 4) Creative — link_data с CTA WHATSAPP_MESSAGE и ссылкой wa.me
-    const waLink = `https://api.whatsapp.com/send?phone=${waPhone}`;
+    const waLink = `https://wa.me/${waPhone}`;
     const creative = await fb<{ id: string }>("POST", `/${actId}/adcreatives`, token, {
       name: `${campaignName} · creative`,
       object_story_spec: {

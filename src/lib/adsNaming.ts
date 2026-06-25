@@ -142,6 +142,16 @@ export function normalizeWhatsAppNumber(raw: string): string {
   return digits.replace(/^0+/, "");
 }
 
+/** Нормализует выбранный WA-ассет: если пришёл Meta ID — вернёт пустую строку. */
+export function resolveWhatsAppPhoneFromAsset(
+  selected: string,
+  displayPhone?: string,
+): string {
+  const fromDisplay = normalizeWhatsAppNumber(displayPhone ?? "");
+  if (fromDisplay.length >= 10) return fromDisplay;
+  return normalizeWhatsAppNumber(selected);
+}
+
 /** Минимальная валидация URL: должен быть https://… */
 export function isHttpsUrl(s: string): boolean {
   try {

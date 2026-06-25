@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Clock3,
+  CheckCircle2, ChevronDown, ChevronRight,
   Copy, ExternalLink, Eye, EyeOff, Loader2, Power, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -49,19 +49,6 @@ type MetaChild = {
   thumbnail_url?: string | null;
 };
 
-type LaunchCampaign = {
-  id: string;
-  goal: string | null;
-  status: string | null;
-  status_step: string | null;
-  status_message: string | null;
-  last_error: string | null;
-  launch_id: string | null;
-  meta_campaign_id: string | null;
-  created_at: string;
-  status_updated_at: string | null;
-};
-
 const statusColor = (s: string | null) => {
   const v = (s ?? "").toUpperCase();
   if (v === "ACTIVE") return "border-success/30 bg-success/10 text-success";
@@ -80,19 +67,6 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const statusLabel = (s: string | null) =>
   STATUS_LABELS[(s ?? "").toUpperCase()] ?? s ?? "—";
-
-const isLaunchStale = (s: string | null, updatedAt?: string | null) => {
-  const v = (s ?? "queued").toLowerCase();
-  return ["queued", "running"].includes(v) && !!updatedAt && Date.now() - new Date(updatedAt).getTime() > 10 * 60 * 1000;
-};
-const launchStatus = (s: string | null, updatedAt?: string | null) => {
-  const v = (s ?? "queued").toLowerCase();
-  if (isLaunchStale(s, updatedAt)) return { label: "Нет финального статуса", icon: AlertCircle, cls: "border-destructive/30 bg-destructive/10 text-destructive" };
-  if (v === "success") return { label: "Отправлено в Meta", icon: CheckCircle2, cls: "border-success/30 bg-success/10 text-success" };
-  if (v === "error") return { label: "Ошибка запуска", icon: AlertCircle, cls: "border-destructive/30 bg-destructive/10 text-destructive" };
-  if (v === "running") return { label: "Создаётся", icon: Loader2, cls: "border-warning/30 bg-warning/10 text-warning" };
-  return { label: "Отправлено", icon: Clock3, cls: "border-warning/30 bg-warning/10 text-warning" };
-};
 
 async function toggleEntity(entity: EntityKind, metaId: string, nextStatus: "ACTIVE" | "PAUSED") {
   const { data, error } = await supabase.functions.invoke("meta-entity-toggle", {
@@ -822,7 +796,6 @@ const AdsetsList = ({
 
 const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string }) => {
   const [items, setItems] = useState<MetaCampaign[]>([]);
-  const [launches, setLaunches] = useState<LaunchCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
@@ -841,27 +814,9 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
       .order("last_synced_at", { ascending: false });
     if (filter === "active") q = q.eq("status", "ACTIVE");
     else if (filter === "paused") q = q.eq("status", "PAUSED");
-    const [{ data, error }, launchRes] = await Promise.all([
-      q,
-      supabase.from("ad_campaigns")
-        .select("id,goal,status,status_step,status_message,last_error,launch_id,meta_campaign_id,created_at,status_updated_at")
-        .eq("cabinet_id", cabinetId)
-        .in("status", ["running", "success"])
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+    const { data, error } = await q;
     if (error) toast.error(error.message);
     else setItems((data ?? []) as MetaCampaign[]);
-    if (launchRes.error) toast.error(launchRes.error.message);
-    else {
-      const rows = (launchRes.data ?? []) as LaunchCampaign[];
-      setLaunches(rows.filter((l) => {
-        const s = (l.status ?? "").toLowerCase();
-        if (s === "success") return true;
-        if (s === "running" && !isLaunchStale(l.status, l.status_updated_at || l.created_at)) return true;
-        return false;
-      }));
-    }
     setLoading(false);
   }, [cabinetId, filter]);
 
@@ -1004,34 +959,6 @@ const Panel = ({ cabinetId, currency }: { cabinetId: string; currency: string })
           </button>
         </div>
       </div>
-
-      {launches.length > 0 && (
-        <div className="mb-3 space-y-2 rounded-lg border border-border/60 bg-card/30 p-3">
-          <div className="text-xs font-semibold">Последние запуски</div>
-          {launches.map((l) => {
-            const st = launchStatus(l.status, l.status_updated_at || l.created_at);
-            const Icon = st.icon;
-            const isSpinning = (l.status ?? "").toLowerCase() === "running";
-            return (
-              <div key={l.id} className="flex flex-col gap-1 border-t border-border/50 pt-2 first:border-t-0 first:pt-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold", st.cls)}>
-                    <Icon className={cn("h-3 w-3", isSpinning && "animate-spin")} />
-                    {st.label}
-                  </span>
-                  <span className="text-xs font-medium">{l.goal || "Кампания"}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(l.status_updated_at || l.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {l.last_error || l.status_message || l.status_step || (l.meta_campaign_id ? `Meta ID: ${l.meta_campaign_id}` : `Launch ID: ${l.launch_id}`)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">

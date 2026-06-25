@@ -183,7 +183,7 @@ function buildTextDirectives(input: GenInput, slideIndex: number, slidesTotal: n
     // нормализация: убираем длинные тире (mem://index Core правило)
     t = t.replace(/[\u2014\u2013]/g, "-");
     // снимаем метки ролей вида «Хук:», «Оффер:», «CTA:» из текста
-    t = t.replace(/^(хук|стори|оффер|cta|заголовок|подзаголовок|headline|caption)\s*[:\-]\s*/i, "").trim();
+    t = t.replace(/^(хук|стори|оффер|cta|заголовок|подзаголовок|headline|caption)\s*[:-]\s*/i, "").trim();
     t = trimWords(t);
     if (!t) return;
     const key = `${role}::${t}`;

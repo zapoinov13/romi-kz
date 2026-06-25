@@ -135,6 +135,31 @@ export interface CreativeViewState {
   frame: { w: number; h: number };
 }
 
+/** Ожидаем финальный статус запуска в ad_campaigns после таймаута HTTP. */
+async function pollLaunchStatus(
+  launchId: string,
+  maxMs = 45_000,
+): Promise<{ status: "success" | "error" | "pending"; error?: string }> {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const { data } = await supabase
+      .from("ad_campaigns")
+      .select("status, last_error")
+      .eq("launch_id", launchId)
+      .maybeSingle();
+    const st = data?.status;
+    if (st === "success") return { status: "success" };
+    if (st === "error") {
+      return {
+        status: "error",
+        error: (data?.last_error as string | null) || "Ошибка запуска в Meta",
+      };
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return { status: "pending" };
+}
+
 interface CreateCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -969,10 +994,17 @@ const CreateCampaignDialog = ({
           data?.error || `Не удалось отправить (HTTP ${res.status})`;
       }
     } catch (e) {
-      // Таймаут на нашей стороне — считаем «принято» (n8n часто молча работает дальше).
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("aborted") || ctrl.signal.aborted) {
-        accepted = true;
+        const polled = await pollLaunchStatus(payload.launchId);
+        if (polled.status === "success") {
+          accepted = true;
+        } else if (polled.status === "error") {
+          serverError = polled.error ?? "Ошибка запуска в Meta";
+        } else {
+          // Edge-функция ещё работает — не помечаем как ошибку.
+          accepted = true;
+        }
       } else {
         serverError = `Сеть: ${msg}`;
       }

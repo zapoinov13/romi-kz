@@ -62,7 +62,12 @@ const isWhatsappDest = (d: string | null | undefined) => {
 const isWebsiteDest = (d: string | null | undefined) => {
   if (!d) return false;
   const u = d.toUpperCase();
-  return u === "WEBSITE" || u === "ON_AD" || u === "WEBSITE_OR_AD";
+  return u === "WEBSITE" || u === "WEBSITE_OR_AD";
+};
+const isLeadFormDest = (d: string | null | undefined) => {
+  if (!d) return false;
+  const u = d.toUpperCase();
+  return u === "ON_AD" || u.includes("LEAD_FORM") || u.includes("INSTANT_FORM");
 };
 
 export function useDestinationSplit(
@@ -148,6 +153,8 @@ export function useDestinationSplit(
           wa.clicks += clicks;
           // For WA/messenger campaigns, prefer messages; fall back to leads if 0.
           wa.messages += messages > 0 ? messages : leads;
+        } else if (isLeadFormDest(dest)) {
+          // Лид-формы Meta — не смешиваем с сайтом и WhatsApp.
         } else if (isWebsiteDest(dest) || dest === null) {
           // Treat unknown destination as website by default.
           const cab = cabMeta.get(row.cabinet_id as string);

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useMetaPageAssets } from "@/hooks/useMetaPageAssets";
+import { normalizeWhatsAppNumber } from "@/lib/adsNaming";
 import type { AdCabinet } from "@/types/ads";
 
 type Goal = "whatsapp" | "site-leads" | "meta-form" | "traffic";
@@ -139,12 +140,15 @@ const GoalAssetsPicker = ({
             />
           </SelectTrigger>
           <SelectContent>
-            {wa.data.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.display_phone_number}
-                {p.verified_name ? ` - ${p.verified_name}` : ""}
-              </SelectItem>
-            ))}
+            {wa.data.map((p) => {
+              const phoneValue = normalizeWhatsAppNumber(p.display_phone_number);
+              return (
+                <SelectItem key={p.id} value={phoneValue}>
+                  {p.display_phone_number}
+                  {p.verified_name ? ` - ${p.verified_name}` : ""}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </FieldShell>

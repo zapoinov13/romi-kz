@@ -7,7 +7,7 @@
 import { requireUser, userHasRole } from "../_lib/auth.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
-const META_GRAPH = "https://graph.facebook.com/v19.0";
+const META_GRAPH = "https://graph.facebook.com/v21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -301,11 +301,29 @@ Deno.serve(async (req) => {
       client.instagram_user_id,
       client.instagramid,
     );
-    const pixelId = pickStr(client.fb_pixel_id, client.pixel_id, client.pixelid);
-    const pixelEvent = pickStr(client.pixel_event, client.pixelevent) || "Lead";
-    const websiteUrl = pickStr(client.website_url, client.landing_url);
-    const whatsappNumber = pickStr(client.whatsapp_number, client.whatsappnumber);
-    const leadFormId = pickStr(client.lead_form_id, client.leadformid);
+    const pixelId = pickStr(
+      client.fb_pixel_id,
+      client.pixel_id,
+      client.pixelid,
+      payload.pixelId,
+    );
+    const pixelEvent =
+      pickStr(client.pixel_event, client.pixelevent, payload.pixelEvent) || "Lead";
+    const websiteUrl = pickStr(
+      client.website_url,
+      client.landing_url,
+      payload.websiteUrl,
+    );
+    const whatsappNumber = pickStr(
+      client.whatsapp_number,
+      client.whatsappnumber,
+      payload.whatsappNumber,
+    );
+    const leadFormId = pickStr(
+      client.lead_form_id,
+      client.leadformid,
+      payload.leadFormId,
+    );
 
     payload.ACCESS_TOKEN = accessToken;
     payload.accesstoken = accessToken;
@@ -383,6 +401,39 @@ Deno.serve(async (req) => {
 
     // ===== 4b. Имена и тексты креатива (приходят с фронта; есть fallback) =====
     const waDigits = whatsappNumber.replace(/\D/g, "").replace(/^0+/, "");
+
+    const validationError = (() => {
+      if (isWhatsApp) {
+        if (!pageId) return "Для WhatsApp нужен Page ID кабинета.";
+        if (waDigits.length < 10) {
+          return "WhatsApp номер должен содержать минимум 10 цифр (выберите номер из списка Meta).";
+        }
+      }
+      if (isWebsiteGoal) {
+        if (!pixelId) return "Для лидов с сайта выберите пиксель.";
+        if (!websiteUrl || !websiteUrl.startsWith("https://")) {
+          return "Для лидов с сайта нужна ссылка https://…";
+        }
+      }
+      if (isMetaForm) {
+        if (!pageId) return "Для лид-формы Meta нужен Page ID.";
+        if (!leadFormId) return "Выберите лид-форму Meta.";
+      }
+      if (isTraffic) {
+        const url = trafficUrl || websiteUrl;
+        if (!url || !url.startsWith("https://")) {
+          return "Для трафика нужна ссылка https://…";
+        }
+      }
+      return null;
+    })();
+    if (validationError) {
+      return new Response(
+        JSON.stringify({ ok: false, error: validationError, step: "validation" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const dateTag = new Date().toISOString().slice(0, 10);
     const inCampaignName = pickStr(payload.campaignName) ||
       `${goalLabel} · ${cityObj?.name ?? country} · ${dateTag}`;
