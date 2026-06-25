@@ -1,7 +1,7 @@
 {
-  "git_sha": "f32dfe0",
-  "git_sha_full": "f32dfe0a5d45a07cdbdb335e74967ea473ffb26b",
-  "updated_at": "2026-06-25T05:55:36Z",
-  "label": "Исправил пиксель на OUTCOME_LEADS",
+  "git_sha": "a96160a",
+  "git_sha_full": "a96160accbd69b13cc6a02fa05fb3990e5c69fd3",
+  "updated_at": "2026-06-25T13:04:26+05:00",
+  "label": "Fix Meta campaign launch flow, logo, and campaigns UI.",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
