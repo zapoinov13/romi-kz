@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Plus, Copy, Pencil, Trash2, Check, AlertCircle, Loader2, Cloud, X } from "lucide-react";
+import { MessageSquare, Plus, Copy, Pencil, Trash2, Check, AlertCircle, Loader2, Cloud, X, Download } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -36,12 +36,33 @@ export default function MessageTemplatesPanel({
   selectedTemplateId,
   onSelectedTemplateChange,
 }: Props) {
-  const { rows, loading, create, update, duplicate, remove, syncToMeta } =
+  const { rows, loading, create, update, duplicate, remove, syncToMeta, importFromMeta } =
     useCabinetMessageTemplates(cabinetId, projectId);
 
   const [editing, setEditing] = useState<CabinetMessageTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  async function handleImport() {
+    if (!pageId) {
+      toast.error("У кабинета не указана Facebook-страница");
+      return;
+    }
+    setImporting(true);
+    try {
+      const res = await importFromMeta();
+      if (res?.imported && res.imported > 0) {
+        toast.success("Шаблоны из Meta загружены");
+      } else {
+        toast.info(res?.message || "В Meta пока нет шаблонов на этой странице");
+      }
+    } catch (e) {
+      toast.error((e as Error).message || "Не удалось импортировать");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function handleSync(id: string) {
     if (!pageId) {
@@ -68,16 +89,30 @@ export default function MessageTemplatesPanel({
             Переписки (шаблоны)
           </div>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => setCreating(true)}
-          className="h-7 gap-1 rounded-lg px-2 text-[11px]"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Новый
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={handleImport}
+            disabled={importing || !pageId}
+            title={pageId ? "Загрузить существующие шаблоны со страницы Facebook" : "В кабинете не указана FB-страница"}
+            className="h-7 gap-1 rounded-lg px-2 text-[11px]"
+          >
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Из Meta
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => setCreating(true)}
+            className="h-7 gap-1 rounded-lg px-2 text-[11px]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Новый
+          </Button>
+        </div>
       </div>
 
       <p className="text-[11px] leading-snug text-muted-foreground">
@@ -92,14 +127,27 @@ export default function MessageTemplatesPanel({
       )}
 
       {!loading && rows.length === 0 && (
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-[12px] text-muted-foreground hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
-        >
-          <Plus className="h-4 w-4" />
-          Создать первый шаблон переписки
-        </button>
+        <div className="space-y-2">
+          {pageId && (
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importing}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-[12px] text-foreground hover:border-primary/70 hover:bg-primary/10 disabled:opacity-60"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Загрузить шаблоны из Meta (страница уже подключена)
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-[12px] text-muted-foreground hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Создать новый шаблон переписки
+          </button>
+        </div>
       )}
 
       <div className="space-y-2">

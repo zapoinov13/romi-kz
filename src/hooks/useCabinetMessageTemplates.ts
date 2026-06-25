@@ -163,5 +163,21 @@ export function useCabinetMessageTemplates(
     return data;
   }, [refetch]);
 
-  return { rows, loading, error, refetch, create, update, duplicate, remove, syncToMeta };
+  const importFromMeta = useCallback(async () => {
+    if (!cabinetId) throw new Error("Нет активного кабинета");
+    const { data, error: err } = await supabase.functions.invoke(
+      "meta-page-messaging-import",
+      { body: { cabinet_id: cabinetId } },
+    );
+    if (err) throw err;
+    if ((data as { ok?: boolean })?.ok === false) {
+      throw new Error((data as { message?: string; error?: string })?.message
+        || (data as { error?: string })?.error
+        || "Не удалось импортировать");
+    }
+    await refetch();
+    return data as { imported?: number; message?: string };
+  }, [cabinetId, refetch]);
+
+  return { rows, loading, error, refetch, create, update, duplicate, remove, syncToMeta, importFromMeta };
 }
