@@ -1,7 +1,7 @@
 {
-  "git_sha": "fd2399a",
-  "git_sha_full": "fd2399aae7301fcb53872782c1c55b74f83e4ac0",
-  "updated_at": "2026-06-26T18:40:40+05:00",
-  "label": "fix: sidebar RNP label truncation and readable nav text",
+  "git_sha": "35834ea",
+  "git_sha_full": "35834ea7d088cada9a1091671bc7b88365ec7878",
+  "updated_at": "2026-06-26T18:46:24+05:00",
+  "label": "style: Meta Ads Manager white/blue theme across app shell and pages",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
