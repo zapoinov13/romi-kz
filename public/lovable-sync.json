@@ -1,7 +1,7 @@
 {
-  "git_sha": "82db6e9",
-  "git_sha_full": "82db6e94d2590cb017b3387450e2a1050c37de50",
-  "updated_at": "2026-06-26T20:24:25+05:00",
-  "label": "style: Meta Ads Manager shell — dark icon rail, campaigns table UI",
+  "git_sha": "3957d24",
+  "git_sha_full": "3957d246dbcdf00476e7cfdc1d96a05c7a3fecca",
+  "updated_at": "2026-06-26T20:34:10+05:00",
+  "label": "feat: ad automation rules — duplicate winners, smart pause, UI dialog",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
