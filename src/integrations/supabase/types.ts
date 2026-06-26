@@ -1828,6 +1828,7 @@ export type Database = {
           cpm: number
           crm_diagnostic_revenue: number
           crm_diagnostics: number
+          crm_qualified: number
           crm_revenue: number
           crm_sales: number
           ctr: number
@@ -1839,6 +1840,7 @@ export type Database = {
           leads: number
           manual_diagnostic_revenue: number | null
           manual_diagnostics: number | null
+          manual_qualified: number | null
           manual_revenue: number | null
           manual_sales: number | null
           project_id: string | null
@@ -1855,6 +1857,7 @@ export type Database = {
           cpm?: number
           crm_diagnostic_revenue?: number
           crm_diagnostics?: number
+          crm_qualified?: number
           crm_revenue?: number
           crm_sales?: number
           ctr?: number
@@ -1866,6 +1869,7 @@ export type Database = {
           leads?: number
           manual_diagnostic_revenue?: number | null
           manual_diagnostics?: number | null
+          manual_qualified?: number | null
           manual_revenue?: number | null
           manual_sales?: number | null
           project_id?: string | null
@@ -1882,6 +1886,7 @@ export type Database = {
           cpm?: number
           crm_diagnostic_revenue?: number
           crm_diagnostics?: number
+          crm_qualified?: number
           crm_revenue?: number
           crm_sales?: number
           ctr?: number
@@ -1893,6 +1898,7 @@ export type Database = {
           leads?: number
           manual_diagnostic_revenue?: number | null
           manual_diagnostics?: number | null
+          manual_qualified?: number | null
           manual_revenue?: number | null
           manual_sales?: number | null
           project_id?: string | null

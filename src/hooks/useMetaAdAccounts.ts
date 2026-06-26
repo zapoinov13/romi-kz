@@ -1,17 +1,9 @@
 import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
+import type { MetaAccountStatusInfo } from "@/lib/metaAccountStatus";
 
-export interface AvailableMetaAdAccount {
-  id: string;
-  account_id: string;
-  name: string;
-  currency: string;
-  account_status: number;
-  status_label: string;
-  timezone_name: string | null;
-  business_name: string | null;
-}
+export type AvailableMetaAdAccount = MetaAccountStatusInfo;
 
 export type MetaListDiagnostics = {
   meta_hint?: string;

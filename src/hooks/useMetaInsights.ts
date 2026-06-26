@@ -42,6 +42,10 @@ export interface DailyInsightRow {
   crmRevenueOnly: number;
   manualRevenue: number;
   manualDiagnosticRevenueRaw: number | null;
+  /** Квалифицированные лиды (override-aware). */
+  qualified: number;
+  crmQualified: number;
+  manualQualifiedRaw: number | null;
 }
 
 export interface InsightTotals {
@@ -64,6 +68,7 @@ export interface InsightTotals {
   salesRevenue: number;
   /** Override-aware: продажи + оплаты диагностик. Это «выручка факт» в Metrics/Analytics/Dashboard. */
   crmRevenue: number;
+  qualified: number;
 }
 
 export interface InsightsData {
@@ -75,7 +80,7 @@ export interface InsightsData {
 const EMPTY_TOTALS: InsightTotals = {
   spend: 0, impressions: 0, clicks: 0, leads: 0, pixelRevenue: 0, revenue: 0,
   cpl: 0, cpm: 0, cpc: 0, ctr: 0, romi: 0,
-  diagnostics: 0, diagnosticRevenue: 0, sales: 0, salesRevenue: 0, crmRevenue: 0,
+  diagnostics: 0, diagnosticRevenue: 0, sales: 0, salesRevenue: 0, crmRevenue: 0, qualified: 0,
 };
 
 function normalizeActId(id: string) {
@@ -112,6 +117,8 @@ interface CdiRow {
   manual_revenue?: number | string;
   crm_diagnostic_revenue?: number | string;
   manual_diagnostic_revenue?: number | string;
+  crm_qualified?: number;
+  manual_qualified?: number | null;
 }
 
 function aggregate(rows: CdiRow[]): InsightsData {
@@ -139,6 +146,8 @@ function aggregate(rows: CdiRow[]): InsightsData {
       r.manual_diagnostic_revenue,
       crmDiagRev,
     );
+    const crmQualified = Number(r.crm_qualified) || 0;
+    const qualified = resolveCdiMetric(r.manual_qualified, crmQualified);
     const manDiag = isManualOverrideActive(r.manual_diagnostics)
       ? Math.max(0, Number(r.manual_diagnostics) || 0)
       : 0;
@@ -165,6 +174,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
     totals.sales += sales;
     totals.salesRevenue += salesRevenue;
     totals.crmRevenue += totalRevenue;
+    totals.qualified += qualified;
     const cur = dailyMap.get(r.date);
     if (cur) {
       cur.spend += spend;
@@ -200,6 +210,11 @@ function aggregate(rows: CdiRow[]): InsightsData {
       if (isManualOverrideActive(r.manual_diagnostic_revenue)) {
         cur.manualDiagnosticRevenueRaw = Number(r.manual_diagnostic_revenue);
       }
+      if (isManualOverrideActive(r.manual_qualified)) {
+        cur.manualQualifiedRaw = Number(r.manual_qualified);
+      }
+      cur.qualified += qualified;
+      cur.crmQualified += crmQualified;
     } else {
       dailyMap.set(r.date, {
         date: r.date, spend, impressions, clicks, leads,
@@ -215,6 +230,9 @@ function aggregate(rows: CdiRow[]): InsightsData {
         crmRevenue: totalRevenue,
         crmRevenueOnly: crmSalesRev + crmDiagRev,
         manualRevenue: manSalesRev + manDiagRev,
+        qualified,
+        crmQualified,
+        manualQualifiedRaw: isManualOverrideActive(r.manual_qualified) ? Number(r.manual_qualified) : null,
       });
     }
   }
@@ -241,7 +259,7 @@ async function fetchInsights(
   const ids = actIds.map(normalizeActId);
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("date, spend, impressions, clicks, leads, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue")
+    .select("date, spend, impressions, clicks, leads, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified")
     .in("external_id", ids)
     .gte("date", range.since)
     .lte("date", range.until)

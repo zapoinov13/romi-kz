@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
   CalendarDays,
-  Check,
   Download,
   Loader2,
   RefreshCw,
-  Settings2,
   Target,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -20,322 +19,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
 import { useMultiMetaInsights, type DailyInsightRow } from "@/hooks/useMetaInsights";
 import { useFinancePlans, monthKey } from "@/hooks/useFinancePlan";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { useIgFollowersDaily } from "@/hooks/useIgFollowersDaily";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { RnpManualCell } from "@/components/metrics/RnpManualCell";
+import {
+  RNP_COLUMNS,
+  RNP_COLUMN_GROUPS,
+  aggregateRnpSums,
+  fmtTenge,
+  type RnpColumnDef,
+  type RnpColumnGroup,
+} from "@/lib/rnpMetrics";
 
 const MONTHS_GEN_RU = [
   "январь", "февраль", "март", "апрель", "май", "июнь",
   "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
 ];
-
 const WEEKDAYS_RU = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
 
-const formatNumber = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const formatTenge = (n: number) => `${formatNumber(n)} ₸`;
-const formatDecimal = (n: number, digits = 2) =>
-  n.toLocaleString("ru-RU", { maximumFractionDigits: digits, minimumFractionDigits: digits });
-
-// -------- Column registry --------
-
-type MetricKey =
-  | "spend"
-  | "impressions"
-  | "clicks"
-  | "leads"
-  | "cpl"
-  | "cpm"
-  | "cpc"
-  | "ctr"
-  | "new_followers";
-
-interface MetricDef {
-  key: MetricKey;
-  label: string;
-  short: string;
-  help: string;
-  source: "meta" | "instagram";
-  /** Whether plan/% rows make sense for this metric. */
-  hasPlan?: boolean;
-  /** Per-day value extractor. */
-  pick: (
-    day: DailyInsightRow | undefined,
-    ctx: { followers: number },
-  ) => number;
-  /** Totals extractor — for derived metrics computed from sums. */
-  total: (
-    sums: { spend: number; impressions: number; clicks: number; leads: number; followers: number },
-  ) => number;
-  /** Plan value extractor (only when hasPlan). */
-  plan?: (plan: { spend: number; leads: number; cpl: number } | null) => number | null;
-  format: (n: number) => string;
-  /** Empty-cell predicate. */
-  isEmpty?: (n: number) => boolean;
-  /** Optional cell color. */
-  accent?: "default" | "success" | "primary";
-}
-
-const ALL_METRICS: MetricDef[] = [
-  {
-    key: "spend",
-    label: "Расходы",
-    short: "Расходы",
-    help: "Сумма расхода рекламного кабинета Meta (в ₸).",
-    source: "meta",
-    hasPlan: true,
-    pick: (d) => d?.spend ?? 0,
-    total: (s) => s.spend,
-    plan: (p) => p?.spend ?? null,
-    format: formatTenge,
-  },
-  {
-    key: "impressions",
-    label: "Показы",
-    short: "Показы",
-    help: "Количество показов креативов (impressions).",
-    source: "meta",
-    pick: (d) => d?.impressions ?? 0,
-    total: (s) => s.impressions,
-    format: formatNumber,
-  },
-  {
-    key: "clicks",
-    label: "Клики",
-    short: "Клики",
-    help: "Все клики по объявлениям.",
-    source: "meta",
-    pick: (d) => d?.clicks ?? 0,
-    total: (s) => s.clicks,
-    format: formatNumber,
-  },
-  {
-    key: "leads",
-    label: "Лиды",
-    short: "Лиды",
-    help: "Лиды по событиям атрибуции Meta (lead, messaging, on-site lead).",
-    source: "meta",
-    hasPlan: true,
-    pick: (d) => d?.leads ?? 0,
-    total: (s) => s.leads,
-    plan: (p) => p?.leads ?? null,
-    format: formatNumber,
-    accent: "success",
-  },
-  {
-    key: "cpl",
-    label: "Стоимость заявки",
-    short: "CPL",
-    help: "Расходы ÷ лиды. Считается на лету по дневным суммам.",
-    source: "meta",
-    hasPlan: true,
-    pick: (d) => (d && d.leads > 0 ? d.spend / d.leads : 0),
-    total: (s) => (s.leads > 0 ? s.spend / s.leads : 0),
-    plan: (p) => p?.cpl ?? null,
-    format: formatTenge,
-  },
-  {
-    key: "cpm",
-    label: "Цена 1000 показов",
-    short: "CPM",
-    help: "Расходы ÷ показы × 1000.",
-    source: "meta",
-    pick: (d) => (d && d.impressions > 0 ? (d.spend / d.impressions) * 1000 : 0),
-    total: (s) => (s.impressions > 0 ? (s.spend / s.impressions) * 1000 : 0),
-    format: formatTenge,
-  },
-  {
-    key: "cpc",
-    label: "Цена клика",
-    short: "CPC",
-    help: "Расходы ÷ клики.",
-    source: "meta",
-    pick: (d) => (d && d.clicks > 0 ? d.spend / d.clicks : 0),
-    total: (s) => (s.clicks > 0 ? s.spend / s.clicks : 0),
-    format: formatTenge,
-  },
-  {
-    key: "ctr",
-    label: "Кликабельность",
-    short: "CTR",
-    help: "Клики ÷ показы × 100%.",
-    source: "meta",
-    pick: (d) => (d && d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0),
-    total: (s) => (s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0),
-    format: (n) => `${formatDecimal(n, 2)}%`,
-  },
-  {
-    key: "new_followers",
-    label: "Подписчики Instagram",
-    short: "Подписчики",
-    help: "Прирост подписчиков Instagram по дням (instagram_account_daily.new_followers). Привязка по проекту.",
-    source: "instagram",
-    pick: (_d, ctx) => ctx.followers,
-    total: (s) => s.followers,
-    format: formatNumber,
-    accent: "primary",
-  },
-];
-
-const METRICS_INDEX: Record<MetricKey, MetricDef> = Object.fromEntries(
-  ALL_METRICS.map((m) => [m.key, m]),
-) as Record<MetricKey, MetricDef>;
-
-const DEFAULT_COLUMNS: MetricKey[] = [
-  "spend",
-  "impressions",
-  "clicks",
-  "leads",
-  "cpl",
-  "new_followers",
-];
-
-const STORAGE_KEY = "metrics.columns.v1";
-
-function loadColumns(): MetricKey[] {
-  if (typeof window === "undefined") return DEFAULT_COLUMNS;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_COLUMNS;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return DEFAULT_COLUMNS;
-    const valid = parsed.filter(
-      (k): k is MetricKey => typeof k === "string" && k in METRICS_INDEX,
-    );
-    return valid.length > 0 ? valid : DEFAULT_COLUMNS;
-  } catch {
-    return DEFAULT_COLUMNS;
-  }
-}
-
-// -------- Components --------
-
-const Cell = ({
-  children,
-  align = "right",
-}: {
-  children: React.ReactNode;
-  align?: "left" | "right";
-}) => (
-  <td
-    className={cn(
-      "whitespace-nowrap px-3 py-2 text-xs tabular-nums",
-      align === "right" ? "text-right" : "text-left",
-    )}
-  >
-    {children}
-  </td>
-);
+const GROUP_ORDER: RnpColumnGroup[] = ["ads", "crm", "funnel", "money"];
 
 const Dash = () => <span className="text-muted-foreground/40">—</span>;
 
-interface ColumnPickerProps {
-  selected: MetricKey[];
-  onChange: (next: MetricKey[]) => void;
+function groupSpans(): { group: RnpColumnGroup; span: number }[] {
+  return GROUP_ORDER.map((g) => ({
+    group: g,
+    span: RNP_COLUMNS.filter((c) => c.group === g).length,
+  })).filter((x) => x.span > 0);
 }
-
-const ColumnPicker = ({ selected, onChange }: ColumnPickerProps) => {
-  const selectedSet = new Set(selected);
-  const toggle = (key: MetricKey) => {
-    if (selectedSet.has(key)) {
-      if (selected.length <= 1) return; // keep at least one
-      onChange(selected.filter((k) => k !== key));
-    } else {
-      // preserve ALL_METRICS order
-      const next = ALL_METRICS.map((m) => m.key).filter(
-        (k) => selectedSet.has(k) || k === key,
-      );
-      onChange(next);
-    }
-  };
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-12 gap-2 rounded-2xl border-border/60"
-          title="Колонки таблицы"
-        >
-          <Settings2 className="h-4 w-4" />
-          Колонки
-          <span className="ml-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
-            {selected.length}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 rounded-2xl border-border/70 p-3">
-        <div className="flex items-center justify-between pb-2">
-          <div className="text-sm font-semibold">Показывать колонки</div>
-          <button
-            type="button"
-            className="text-[11px] font-medium text-primary hover:underline"
-            onClick={() => onChange(DEFAULT_COLUMNS)}
-          >
-            Сбросить
-          </button>
-        </div>
-        <div className="space-y-1">
-          {ALL_METRICS.map((m) => {
-            const active = selectedSet.has(m.key);
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => toggle(m.key)}
-                className={cn(
-                  "flex w-full items-start gap-3 rounded-xl border border-transparent px-3 py-2 text-left transition-colors",
-                  "hover:border-border/60 hover:bg-card/60",
-                  active && "border-primary/30 bg-primary/5",
-                )}
-              >
-                <span
-                  className={cn(
-                    "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border/60 bg-background/40",
-                  )}
-                >
-                  {active && <Check className="h-3 w-3" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    {m.label}
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider",
-                        m.source === "instagram"
-                          ? "bg-primary/15 text-primary"
-                          : "bg-success/15 text-success",
-                      )}
-                    >
-                      {m.source === "instagram" ? "IG" : "Meta"}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                    {m.help}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
-// -------- Page --------
 
 const Metrics = () => {
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
@@ -344,15 +65,6 @@ const Metrics = () => {
   const { cabinets } = usePersonalCabinets();
   const { activeId: projectId } = useProjectsStore();
   const [resyncing, setResyncing] = useState(false);
-  const [columns, setColumns] = useState<MetricKey[]>(() => loadColumns());
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
-    } catch {
-      /* ignore */
-    }
-  }, [columns]);
 
   const monthParam = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}`;
 
@@ -361,11 +73,17 @@ const Metrics = () => {
     [cabinets],
   );
 
+  const selectedCabinet = useMemo(
+    () => (cabinetId === "all" ? null : cabinets.find((c) => c.id === cabinetId) ?? null),
+    [cabinetId, cabinets],
+  );
+
   const actIds = useMemo(() => {
     if (cabinetId === "all") return allActIds;
-    const cab = cabinets.find((c) => c.id === cabinetId);
-    return cab?.externalId ? [cab.externalId] : [];
-  }, [cabinetId, allActIds, cabinets]);
+    return selectedCabinet?.externalId ? [selectedCabinet.externalId] : [];
+  }, [cabinetId, allActIds, selectedCabinet]);
+
+  const canEditManual = Boolean(selectedCabinet);
 
   const { data, loading, error, refresh } = useMultiMetaInsights(
     actIds,
@@ -373,20 +91,24 @@ const Metrics = () => {
     actIds.length > 0,
   );
 
-  const { byDate: followersByDate } = useIgFollowersDaily(projectId, monthParam);
-
   const { getPlan } = useFinancePlans();
   const planSrc = getPlan(monthKey(monthCursor));
   const plan = planSrc
-    ? { spend: planSrc.spend, leads: planSrc.leads, cpl: planSrc.cpl }
+    ? {
+        spend: planSrc.spend,
+        leads: planSrc.leads,
+        diagnostics: planSrc.visits,
+        sales: planSrc.sales,
+        revenue: planSrc.revenue,
+      }
     : null;
 
-  // Days in selected month
   const daysInMonth = new Date(
     monthCursor.getFullYear(),
     monthCursor.getMonth() + 1,
     0,
   ).getDate();
+
   const monthDays = useMemo(() => {
     return Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
@@ -406,45 +128,97 @@ const Metrics = () => {
     let n = 0;
     for (const { iso } of monthDays) {
       const d = dailyByDate.get(iso);
-      const f = followersByDate.get(iso) ?? 0;
-      if ((d && (d.spend > 0 || d.leads > 0 || d.impressions > 0 || d.clicks > 0)) || f > 0) {
-        n += 1;
-      }
+      if (d && (d.spend > 0 || d.leads > 0)) n += 1;
     }
     return n;
-  }, [monthDays, dailyByDate, followersByDate]);
+  }, [monthDays, dailyByDate]);
+
   const monthProgress = Math.round((filledDays / daysInMonth) * 100);
-
-  const totalsSum = useMemo(() => {
-    const sums = { spend: 0, impressions: 0, clicks: 0, leads: 0, followers: 0 };
-    for (const { iso } of monthDays) {
-      const d = dailyByDate.get(iso);
-      if (d) {
-        sums.spend += d.spend;
-        sums.impressions += d.impressions;
-        sums.clicks += d.clicks;
-        sums.leads += d.leads;
-      }
-      sums.followers += followersByDate.get(iso) ?? 0;
-    }
-    return sums;
-  }, [monthDays, dailyByDate, followersByDate]);
-
-  const selectedDefs = useMemo(
-    () => columns.map((k) => METRICS_INDEX[k]).filter(Boolean),
-    [columns],
+  const totals = useMemo(
+    () => aggregateRnpSums(data?.daily ?? []),
+    [data],
   );
 
+  const upsertManual = async (isoDate: string, patch: Record<string, number | null>) => {
+    if (!selectedCabinet) return;
+    try {
+      const { data: existing } = await supabase
+        .from("cabinet_daily_insights")
+        .select("id")
+        .eq("cabinet_id", selectedCabinet.id)
+        .eq("date", isoDate)
+        .maybeSingle();
+      if (existing?.id) {
+        const { error: updErr } = await supabase
+          .from("cabinet_daily_insights")
+          .update(patch)
+          .eq("id", existing.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase.from("cabinet_daily_insights").insert({
+          cabinet_id: selectedCabinet.id,
+          external_id: selectedCabinet.externalId,
+          project_id: projectId,
+          date: isoDate,
+          ...patch,
+        });
+        if (insErr) throw insErr;
+      }
+      toast.success("Сохранено");
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить");
+    }
+  };
+
+  const renderCell = (def: RnpColumnDef, d: DailyInsightRow | undefined, iso: string) => {
+    const v = def.pick(d);
+    const empty = !Number.isFinite(v) || v <= 0;
+
+    if (def.kind === "manual" && def.manualField && d) {
+      const manualRaw =
+        def.manualField === "manual_qualified"
+          ? d.manualQualifiedRaw
+          : def.manualField === "manual_diagnostics"
+          ? d.manualDiagnosticsRaw
+          : def.manualField === "manual_sales"
+          ? d.manualSalesRaw
+          : d.manualSalesRevenueRaw;
+      const crmVal =
+        def.manualField === "manual_qualified"
+          ? d.crmQualified
+          : def.manualField === "manual_diagnostics"
+          ? d.crmDiagnostics
+          : def.manualField === "manual_sales"
+          ? d.crmSales
+          : d.crmSalesRevenueOnly;
+
+      return (
+        <RnpManualCell
+          value={v}
+          crmValue={crmVal}
+          manualRaw={manualRaw}
+          format={def.format}
+          title={def.label}
+          allowDecimal={def.manualField === "manual_revenue"}
+          disabled={!canEditManual}
+          onSave={(val) => upsertManual(iso, { [def.manualField!]: val })}
+        />
+      );
+    }
+
+    return empty ? <Dash /> : <span className="tabular-nums">{def.format(v)}</span>;
+  };
+
   const handleExportCsv = () => {
-    const header = ["Дата", "День", ...selectedDefs.map((d) => d.short)];
+    const header = ["Дата", "День", ...RNP_COLUMNS.map((c) => c.short)];
     const rows = monthDays.map(({ day, iso, weekday }) => {
       const d = dailyByDate.get(iso);
-      const followers = followersByDate.get(iso) ?? 0;
       return [
         iso,
         `${String(day).padStart(2, "0")} ${weekday}`,
-        ...selectedDefs.map((def) => {
-          const v = def.pick(d, { followers });
+        ...RNP_COLUMNS.map((def) => {
+          const v = def.pick(d);
           return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0;
         }),
       ];
@@ -463,7 +237,7 @@ const Metrics = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `metrics-${monthParam}.csv`;
+    a.download = `rnp-${monthParam}${selectedCabinet ? `-${selectedCabinet.name}` : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -478,13 +252,12 @@ const Metrics = () => {
       const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
       const monthEnd = lastDay < yesterday ? lastDay : yesterday;
       const until = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, "0")}-${String(monthEnd.getDate()).padStart(2, "0")}`;
-      const targetCab = cabinetId !== "all" ? cabinets.find((c) => c.id === cabinetId) : null;
       const body: Record<string, string> = { since, until };
-      if (targetCab) body.cabinet_id = targetCab.id;
+      if (selectedCabinet) body.cabinet_id = selectedCabinet.id;
       const { error: invErr } = await supabase.functions.invoke("meta-daily-sync", { body });
       if (invErr) throw invErr;
       refresh();
-      toast.success(`Синхронизация ${since} → ${until} выполнена`);
+      toast.success(`Синхронизация ${since} → ${until}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось синхронизировать");
     } finally {
@@ -492,34 +265,72 @@ const Metrics = () => {
     }
   };
 
+  const pct = (fact: number, planVal: number | undefined) =>
+    planVal && planVal > 0 ? Math.round((fact / planVal) * 100) : null;
+
   return (
     <PageContainer>
       <PageHeader
         icon={CalendarDays}
-        title="Таблица показателей"
-        description={`${filledDays} дней с данными из ${daysInMonth}`}
+        title="РНП · Таблица показателей"
+        description={`Данные Meta за ${filledDays} из ${daysInMonth} дней · ${data?.currency === "KZT" ? "в тенге" : data?.currency ?? "₸"}`}
         meta={
           <div className="hidden min-w-[180px] flex-col gap-1 sm:flex">
             <Progress value={monthProgress} className="h-2" />
             <span className="text-right text-[11px] font-medium text-success">
-              {monthProgress}% месяца
+              {monthProgress}% месяца заполнено
             </span>
           </div>
         }
       />
 
+      {/* KPI cards */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          icon={Wallet}
+          label="Выручка"
+          value={fmtTenge(totals.revenue)}
+          sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "план не задан"}
+          tone="success"
+        />
+        <KpiCard
+          icon={BarChart3}
+          label="Расходы на рекламу"
+          value={fmtTenge(totals.spend)}
+          sub={`${fmtNum(totals.leads)} лидов · ${pct(totals.spend, plan?.spend) ?? "—"}% плана`}
+          tone="primary"
+        />
+        <KpiCard
+          icon={Target}
+          label="Воронка"
+          value={`КЭВ: ${fmtNum(totals.kev)}`}
+          sub={`Продажи: ${totals.sales > 0 ? fmtNum(totals.sales) : "—"}`}
+          tone="warning"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="Эффективность"
+          value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"}
+          sub={
+            totals.sales > 0
+              ? `CAC ${fmtTenge(totals.spend / totals.sales)} · конв. ${((totals.sales / totals.leads) * 100).toFixed(0)}%`
+              : "CAC и конверсия — после продаж"
+          }
+          tone="muted"
+        />
+      </div>
+
       {/* Controls */}
-      <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <PeriodPicker range={period} onChange={setPeriod} />
-
           <Select value={cabinetId} onValueChange={setCabinetId}>
-            <SelectTrigger className="h-12 min-w-[220px] rounded-2xl border-border/60 bg-card/60">
+            <SelectTrigger className="h-11 min-w-[220px] rounded-xl border-border/60 bg-card/60">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Все кабинеты" />
+              <SelectValue placeholder="Кабинет" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все кабинеты</SelectItem>
+              <SelectItem value="all">Все кабинеты (сводка)</SelectItem>
               {cabinets.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -527,209 +338,202 @@ const Metrics = () => {
               ))}
             </SelectContent>
           </Select>
-
-          <ColumnPicker selected={columns} onChange={setColumns} />
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {plan ? "План задан" : "План не задан"}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            className="h-12 gap-2 rounded-2xl border-border/60"
+            className="h-11 gap-2 rounded-xl"
             onClick={handleResync}
             disabled={resyncing || actIds.length === 0}
-            title="Перетянуть данные с 1 числа выбранного месяца"
           >
             {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Пересинхронизировать
+            Синхронизация
           </Button>
-          <Button
-            variant="outline"
-            className="h-12 gap-2 rounded-2xl border-border/60"
-            onClick={handleExportCsv}
-          >
+          <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleExportCsv}>
             <Download className="h-4 w-4" />
-            Экспорт CSV
+            CSV
           </Button>
         </div>
       </div>
 
+      {!canEditManual && (
+        <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          Выберите <b>один кабинет</b>, чтобы вручную вводить квал-лиды, КЭВ, продажи и оплаты. Данные хранятся отдельно по каждому кабинету.
+        </div>
+      )}
+
       {error && (
-        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <div className="font-semibold">Не удалось загрузить статистику</div>
-            <div className="mt-0.5 text-xs opacity-90">{error}</div>
-          </div>
+          <div>{error}</div>
+        </div>
+      )}
+
+      {/* Plan / Fact summary */}
+      {plan && (
+        <div className="mt-4 grid gap-2 rounded-xl border border-border/60 bg-card/40 p-4 sm:grid-cols-3">
+          <PlanFactRow label="Расходы" plan={plan.spend} fact={totals.spend} format={fmtTenge} />
+          <PlanFactRow label="Лиды" plan={plan.leads} fact={totals.leads} format={fmtNum} />
+          <PlanFactRow label="КЭВ" plan={plan.diagnostics} fact={totals.kev} format={fmtNum} />
+          <PlanFactRow label="Продажи" plan={plan.sales} fact={totals.sales} format={fmtNum} />
+          <PlanFactRow label="Выручка" plan={plan.revenue} fact={totals.revenue} format={fmtTenge} />
         </div>
       )}
 
       {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/40">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/30">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-xs">
-            <colgroup>
-              <col className="w-[110px]" />
-              {selectedDefs.map((d) => (
-                <col key={d.key} className="w-[120px]" />
-              ))}
-            </colgroup>
+          <table className="w-full min-w-[960px] border-collapse text-xs">
             <thead>
-              <tr className="border-b border-border/60 bg-card/60">
-                <th className="sticky left-0 z-10 bg-card/80 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur">
+              <tr className="border-b border-border/60">
+                <th
+                  rowSpan={2}
+                  className="sticky left-0 z-20 min-w-[88px] border-r border-border/40 bg-card/90 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur"
+                >
                   Дата
                 </th>
-                {selectedDefs.map((d) => (
+                {groupSpans().map(({ group, span }) => (
                   <th
-                    key={d.key}
-                    title={d.help}
-                    className="whitespace-nowrap px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                    key={group}
+                    colSpan={span}
+                    className={cn(
+                      "border-r border-border/40 px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider",
+                      RNP_COLUMN_GROUPS[group].headerClass,
+                    )}
                   >
-                    <span className="inline-flex items-center justify-end gap-1.5">
-                      {d.short}
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 py-0.5 text-[8px] font-bold",
-                          d.source === "instagram"
-                            ? "bg-primary/15 text-primary"
-                            : "bg-success/15 text-success",
-                        )}
-                      >
-                        {d.source === "instagram" ? "IG" : "Meta"}
-                      </span>
-                    </span>
+                    {RNP_COLUMN_GROUPS[group].label}
+                  </th>
+                ))}
+              </tr>
+              <tr className="border-b border-border/60 bg-card/50">
+                {RNP_COLUMNS.map((col) => (
+                  <th
+                    key={col.key}
+                    title={col.help}
+                    className="whitespace-nowrap px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {col.short}
                   </th>
                 ))}
               </tr>
             </thead>
-
             <tbody>
-              {/* Plan row */}
-              <tr className="border-b border-border/60">
-                <td className="sticky left-0 z-[1] bg-card/60 px-3 py-2 backdrop-blur">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-success/10 text-success">
-                      <Target className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-success">
-                      План
-                    </span>
-                  </div>
+              {/* Fact total row */}
+              <tr className="border-b border-border/60 bg-card/40 font-semibold">
+                <td className="sticky left-0 z-10 border-r border-border/40 bg-card/80 px-3 py-2 backdrop-blur">
+                  Итого
                 </td>
-                {selectedDefs.map((d) => {
-                  const v = d.hasPlan && d.plan ? d.plan(plan) : null;
+                {RNP_COLUMNS.map((def) => {
+                  const v = def.total(totals);
                   return (
-                    <Cell key={d.key}>
-                      {v != null && v > 0 ? d.format(v) : <Dash />}
-                    </Cell>
+                    <td key={def.key} className="px-2 py-2 text-right tabular-nums">
+                      {v > 0 ? def.format(v) : <Dash />}
+                    </td>
                   );
                 })}
               </tr>
 
-              {/* Fact row */}
-              <tr className="border-b border-border/60 bg-card/30">
-                <td className="sticky left-0 z-[1] bg-card/70 px-3 py-2 backdrop-blur">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/15 text-primary">
-                      <BarChart3 className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-wider">
-                      Факт
-                    </span>
-                  </div>
-                </td>
-                {selectedDefs.map((d) => {
-                  const v = d.total(totalsSum);
-                  return (
-                    <Cell key={d.key}>
-                      <span
-                        className={cn(
-                          "font-bold",
-                          d.accent === "success" && "text-success",
-                          d.accent === "primary" && "text-primary",
-                        )}
-                      >
-                        {v > 0 ? d.format(v) : <Dash />}
-                      </span>
-                    </Cell>
-                  );
-                })}
-              </tr>
-
-              {/* % completion */}
-              <tr className="border-b border-border/60">
-                <td className="sticky left-0 z-[1] bg-card/60 px-3 py-2 backdrop-blur">
-                  <div className="flex items-center gap-2">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-warning/15 text-warning">
-                      <TrendingUp className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-warning">
-                      % выполн.
-                    </span>
-                  </div>
-                </td>
-                {selectedDefs.map((d) => {
-                  const fact = d.total(totalsSum);
-                  const planV = d.hasPlan && d.plan ? d.plan(plan) : null;
-                  if (!planV || planV <= 0) return <Cell key={d.key}><Dash /></Cell>;
-                  const pct = Math.round((fact / planV) * 100);
-                  return (
-                    <Cell key={d.key}>
-                      <span className="font-semibold text-warning">{pct}%</span>
-                    </Cell>
-                  );
-                })}
-              </tr>
-
-              {/* Daily rows */}
               {monthDays.map(({ day, iso, weekday }) => {
                 const d = dailyByDate.get(iso);
-                const followers = followersByDate.get(iso) ?? 0;
+                const isWeekend = weekday === "Сб" || weekday === "Вс";
                 return (
                   <tr
                     key={iso}
-                    className="border-b border-border/30 transition-colors hover:bg-card/40"
+                    className={cn(
+                      "border-b border-border/20 transition-colors hover:bg-card/50",
+                      isWeekend && "bg-muted/10",
+                    )}
                   >
-                    <td className="sticky left-0 z-[1] bg-background/80 px-3 py-2 text-xs backdrop-blur">
-                      <span className="font-medium tabular-nums">
-                        {String(day).padStart(2, "0")}
-                      </span>
+                    <td className="sticky left-0 z-10 border-r border-border/40 bg-background/90 px-3 py-2 backdrop-blur">
+                      <span className="font-semibold tabular-nums">{String(day).padStart(2, "0")}</span>
                       <span className="ml-1 text-muted-foreground">{weekday}</span>
                     </td>
-                    {selectedDefs.map((def) => {
-                      const v = def.pick(d, { followers });
-                      const empty = !Number.isFinite(v) || v <= 0;
-                      return (
-                        <Cell key={def.key}>
-                          {empty ? <Dash /> : def.format(v)}
-                        </Cell>
-                      );
-                    })}
+                    {RNP_COLUMNS.map((def) => (
+                      <td key={def.key} className="px-2 py-1.5 text-right">
+                        {renderCell(def, d, iso)}
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-
         {loading && (
-          <div className="flex items-center justify-center gap-2 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 border-t border-border/60 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Загружаем данные за {MONTHS_GEN_RU[monthCursor.getMonth()]} {monthCursor.getFullYear()}...
+            Загрузка {MONTHS_GEN_RU[monthCursor.getMonth()]} {monthCursor.getFullYear()}…
           </div>
         )}
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        Метрики Meta — из <code className="rounded bg-muted/40 px-1">cabinet_daily_insights</code>{" "}
-        (расходы, показы, клики, лиды). Прирост подписчиков — из{" "}
-        <code className="rounded bg-muted/40 px-1">instagram_account_daily</code> по активному
-        проекту. Колонки настраиваются и запоминаются в браузере.
+      <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+        <b>Реклама</b> — автоматически из Meta (затраты в ₸ после синхронизации).{" "}
+        <b>Квал, КЭВ, продажи, оплаты</b> — вручную по выбранному кабинету, не смешиваются между проектами.
+        Формулы CPL, CPQL, CP КЭВ, конверсия и CAC считаются на лету.
       </p>
     </PageContainer>
   );
 };
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  value: string;
+  sub: string;
+  tone: "success" | "primary" | "warning" | "muted";
+}) {
+  const tones = {
+    success: "border-success/30 bg-success/5",
+    primary: "border-primary/30 bg-primary/5",
+    warning: "border-warning/30 bg-warning/5",
+    muted: "border-border/60 bg-card/40",
+  };
+  return (
+    <div className={cn("rounded-2xl border p-4", tones[tone])}>
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-bold tabular-nums">{value}</div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+function PlanFactRow({
+  label,
+  plan,
+  fact,
+  format,
+}: {
+  label: string;
+  plan: number;
+  fact: number;
+  format: (n: number) => string;
+}) {
+  const p = plan > 0 ? Math.round((fact / plan) * 100) : null;
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">
+        <span className="font-semibold">{format(fact)}</span>
+        <span className="mx-1 text-muted-foreground/50">/</span>
+        <span className="text-muted-foreground">{plan > 0 ? format(plan) : "—"}</span>
+        {p != null && (
+          <span className={cn("ml-2 font-medium", p >= 100 ? "text-success" : "text-warning")}>
+            {p}%
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
 
 export default Metrics;

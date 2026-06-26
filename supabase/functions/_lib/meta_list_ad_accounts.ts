@@ -1,3 +1,9 @@
+import {
+  ACCOUNT_DETAIL_FIELDS,
+  parseMetaAccountStatus,
+  type MetaAccountStatusPayload,
+} from "./meta_account_status.ts";
+
 const META_API_VERSION = "v21.0";
 
 export const AD_ACCOUNT_STATUS_LABEL: Record<number, string> = {
@@ -24,20 +30,15 @@ type AdAccountRow = {
   name?: string;
   currency?: string;
   account_status?: number;
+  disable_reason?: number;
+  balance?: string | number;
+  is_prepay_account?: boolean;
   timezone_name?: string;
   business?: { name?: string };
+  funding_source_details?: { display_string?: string; type?: number };
 };
 
-export type ListedAdAccount = {
-  id: string;
-  account_id: string;
-  name: string;
-  currency: string;
-  account_status: number;
-  status_label: string;
-  timezone_name: string | null;
-  business_name: string | null;
-};
+export type ListedAdAccount = MetaAccountStatusPayload;
 
 export type MetaAdAccountsFetchResult = {
   rows: AdAccountRow[];
@@ -46,8 +47,7 @@ export type MetaAdAccountsFetchResult = {
   meta_hint?: string;
 };
 
-const ACCOUNT_FIELDS =
-  "id,account_id,name,currency,account_status,timezone_name,business{name}";
+const ACCOUNT_FIELDS = ACCOUNT_DETAIL_FIELDS;
 
 async function graphGet(token: string, path: string): Promise<Record<string, unknown>> {
   const sep = path.includes("?") ? "&" : "?";
@@ -177,19 +177,7 @@ export function mapAdAccounts(
 ): ListedAdAccount[] {
   const exclude = new Set(excludeActIds.map((x) => normalizeActId(String(x))));
   return rows
-    .map((a) => {
-      const id = normalizeActId(String(a.id ?? a.account_id ?? ""));
-      return {
-        id,
-        account_id: a.account_id ?? id.replace(/^act_/, ""),
-        name: a.name ?? id,
-        currency: a.currency ?? "KZT",
-        account_status: a.account_status ?? 0,
-        status_label: AD_ACCOUNT_STATUS_LABEL[a.account_status ?? 0] ?? "unknown",
-        timezone_name: a.timezone_name ?? null,
-        business_name: a.business?.name ?? null,
-      };
-    })
+    .map((a) => parseMetaAccountStatus(a))
     .filter((a) => a.id && !exclude.has(a.id))
     .sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }

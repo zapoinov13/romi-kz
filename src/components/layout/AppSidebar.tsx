@@ -1,4 +1,4 @@
-import { LayoutGrid, Target, Settings } from "lucide-react";
+import { LayoutGrid, Target, Settings, Table2 } from "lucide-react";
 
 
 import { NavLink, useLocation } from "react-router-dom";
@@ -35,6 +35,10 @@ const marketing: NavItem[] = [
   { title: "Управление рекламой", url: "/ads", icon: Target },
 ];
 
+const analytics: NavItem[] = [
+  { title: "Таблица показателей", url: "/metrics", icon: Table2 },
+];
+
 const system: NavItem[] = [
   { title: "Настройки", url: "/settings", icon: Settings },
 ];
@@ -42,6 +46,7 @@ const system: NavItem[] = [
 function buildGroups(_activeProjectId: string): { label: string; items: NavItem[] }[] {
   return [
     { label: "Маркетинг", items: marketing },
+    { label: "Аналитика", items: analytics },
   ];
 }
 

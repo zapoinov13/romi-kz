@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CabinetCampaignsPanel from "@/components/ads/CabinetCampaignsPanel";
 import CabinetKpiDialog from "@/components/ads/CabinetKpiDialog";
+import { MetaAccountStatusInline } from "@/components/ads/MetaAccountStatusBlock";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -236,6 +237,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
                   Только список
                 </span>
               )}
+              <MetaAccountStatusInline actId={cabinet.externalId} compact className="w-full sm:w-auto" />
               {loading && (
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               )}

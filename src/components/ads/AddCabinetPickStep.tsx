@@ -22,30 +22,7 @@ import {
   type AvailableMetaAdAccount,
   type MetaListDiagnostics,
 } from "@/hooks/useMetaAdAccounts";
-
-const STATUS_RU: Record<string, string> = {
-  active: "Активен",
-  disabled: "Отключён",
-  unsettled: "Не урегулирован",
-  pending_risk_review: "Проверка риска",
-  pending_settlement: "Ожидает расчёта",
-  in_grace_period: "Грейс-период",
-  pending_closure: "Закрывается",
-  closed: "Закрыт",
-  unknown: "Неизвестно",
-};
-
-const STATUS_TONE: Record<string, string> = {
-  active: "border-success/40 bg-success/10 text-success",
-  disabled: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
-  unsettled: "border-warning/40 bg-warning/10 text-warning",
-  pending_risk_review: "border-warning/40 bg-warning/10 text-warning",
-  pending_settlement: "border-warning/40 bg-warning/10 text-warning",
-  in_grace_period: "border-warning/40 bg-warning/10 text-warning",
-  pending_closure: "border-destructive/40 bg-destructive/10 text-destructive",
-  closed: "border-destructive/40 bg-destructive/10 text-destructive",
-  unknown: "border-border bg-muted/30 text-muted-foreground",
-};
+import { MetaAccountStatusBlock } from "@/components/ads/MetaAccountStatusBlock";
 
 function normalizeActId(id: string): string {
   const t = id.trim();
@@ -71,8 +48,6 @@ function AccountRow({
   badge?: string;
   onSelect?: () => void;
 }) {
-  const statusKey = acc.status_label in STATUS_TONE ? acc.status_label : "unknown";
-  const tone = STATUS_TONE[statusKey];
   const inner = (
     <>
       <span
@@ -101,9 +76,17 @@ function AccountRow({
           {acc.id}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-medium", tone)}>
-            {STATUS_RU[statusKey] ?? statusKey}
-          </span>
+          {acc.account_status === 1 ? (
+            <span className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
+              Активен
+            </span>
+          ) : acc.status_title ? (
+            <MetaAccountStatusBlock status={acc} compact />
+          ) : (
+            <span className="rounded-md border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {acc.status_label}
+            </span>
+          )}
           <span className="rounded-md border border-border/60 bg-background/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {acc.currency}
           </span>
@@ -174,7 +157,7 @@ export function AddCabinetPickStep({
   const [listError, setListError] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<MetaListDiagnostics | null>(null);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "other">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "payment" | "other">("all");
 
   const existingSet = useMemo(
     () => new Set(existingActIds.map(normalizeActId).filter(Boolean)),
@@ -194,8 +177,9 @@ export function AddCabinetPickStep({
   const filteredNew = useMemo(() => {
     const q = query.trim().toLowerCase();
     return newAccounts.filter((a) => {
-      if (statusFilter === "active" && a.status_label !== "active") return false;
-      if (statusFilter === "other" && a.status_label === "active") return false;
+      if (statusFilter === "active" && a.account_status !== 1) return false;
+      if (statusFilter === "payment" && !a.needs_payment) return false;
+      if (statusFilter === "other" && (a.account_status === 1 || a.needs_payment)) return false;
       if (!q) return true;
       return (
         a.name.toLowerCase().includes(q) ||
@@ -207,7 +191,15 @@ export function AddCabinetPickStep({
   }, [newAccounts, query, statusFilter]);
 
   const activeCount = useMemo(
-    () => newAccounts.filter((a) => a.status_label === "active").length,
+    () => newAccounts.filter((a) => a.account_status === 1).length,
+    [newAccounts],
+  );
+  const paymentCount = useMemo(
+    () => newAccounts.filter((a) => a.needs_payment).length,
+    [newAccounts],
+  );
+  const otherCount = useMemo(
+    () => newAccounts.filter((a) => a.account_status !== 1 && !a.needs_payment).length,
     [newAccounts],
   );
 
@@ -330,7 +322,8 @@ export function AddCabinetPickStep({
             {[
               { key: "all" as const, label: "Все", count: newAccounts.length },
               { key: "active" as const, label: "Активные", count: activeCount },
-              { key: "other" as const, label: "Прочие", count: newAccounts.length - activeCount },
+              { key: "payment" as const, label: "Оплата", count: paymentCount },
+              { key: "other" as const, label: "Прочие", count: otherCount },
             ].map((f) => (
               <button
                 key={f.key}
