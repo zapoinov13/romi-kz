@@ -21,9 +21,15 @@ export interface RnpColumnDef {
   label: string;
   short: string;
   help: string;
-  /** Auto from Meta, formula, or manual entry */
-  kind: "meta" | "manual" | "formula";
-  manualField?: "manual_qualified" | "manual_diagnostics" | "manual_sales" | "manual_revenue";
+  /** Auto from Meta, direct DB field, formula, or manual override field */
+  kind: "meta" | "manual" | "formula" | "direct";
+  manualField?:
+    | "manual_qualified"
+    | "manual_diagnostics"
+    | "manual_sales"
+    | "manual_revenue";
+  /** Write straight to column (spend, leads) — overwritable, sync may refresh from Meta */
+  directField?: "spend" | "leads";
   format: (n: number) => string;
   pick: (d: DailyInsightRow | undefined) => number;
   total: (sums: RnpDaySums) => number;
@@ -83,8 +89,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "ads",
     label: "Потрачено на маркетинг",
     short: "Затраты",
-    help: "Расход Meta за день, в тенге (конвертация при синхронизации).",
-    kind: "meta",
+    help: "Расход за день в ₸. Подтягивается из Meta, можно скорректировать вручную.",
+    kind: "direct",
+    directField: "spend",
     format: fmtTenge,
     pick: (d) => d?.spend ?? 0,
     total: (s) => s.spend,
@@ -94,8 +101,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "ads",
     label: "Лидов получено",
     short: "Лиды",
-    help: "Лиды по атрибуции Meta за день.",
-    kind: "meta",
+    help: "Лиды за день. Из Meta, можно скорректировать вручную.",
+    kind: "direct",
+    directField: "leads",
     format: fmtNum,
     pick: (d) => d?.leads ?? 0,
     total: (s) => s.leads,

@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BarChart3,
   CalendarDays,
   Download,
   Loader2,
+  Pencil,
   RefreshCw,
   Target,
   TrendingUp,
@@ -30,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { RnpManualCell } from "@/components/metrics/RnpManualCell";
+import { RnpEditableCell } from "@/components/metrics/RnpEditableCell";
 import {
   RNP_COLUMNS,
   RNP_COLUMN_GROUPS,
@@ -39,6 +40,7 @@ import {
   type RnpColumnDef,
   type RnpColumnGroup,
 } from "@/lib/rnpMetrics";
+import { isManualOverrideActive } from "@/lib/cdiManualOverride";
 
 const MONTHS_GEN_RU = [
   "январь", "февраль", "март", "апрель", "май", "июнь",
@@ -58,13 +60,36 @@ function groupSpans(): { group: RnpColumnGroup; span: number }[] {
   })).filter((x) => x.span > 0);
 }
 
+function manualMeta(
+  d: DailyInsightRow | undefined,
+  field: NonNullable<RnpColumnDef["manualField"]>,
+): { value: number; crm: number; raw: number | null } {
+  if (!d) return { value: 0, crm: 0, raw: null };
+  switch (field) {
+    case "manual_qualified":
+      return { value: d.qualified, crm: d.crmQualified, raw: d.manualQualifiedRaw };
+    case "manual_diagnostics":
+      return { value: d.diagnostics, crm: d.crmDiagnostics, raw: d.manualDiagnosticsRaw };
+    case "manual_sales":
+      return { value: d.sales, crm: d.crmSales, raw: d.manualSalesRaw };
+    case "manual_revenue":
+      return { value: d.salesRevenue, crm: d.crmSalesRevenueOnly, raw: d.manualSalesRevenueRaw };
+  }
+}
+
 const Metrics = () => {
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
   const monthCursor = period.from;
-  const [cabinetId, setCabinetId] = useState<string>("all");
   const { cabinets } = usePersonalCabinets();
+  const [cabinetId, setCabinetId] = useState<string>("");
   const { activeId: projectId } = useProjectsStore();
   const [resyncing, setResyncing] = useState(false);
+
+  useEffect(() => {
+    if (!cabinetId && cabinets.length > 0) {
+      setCabinetId(cabinets[0].id);
+    }
+  }, [cabinets, cabinetId]);
 
   const monthParam = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}`;
 
@@ -74,16 +99,16 @@ const Metrics = () => {
   );
 
   const selectedCabinet = useMemo(
-    () => (cabinetId === "all" ? null : cabinets.find((c) => c.id === cabinetId) ?? null),
+    () => cabinets.find((c) => c.id === cabinetId) ?? null,
     [cabinetId, cabinets],
   );
 
   const actIds = useMemo(() => {
-    if (cabinetId === "all") return allActIds;
-    return selectedCabinet?.externalId ? [selectedCabinet.externalId] : [];
-  }, [cabinetId, allActIds, selectedCabinet]);
+    if (!selectedCabinet?.externalId) return allActIds;
+    return [selectedCabinet.externalId];
+  }, [selectedCabinet, allActIds]);
 
-  const canEditManual = Boolean(selectedCabinet);
+  const canEdit = Boolean(selectedCabinet);
 
   const { data, loading, error, refresh } = useMultiMetaInsights(
     actIds,
@@ -128,19 +153,21 @@ const Metrics = () => {
     let n = 0;
     for (const { iso } of monthDays) {
       const d = dailyByDate.get(iso);
-      if (d && (d.spend > 0 || d.leads > 0)) n += 1;
+      if (d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0)) n += 1;
     }
     return n;
   }, [monthDays, dailyByDate]);
 
   const monthProgress = Math.round((filledDays / daysInMonth) * 100);
-  const totals = useMemo(
-    () => aggregateRnpSums(data?.daily ?? []),
-    [data],
-  );
+  const totals = useMemo(() => aggregateRnpSums(data?.daily ?? []), [data]);
 
-  const upsertManual = async (isoDate: string, patch: Record<string, number | null>) => {
+  const upsertField = async (isoDate: string, patch: Record<string, number | null>) => {
     if (!selectedCabinet) return;
+    const normalized: Record<string, number | null> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (k === "spend" || k === "leads") normalized[k] = v ?? 0;
+      else normalized[k] = v;
+    }
     try {
       const { data: existing } = await supabase
         .from("cabinet_daily_insights")
@@ -151,7 +178,7 @@ const Metrics = () => {
       if (existing?.id) {
         const { error: updErr } = await supabase
           .from("cabinet_daily_insights")
-          .update(patch)
+          .update(normalized)
           .eq("id", existing.id);
         if (updErr) throw updErr;
       } else {
@@ -160,54 +187,74 @@ const Metrics = () => {
           external_id: selectedCabinet.externalId,
           project_id: projectId,
           date: isoDate,
-          ...patch,
+          spend: 0,
+          leads: 0,
+          ...normalized,
         });
         if (insErr) throw insErr;
       }
-      toast.success("Сохранено");
       refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось сохранить");
+      throw e;
     }
   };
 
   const renderCell = (def: RnpColumnDef, d: DailyInsightRow | undefined, iso: string) => {
-    const v = def.pick(d);
-    const empty = !Number.isFinite(v) || v <= 0;
-
-    if (def.kind === "manual" && def.manualField && d) {
-      const manualRaw =
-        def.manualField === "manual_qualified"
-          ? d.manualQualifiedRaw
-          : def.manualField === "manual_diagnostics"
-          ? d.manualDiagnosticsRaw
-          : def.manualField === "manual_sales"
-          ? d.manualSalesRaw
-          : d.manualSalesRevenueRaw;
-      const crmVal =
-        def.manualField === "manual_qualified"
-          ? d.crmQualified
-          : def.manualField === "manual_diagnostics"
-          ? d.crmDiagnostics
-          : def.manualField === "manual_sales"
-          ? d.crmSales
-          : d.crmSalesRevenueOnly;
-
+    if (def.kind === "formula") {
+      const v = def.pick(d);
+      const empty = !Number.isFinite(v) || v <= 0;
       return (
-        <RnpManualCell
+        <span
+          className="block px-1.5 py-0.5 text-right tabular-nums text-muted-foreground"
+          title={def.help}
+        >
+          {empty ? <Dash /> : def.format(v)}
+        </span>
+      );
+    }
+
+    if (def.kind === "direct" && def.directField) {
+      const v = def.pick(d);
+      return (
+        <RnpEditableCell
           value={v}
-          crmValue={crmVal}
-          manualRaw={manualRaw}
           format={def.format}
           title={def.label}
-          allowDecimal={def.manualField === "manual_revenue"}
-          disabled={!canEditManual}
-          onSave={(val) => upsertManual(iso, { [def.manualField!]: val })}
+          allowDecimal={def.directField === "spend"}
+          disabled={!canEdit}
+          source="meta"
+          allowReset={false}
+          onSave={async (val) => {
+            await upsertField(iso, { [def.directField!]: val ?? 0 });
+            toast.success("Сохранено");
+          }}
         />
       );
     }
 
-    return empty ? <Dash /> : <span className="tabular-nums">{def.format(v)}</span>;
+    if (def.kind === "manual" && def.manualField) {
+      const { value, crm, raw } = manualMeta(d, def.manualField);
+      return (
+        <RnpEditableCell
+          value={value}
+          sourceValue={crm}
+          format={def.format}
+          title={def.label}
+          allowDecimal={def.manualField === "manual_revenue"}
+          disabled={!canEdit}
+          source="crm"
+          isManualOverride={isManualOverrideActive(raw)}
+          onSave={async (val) => {
+            await upsertField(iso, { [def.manualField!]: val });
+            toast.success("Сохранено");
+          }}
+        />
+      );
+    }
+
+    const v = def.pick(d);
+    return v > 0 ? <span className="tabular-nums">{def.format(v)}</span> : <Dash />;
   };
 
   const handleExportCsv = () => {
@@ -243,6 +290,10 @@ const Metrics = () => {
   };
 
   const handleResync = async () => {
+    if (!selectedCabinet) {
+      toast.error("Выберите кабинет для синхронизации");
+      return;
+    }
     setResyncing(true);
     try {
       const today = new Date();
@@ -252,12 +303,12 @@ const Metrics = () => {
       const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
       const monthEnd = lastDay < yesterday ? lastDay : yesterday;
       const until = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, "0")}-${String(monthEnd.getDate()).padStart(2, "0")}`;
-      const body: Record<string, string> = { since, until };
-      if (selectedCabinet) body.cabinet_id = selectedCabinet.id;
-      const { error: invErr } = await supabase.functions.invoke("meta-daily-sync", { body });
+      const { error: invErr } = await supabase.functions.invoke("meta-daily-sync", {
+        body: { since, until, cabinet_id: selectedCabinet.id },
+      });
       if (invErr) throw invErr;
       refresh();
-      toast.success(`Синхронизация ${since} → ${until}`);
+      toast.success(`Meta: ${since} → ${until}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось синхронизировать");
     } finally {
@@ -273,64 +324,37 @@ const Metrics = () => {
       <PageHeader
         icon={CalendarDays}
         title="РНП · Таблица показателей"
-        description={`Данные Meta за ${filledDays} из ${daysInMonth} дней · ${data?.currency === "KZT" ? "в тенге" : data?.currency ?? "₸"}`}
+        description={
+          selectedCabinet
+            ? `${selectedCabinet.name} · ${filledDays}/${daysInMonth} дней`
+            : "Выберите кабинет"
+        }
         meta={
           <div className="hidden min-w-[180px] flex-col gap-1 sm:flex">
             <Progress value={monthProgress} className="h-2" />
             <span className="text-right text-[11px] font-medium text-success">
-              {monthProgress}% месяца заполнено
+              {monthProgress}% месяца
             </span>
           </div>
         }
       />
 
-      {/* KPI cards */}
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          icon={Wallet}
-          label="Выручка"
-          value={fmtTenge(totals.revenue)}
-          sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "план не задан"}
-          tone="success"
-        />
-        <KpiCard
-          icon={BarChart3}
-          label="Расходы на рекламу"
-          value={fmtTenge(totals.spend)}
-          sub={`${fmtNum(totals.leads)} лидов · ${pct(totals.spend, plan?.spend) ?? "—"}% плана`}
-          tone="primary"
-        />
-        <KpiCard
-          icon={Target}
-          label="Воронка"
-          value={`КЭВ: ${fmtNum(totals.kev)}`}
-          sub={`Продажи: ${totals.sales > 0 ? fmtNum(totals.sales) : "—"}`}
-          tone="warning"
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label="Эффективность"
-          value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"}
-          sub={
-            totals.sales > 0
-              ? `CAC ${fmtTenge(totals.spend / totals.sales)} · конв. ${((totals.sales / totals.leads) * 100).toFixed(0)}%`
-              : "CAC и конверсия — после продаж"
-          }
-          tone="muted"
-        />
+        <KpiCard icon={Wallet} label="Выручка" value={fmtTenge(totals.revenue)} sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "—"} tone="success" />
+        <KpiCard icon={BarChart3} label="Расходы" value={fmtTenge(totals.spend)} sub={`${fmtNum(totals.leads)} лидов`} tone="primary" />
+        <KpiCard icon={Target} label="КЭВ" value={fmtNum(totals.kev)} sub={`Продажи: ${totals.sales || "—"}`} tone="warning" />
+        <KpiCard icon={TrendingUp} label="CPL" value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"} sub={totals.sales > 0 ? `CAC ${fmtTenge(totals.spend / totals.sales)}` : "—"} tone="muted" />
       </div>
 
-      {/* Controls */}
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <PeriodPicker range={period} onChange={setPeriod} />
-          <Select value={cabinetId} onValueChange={setCabinetId}>
-            <SelectTrigger className="h-11 min-w-[220px] rounded-xl border-border/60 bg-card/60">
+          <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
+            <SelectTrigger className="h-11 min-w-[240px] rounded-xl border-border/60 bg-card/60">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Кабинет" />
+              <SelectValue placeholder="Выберите кабинет" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все кабинеты (сводка)</SelectItem>
               {cabinets.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -340,14 +364,9 @@ const Metrics = () => {
           </Select>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            className="h-11 gap-2 rounded-xl"
-            onClick={handleResync}
-            disabled={resyncing || actIds.length === 0}
-          >
+          <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleResync} disabled={resyncing || !canEdit}>
             {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Синхронизация
+            Meta
           </Button>
           <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleExportCsv}>
             <Download className="h-4 w-4" />
@@ -356,9 +375,22 @@ const Metrics = () => {
         </div>
       </div>
 
-      {!canEditManual && (
+      {canEdit && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-2.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+            <Pencil className="h-3.5 w-3.5 text-primary" />
+            Клик по ячейке → ввод · Enter сохранить · Esc отмена
+          </span>
+          <span className="hidden h-4 w-px bg-border sm:block" />
+          <span>Жёлтая рамка — ручная правка поверх CRM</span>
+          <span className="hidden h-4 w-px bg-border sm:block" />
+          <span>CPL, CPQL, CAC — считаются автоматически</span>
+        </div>
+      )}
+
+      {!canEdit && cabinets.length === 0 && (
         <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-          Выберите <b>один кабинет</b>, чтобы вручную вводить квал-лиды, КЭВ, продажи и оплаты. Данные хранятся отдельно по каждому кабинету.
+          Добавьте рекламный кабинет в разделе «Управление рекламой».
         </div>
       )}
 
@@ -369,7 +401,6 @@ const Metrics = () => {
         </div>
       )}
 
-      {/* Plan / Fact summary */}
       {plan && (
         <div className="mt-4 grid gap-2 rounded-xl border border-border/60 bg-card/40 p-4 sm:grid-cols-3">
           <PlanFactRow label="Расходы" plan={plan.spend} fact={totals.spend} format={fmtTenge} />
@@ -380,15 +411,14 @@ const Metrics = () => {
         </div>
       )}
 
-      {/* Table */}
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/30">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] border-collapse text-xs">
-            <thead>
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/30 shadow-sm">
+        <div className="max-h-[min(70vh,720px)] overflow-auto">
+          <table className="w-full min-w-[1000px] border-collapse text-xs">
+            <thead className="sticky top-0 z-30">
               <tr className="border-b border-border/60">
                 <th
                   rowSpan={2}
-                  className="sticky left-0 z-20 min-w-[88px] border-r border-border/40 bg-card/90 px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur"
+                  className="sticky left-0 z-40 min-w-[76px] border-r border-border/40 bg-card px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   Дата
                 </th>
@@ -405,28 +435,33 @@ const Metrics = () => {
                   </th>
                 ))}
               </tr>
-              <tr className="border-b border-border/60 bg-card/50">
+              <tr className="border-b border-border/60 bg-card/95">
                 {RNP_COLUMNS.map((col) => (
                   <th
                     key={col.key}
                     title={col.help}
-                    className="whitespace-nowrap px-2 py-2 text-right text-[9px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    className={cn(
+                      "whitespace-nowrap px-1 py-2 text-right text-[9px] font-semibold uppercase tracking-wide",
+                      col.kind === "formula" ? "text-muted-foreground/70" : "text-muted-foreground",
+                    )}
                   >
                     {col.short}
+                    {col.kind !== "formula" && (
+                      <Pencil className="ml-0.5 inline h-2 w-2 text-primary/40" />
+                    )}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* Fact total row */}
-              <tr className="border-b border-border/60 bg-card/40 font-semibold">
-                <td className="sticky left-0 z-10 border-r border-border/40 bg-card/80 px-3 py-2 backdrop-blur">
+              <tr className="border-b border-border/60 bg-muted/20 font-semibold">
+                <td className="sticky left-0 z-20 border-r border-border/40 bg-muted/30 px-3 py-2 backdrop-blur">
                   Итого
                 </td>
                 {RNP_COLUMNS.map((def) => {
                   const v = def.total(totals);
                   return (
-                    <td key={def.key} className="px-2 py-2 text-right tabular-nums">
+                    <td key={def.key} className="px-1 py-2 text-right tabular-nums">
                       {v > 0 ? def.format(v) : <Dash />}
                     </td>
                   );
@@ -436,20 +471,23 @@ const Metrics = () => {
               {monthDays.map(({ day, iso, weekday }) => {
                 const d = dailyByDate.get(iso);
                 const isWeekend = weekday === "Сб" || weekday === "Вс";
+                const hasData = d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0 || d.sales > 0);
                 return (
                   <tr
                     key={iso}
                     className={cn(
-                      "border-b border-border/20 transition-colors hover:bg-card/50",
-                      isWeekend && "bg-muted/10",
+                      "border-b border-border/15 transition-colors",
+                      isWeekend && "bg-muted/5",
+                      hasData && "bg-card/20",
+                      "hover:bg-primary/[0.03]",
                     )}
                   >
-                    <td className="sticky left-0 z-10 border-r border-border/40 bg-background/90 px-3 py-2 backdrop-blur">
+                    <td className="sticky left-0 z-20 border-r border-border/40 bg-background/95 px-3 py-1 backdrop-blur">
                       <span className="font-semibold tabular-nums">{String(day).padStart(2, "0")}</span>
-                      <span className="ml-1 text-muted-foreground">{weekday}</span>
+                      <span className="ml-1 text-[10px] text-muted-foreground">{weekday}</span>
                     </td>
                     {RNP_COLUMNS.map((def) => (
-                      <td key={def.key} className="px-2 py-1.5 text-right">
+                      <td key={def.key} className="px-0.5 py-0.5 align-middle">
                         {renderCell(def, d, iso)}
                       </td>
                     ))}
@@ -462,16 +500,10 @@ const Metrics = () => {
         {loading && (
           <div className="flex items-center justify-center gap-2 border-t border-border/60 py-3 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Загрузка {MONTHS_GEN_RU[monthCursor.getMonth()]} {monthCursor.getFullYear()}…
+            Загрузка…
           </div>
         )}
       </div>
-
-      <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-        <b>Реклама</b> — автоматически из Meta (затраты в ₸ после синхронизации).{" "}
-        <b>Квал, КЭВ, продажи, оплаты</b> — вручную по выбранному кабинету, не смешиваются между проектами.
-        Формулы CPL, CPQL, CP КЭВ, конверсия и CAC считаются на лету.
-      </p>
     </PageContainer>
   );
 };
