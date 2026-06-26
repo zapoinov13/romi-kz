@@ -31,19 +31,17 @@ export function MetaTopBar({ onRefresh, refreshing, updatedLabel = "Обновл
   return (
     <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center gap-2 border-b border-[hsl(var(--meta-border))] bg-white px-2 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-4">
       <SidebarTrigger
-        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-[hsl(var(--meta-header-bg))] md:hidden"
-        aria-label="Открыть меню"
+        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-[hsl(var(--meta-header-bg))]"
+        aria-label="Меню"
       />
 
-      <h1 className="hidden shrink-0 text-[17px] font-bold text-foreground md:block">{title}</h1>
+      <h1 className="min-w-0 flex-1 truncate text-[17px] font-bold text-foreground">{title}</h1>
 
-      <div className="hidden h-6 w-px bg-[hsl(var(--meta-border))] md:block" />
-
-      <div className="min-w-0 flex-1">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2 md:hidden">
         <ProjectSwitcher collapsed={false} metaStyle />
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+      <div className="hidden shrink-0 items-center gap-1 sm:gap-2 md:flex">
         {onRefresh && (
           <>
             <span className="hidden text-[12px] text-muted-foreground lg:inline">{updatedLabel}</span>

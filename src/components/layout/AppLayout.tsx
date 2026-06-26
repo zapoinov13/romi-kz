@@ -15,7 +15,7 @@ interface AppLayoutProps {
 const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <ContentFactoryGalleryProvider>
-      <SidebarProvider defaultOpen={false}>
+      <SidebarProvider defaultOpen={true}>
         <div className="flex min-h-svh w-full bg-white">
           <AppSidebar />
           <SidebarInset className="flex min-w-0 flex-1 flex-col bg-white">

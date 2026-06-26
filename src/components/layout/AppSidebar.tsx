@@ -1,9 +1,13 @@
-import { Home, Target, Settings, Table2 } from "lucide-react";
+import { Target, Settings, Table2 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/lib/routePrefetch";
 import {
   Sidebar,
   SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarFooter,
   SidebarMenu,
   SidebarMenuButton,
@@ -11,126 +15,140 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { ProjectSwitcher } from "./ProjectSwitcher";
 import { RomiLogo } from "@/components/brand/RomiLogo";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 type NavItem = {
   title: string;
   url: string;
   icon: typeof Target;
+  hint?: string;
 };
 
-const mainNav: NavItem[] = [
-  { title: "Кампании", url: "/ads", icon: Target },
-  { title: "Таблица РНП", url: "/metrics", icon: Table2 },
+const marketing: NavItem[] = [
+  { title: "Управление рекламой", url: "/ads", icon: Target },
 ];
 
-const bottomNav: NavItem[] = [
+const analytics: NavItem[] = [
+  {
+    title: "Таблица РНП",
+    hint: "РНП · Таблица показателей по дням",
+    url: "/metrics",
+    icon: Table2,
+  },
+];
+
+const system: NavItem[] = [
   { title: "Настройки", url: "/settings", icon: Settings },
 ];
 
-function NavIcon({ item }: { item: NavItem }) {
-  const { isMobile, setOpenMobile } = useSidebar();
-  const { pathname } = useLocation();
-
-  const isActive =
-    pathname === item.url ||
-    pathname.startsWith(`${item.url}/`) ||
-    (item.url === "/ads" && pathname.startsWith("/create"));
-
-  const link = (
-    <NavLink
-      to={item.url}
-      onClick={() => {
-        if (isMobile) setOpenMobile(false);
-      }}
-      onFocus={() => prefetchRoute(item.url)}
-      onMouseEnter={() => prefetchRoute(item.url)}
-      className={cn(
-        "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-        isActive
-          ? "bg-sidebar-accent text-white"
-          : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-white",
-        isActive &&
-          "before:absolute before:-left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-primary",
-      )}
-      end={item.url === "/"}
-    >
-      <item.icon className="h-[20px] w-[20px]" strokeWidth={isActive ? 2.25 : 2} />
-    </NavLink>
-  );
-
-  if (isMobile) return link;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
-        {item.title}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
+const GROUPS = [
+  { label: "Маркетинг", items: marketing },
+  { label: "Аналитика", items: analytics },
+];
 
 export function AppSidebar() {
-  const { isMobile } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  const collapsed = state === "collapsed";
+  const { pathname } = useLocation();
+
+  const itemClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      "relative flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
+      isActive
+        ? "bg-primary/10 text-primary before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-primary"
+        : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+    );
+
+  const itemLabelClass =
+    "min-w-0 flex-1 !overflow-visible !whitespace-normal leading-snug normal-case tracking-normal";
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <Sidebar
-        collapsible="icon"
-        className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
-      >
-        <div className="flex h-14 shrink-0 items-center justify-center border-b border-sidebar-border">
-          <RomiLogo size="sm" />
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-border bg-white text-foreground"
+    >
+      <SidebarHeader className="gap-2 border-b border-border bg-white p-3">
+        <div className={cn("flex items-center", collapsed ? "justify-center px-0" : "px-0.5")}>
+          <RomiLogo size={collapsed ? "sm" : "md"} />
         </div>
+        <ProjectSwitcher collapsed={collapsed} />
+      </SidebarHeader>
 
-        <SidebarContent className="flex flex-col items-center gap-1 bg-sidebar px-2 py-3">
-          {!isMobile && (
+      <SidebarContent className="bg-white px-2 py-2">
+        {GROUPS.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel className="px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton asChild className="h-auto w-full p-0 hover:bg-transparent">
+                      <NavLink
+                        to={item.url}
+                        onClick={() => {
+                          if (isMobile) setOpenMobile(false);
+                        }}
+                        onFocus={() => prefetchRoute(item.url)}
+                        onMouseEnter={() => prefetchRoute(item.url)}
+                        className={({ isActive }) =>
+                          itemClass({
+                            isActive:
+                              isActive ||
+                              (item.url === "/ads" && pathname.startsWith("/create")),
+                          })
+                        }
+                        end={item.url === "/"}
+                      >
+                        <item.icon className="h-[18px] w-[18px] shrink-0" />
+                        {!collapsed && (
+                          <span className={itemLabelClass} title={item.hint ?? item.title}>
+                            {item.title}
+                          </span>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter className="border-t border-border bg-white px-2 py-2">
+        <SidebarGroup>
+          <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="h-auto p-0 hover:bg-transparent">
-                  <a
-                    href="/ads"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-white"
-                    aria-label="Главная"
-                  >
-                    <Home className="h-[20px] w-[20px]" />
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {system.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton asChild className="h-auto w-full p-0 hover:bg-transparent">
+                    <NavLink
+                      to={item.url}
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
+                      onFocus={() => prefetchRoute(item.url)}
+                      onMouseEnter={() => prefetchRoute(item.url)}
+                      className={({ isActive }) => itemClass({ isActive })}
+                    >
+                      <item.icon className="h-[18px] w-[18px] shrink-0" />
+                      {!collapsed && (
+                        <span className={itemLabelClass} title={item.title}>
+                          {item.title}
+                        </span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
-          )}
-
-          <SidebarMenu className="flex flex-col items-center gap-1">
-            {mainNav.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton asChild className="h-auto p-0 hover:bg-transparent">
-                  <NavIcon item={item} />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-
-        <SidebarFooter className="border-t border-sidebar-border bg-sidebar px-2 py-3">
-          <SidebarMenu className="flex flex-col items-center gap-1">
-            {bottomNav.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton asChild className="h-auto p-0 hover:bg-transparent">
-                  <NavIcon item={item} />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
-    </TooltipProvider>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarFooter>
+    </Sidebar>
   );
 }
 
