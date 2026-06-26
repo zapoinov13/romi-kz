@@ -152,7 +152,7 @@ export function AuthForm() {
                 <button
                   type="button"
                   onClick={() => { setMode("forgot"); setErrors({}); }}
-                  className="text-xs font-medium text-success hover:underline"
+                  className="text-xs font-medium text-primary hover:underline"
                 >
                   Забыли пароль?
                 </button>
@@ -178,12 +178,12 @@ export function AuthForm() {
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
 
-            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-success-foreground shadow-lg shadow-success/30 hover:bg-success/90">
+            <Button type="submit" disabled={loading} className="h-12 w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Войти в платформу <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
 
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-border/60 bg-card/40 p-3.5">
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-white p-3.5 shadow-sm">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
               <HelpCircle className="h-4 w-4" />
             </span>
@@ -222,7 +222,7 @@ export function AuthForm() {
               </div>
               {errors.forgot && <p className="text-xs text-destructive">{errors.forgot}</p>}
             </div>
-            <Button type="submit" disabled={loading} className="h-12 w-full gap-2 bg-success text-success-foreground hover:bg-success/90">
+            <Button type="submit" disabled={loading} className="h-12 w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Отправить ссылку <ArrowRight className="h-4 w-4" /></>}
             </Button>
           </form>
@@ -234,14 +234,14 @@ export function AuthForm() {
 
       {mode === "sent" && (
         <div className="text-center">
-          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-success/15 text-success ring-1 ring-success/40">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/25">
             <MailCheck className="h-7 w-7" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight">Письмо отправлено</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Мы отправили инструкцию на <span className="font-semibold text-foreground">{forgotEmail}</span>. Проверьте папку «Входящие» и «Спам».
           </p>
-          <Button onClick={() => { setMode("signin"); setForgotEmail(""); }} className="mt-6 h-11 w-full bg-success text-success-foreground hover:bg-success/90">
+          <Button onClick={() => { setMode("signin"); setForgotEmail(""); }} className="mt-6 h-11 w-full">
             Вернуться ко входу
           </Button>
         </div>

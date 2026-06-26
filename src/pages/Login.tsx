@@ -20,7 +20,7 @@ export default function Login() {
   return (
     <div className="grid h-screen w-full grid-cols-1 overflow-hidden lg:grid-cols-[1.1fr_1fr]">
       <MarketingPanel />
-      <div className="flex h-full items-center justify-center bg-background px-6 py-8 sm:px-10">
+      <div className="flex h-full items-center justify-center bg-white px-6 py-8 sm:px-10">
         <AuthForm />
       </div>
     </div>
