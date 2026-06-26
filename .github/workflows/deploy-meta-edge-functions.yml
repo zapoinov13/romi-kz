@@ -1,5 +1,5 @@
-# Деплой только Meta edge functions (без db push).
-# Секреты: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF (= mekwfbqmsqiborjdrjxc)
+# Деплой Meta edge functions (включая Facebook OAuth).
+# Секреты GitHub: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF (= rgttklitvvqsnlsakvzr для romi-agency)
 name: Deploy Meta edge functions
 
 on:
@@ -9,8 +9,13 @@ on:
       - "supabase/functions/meta-list-ad-accounts/**"
       - "supabase/functions/meta-daily-sync/**"
       - "supabase/functions/meta-validate-cabinet/**"
+      - "supabase/functions/meta-connect-token/**"
+      - "supabase/functions/meta-oauth-start/**"
+      - "supabase/functions/meta-oauth-callback/**"
       - "supabase/functions/_lib/meta_list_ad_accounts.ts"
+      - "supabase/functions/_lib/meta_connect_helpers.ts"
       - "supabase/functions/_lib/auth.ts"
+      - "supabase/config.toml"
       - ".github/workflows/deploy-meta-edge-functions.yml"
   workflow_dispatch: {}
 
@@ -38,11 +43,14 @@ jobs:
           test -n "$SUPABASE_ACCESS_TOKEN" || (echo "::error::SUPABASE_ACCESS_TOKEN missing"; exit 1)
           test -n "$SUPABASE_PROJECT_REF" || (echo "::error::SUPABASE_PROJECT_REF missing"; exit 1)
 
-      - name: Deploy meta-list-ad-accounts, meta-daily-sync, meta-validate-cabinet
+      - name: Deploy Meta + OAuth edge functions
         run: |
           set -e
-          for fn in meta-list-ad-accounts meta-daily-sync meta-validate-cabinet; do
+          for fn in meta-list-ad-accounts meta-daily-sync meta-validate-cabinet meta-connect-token meta-oauth-start; do
             echo "::group::Deploy $fn"
             supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
             echo "::endgroup::"
           done
+          echo "::group::Deploy meta-oauth-callback (no JWT)"
+          supabase functions deploy meta-oauth-callback --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+          echo "::endgroup::"

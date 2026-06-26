@@ -85,7 +85,7 @@ export default function Settings() {
       toast.success(name ? `Facebook подключён: ${name}` : "Facebook успешно подключён");
     } else if (status === "error") {
       const message = searchParams.get("message");
-      toast.error(message ? decodeURIComponent(message) : "Не удалось подключить Facebook");
+      toast.error(message ?? "Не удалось подключить Facebook");
     }
 
     const next = new URLSearchParams(searchParams);
