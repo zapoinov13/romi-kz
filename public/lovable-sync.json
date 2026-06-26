@@ -1,7 +1,7 @@
 {
-  "git_sha": "55b521e",
-  "git_sha_full": "55b521efaaf3351d2e20ca1a225577783f268f9e",
-  "updated_at": "2026-06-26T18:31:37+05:00",
-  "label": "chore: add /rnp alias and clearer sidebar label for metrics page",
+  "git_sha": "fa3b1d2",
+  "git_sha_full": "fa3b1d213ea458e6c40d7370084f8dfe34c3b31e",
+  "updated_at": "2026-06-26T18:33:11+05:00",
+  "label": "fix: import useMetaAccountStatus in MetaAccountStatusBlock",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
