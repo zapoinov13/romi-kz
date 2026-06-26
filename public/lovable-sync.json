@@ -1,7 +1,7 @@
 {
-  "git_sha": "3957d24",
-  "git_sha_full": "3957d246dbcdf00476e7cfdc1d96a05c7a3fecca",
-  "updated_at": "2026-06-26T20:34:10+05:00",
-  "label": "feat: ad automation rules — duplicate winners, smart pause, UI dialog",
+  "git_sha": "b8bb452",
+  "git_sha_full": "b8bb4524a9a85bc59aad9d51723707a967930696",
+  "updated_at": "2026-06-26T20:37:14+05:00",
+  "label": "fix: restore expanded sidebar with labels and project switcher",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
