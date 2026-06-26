@@ -1,7 +1,7 @@
 {
-  "git_sha": "fa3b1d2",
-  "git_sha_full": "fa3b1d213ea458e6c40d7370084f8dfe34c3b31e",
-  "updated_at": "2026-06-26T18:33:11+05:00",
-  "label": "fix: import useMetaAccountStatus in MetaAccountStatusBlock",
+  "git_sha": "1cfa301",
+  "git_sha_full": "1cfa30187507420539c77cebec6e07913706b0f8",
+  "updated_at": "2026-06-26T18:37:58+05:00",
+  "label": "feat: inline editing for all RNP data columns",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
