@@ -1,7 +1,7 @@
 {
-  "git_sha": "1cfa301",
-  "git_sha_full": "1cfa30187507420539c77cebec6e07913706b0f8",
-  "updated_at": "2026-06-26T18:37:58+05:00",
-  "label": "feat: inline editing for all RNP data columns",
+  "git_sha": "79278c9",
+  "git_sha_full": "79278c9a486449be8c4cf9d20a98dc36b8c1f717",
+  "updated_at": "2026-06-26T18:39:03+05:00",
+  "label": "chore: remove vercel env pull file from repo",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
