@@ -36,7 +36,7 @@ const marketing: NavItem[] = [
 ];
 
 const analytics: NavItem[] = [
-  { title: "Таблица показателей", url: "/metrics", icon: Table2 },
+  { title: "РНП · Таблица показателей", url: "/metrics", icon: Table2 },
 ];
 
 const system: NavItem[] = [

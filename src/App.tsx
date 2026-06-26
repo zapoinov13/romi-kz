@@ -72,6 +72,7 @@ const App = () => (
               <Route path="/" element={<Navigate to="/ads" replace />} />
               <Route path="/dashboard" element={<Navigate to="/ads" replace />} />
               <Route path="/metrics" element={<RequireAuth><AppLayout><Metrics /></AppLayout></RequireAuth>} />
+              <Route path="/rnp" element={<Navigate to="/metrics" replace />} />
               <Route path="/ads" element={<RequireAuth><AppLayout><Ads /></AppLayout></RequireAuth>} />
               <Route path="/crm" element={<RequireAuth><AppLayout><Crm /></AppLayout></RequireAuth>} />
               <Route path="/calls" element={<RequireAuth><AppLayout><CallsHistory /></AppLayout></RequireAuth>} />

@@ -43,6 +43,7 @@ export function prefetchRoute(path: string) {
       loaders.push(routeImports.Dashboard);
       break;
     case "/metrics":
+    case "/rnp":
       loaders.push(routeImports.Metrics);
       break;
     case "/ads":
