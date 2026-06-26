@@ -4,6 +4,7 @@ import {
   mapAdAccounts,
   normalizeActId,
 } from "../_lib/meta_list_ad_accounts.ts";
+import { userHasRole } from "../_lib/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,8 @@ function jsonResponse(body: unknown, status = 200) {
 
 async function resolveMetaTokens(
   bodyToken: string | null | undefined,
+  userId?: string,
+  isAdmin?: boolean,
 ): Promise<string[]> {
   if (bodyToken?.trim()) return [bodyToken.trim()];
 
@@ -30,15 +33,17 @@ async function resolveMetaTokens(
 
   const out: string[] = [];
 
-  const { data: tokens } = await admin
+  let q = admin
     .from("meta_tokens")
     .select("access_token")
     .order("created_at", { ascending: true });
+  if (userId && !isAdmin) q = q.eq("created_by", userId);
+  const { data: tokens } = await q;
   for (const row of tokens ?? []) {
     if (row?.access_token) out.push(row.access_token as string);
   }
 
-  if (out.length === 0) {
+  if (out.length === 0 && isAdmin) {
     const { data: settings } = await admin
       .from("automation_settings")
       .select("meta_access_token")
@@ -47,7 +52,7 @@ async function resolveMetaTokens(
     if (settings?.meta_access_token) out.push(settings.meta_access_token as string);
   }
 
-  if (out.length === 0) {
+  if (out.length === 0 && isAdmin) {
     const env = Deno.env.get("META_ACCESS_TOKEN");
     if (env) out.push(env);
   }
@@ -78,6 +83,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Unauthorized", accounts: [] }, 401);
     }
 
+    const isAdmin = await userHasRole(user.id, "admin");
+
     const body = await req.json().catch(() => ({}));
     const excludeRaw: string[] = Array.isArray(body.exclude_act_ids)
       ? body.exclude_act_ids
@@ -86,10 +93,12 @@ Deno.serve(async (req) => {
 
     const tokens = await resolveMetaTokens(
       typeof body.access_token === "string" ? body.access_token : null,
+      user.id,
+      isAdmin,
     );
     if (tokens.length === 0) {
       return jsonResponse({
-        error: "Meta access token не настроен. Добавьте токен в Настройках → Facebook / Meta.",
+        error: "Meta не подключён. Нажмите «Подключить через Facebook» в Настройках или добавьте токен вручную.",
         accounts: [],
       }, 400);
     }

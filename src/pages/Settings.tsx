@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Edit2, Facebook, Megaphone, Plus, Search, Trash2, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 
 export default function Settings() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const defaultTab: SettingsTab = SETTINGS_TABS.includes(tabParam as SettingsTab)
     ? (tabParam as SettingsTab)
@@ -75,6 +75,25 @@ export default function Settings() {
     toast.success(`Сотрудник «${confirmDel.name}» удалён`);
     setConfirmDel(null);
   };
+
+  useEffect(() => {
+    const status = searchParams.get("meta_oauth");
+    if (!status) return;
+
+    if (status === "success") {
+      const name = searchParams.get("fb_name");
+      toast.success(name ? `Facebook подключён: ${name}` : "Facebook успешно подключён");
+    } else if (status === "error") {
+      const message = searchParams.get("message");
+      toast.error(message ? decodeURIComponent(message) : "Не удалось подключить Facebook");
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("meta_oauth");
+    next.delete("fb_name");
+    next.delete("message");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   return (
     <PageContainer>

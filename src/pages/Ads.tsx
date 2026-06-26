@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Megaphone,
   Plus,
@@ -55,6 +56,7 @@ const StatChip = ({
 );
 
 const Ads = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cabinets, addCabinet, updateCabinet, removeCabinet } = useCabinetsStore();
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -84,6 +86,22 @@ const Ads = () => {
     setRefreshKey((k) => k + 1);
     toast.success("Данные обновлены");
   };
+
+  useEffect(() => {
+    const status = searchParams.get("meta_oauth");
+    if (status !== "success") return;
+
+    const name = searchParams.get("fb_name");
+    toast.success(name ? `Facebook подключён: ${name}` : "Facebook подключён — выберите кабинет");
+    setAddInitialStep("pick");
+    setAddOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("meta_oauth");
+    next.delete("fb_name");
+    next.delete("message");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleToggleOnline = async (id: string) => {
     const c = cabinets.find((x) => x.id === id);

@@ -1,4 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+import { userHasRole } from "../_lib/auth.ts";
+import { fetchMe, validateMarketingPermissions } from "../_lib/meta_connect_helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,28 +13,6 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-const API_BASE = "https://graph.facebook.com/v21.0";
-
-async function validateMarketingPermissions(token: string): Promise<string | null> {
-  const r = await fetch(`${API_BASE}/me/permissions?access_token=${encodeURIComponent(token)}`);
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) return body?.error?.message ?? "Не удалось проверить права Meta-токена";
-  const granted = new Set(
-    ((body?.data ?? []) as Array<{ permission?: string; status?: string }>)
-      .filter((p) => p.status === "granted")
-      .map((p) => p.permission),
-  );
-  if (granted.has("ads_read") || granted.has("ads_management")) return null;
-  return "Токен активный, но без прав ads_read / ads_management.";
-}
-
-async function fetchMe(token: string): Promise<{ id: string; name: string } | { error: string }> {
-  const r = await fetch(`${API_BASE}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
-  const me = await r.json().catch(() => ({}));
-  if (!r.ok) return { error: me?.error?.message ?? "Невалидный токен" };
-  return { id: String(me.id), name: String(me.name ?? me.id) };
 }
 
 Deno.serve(async (req) => {
@@ -55,21 +35,16 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: roleRow } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (!roleRow) return json({ error: "Forbidden" }, 403);
-
+    const isAdmin = await userHasRole(user.id, "admin");
     const method = req.method;
 
     if (method === "GET") {
-      const { data: rows, error: e } = await admin
+      let q = admin
         .from("meta_tokens")
-        .select("id, label, fb_user_id, fb_user_name, created_at")
+        .select("id, label, fb_user_id, fb_user_name, created_at, source, token_expires_at")
         .order("created_at", { ascending: true });
+      if (!isAdmin) q = q.eq("created_by", user.id);
+      const { data: rows, error: e } = await q;
       if (e) return json({ error: e.message }, 500);
       return json({ ok: true, tokens: rows ?? [] });
     }
@@ -88,17 +63,34 @@ Deno.serve(async (req) => {
       const permErr = await validateMarketingPermissions(token);
       if (permErr) return json({ error: permErr }, 400);
 
-      const { data: inserted, error: insErr } = await admin
+      const { data: existing } = await admin
         .from("meta_tokens")
-        .insert({
-          label,
-          access_token: token,
-          fb_user_id: me.id,
-          fb_user_name: me.name,
-          created_by: user.id,
-        })
-        .select("id, label, fb_user_id, fb_user_name, created_at")
-        .single();
+        .select("id")
+        .eq("created_by", user.id)
+        .eq("fb_user_id", me.id)
+        .maybeSingle();
+
+      const row = {
+        label,
+        access_token: token,
+        fb_user_id: me.id,
+        fb_user_name: me.name,
+        created_by: user.id,
+        source: "manual",
+      };
+
+      const { data: inserted, error: insErr } = existing?.id
+        ? await admin
+          .from("meta_tokens")
+          .update(row)
+          .eq("id", existing.id)
+          .select("id, label, fb_user_id, fb_user_name, created_at, source")
+          .single()
+        : await admin
+          .from("meta_tokens")
+          .insert(row)
+          .select("id, label, fb_user_id, fb_user_name, created_at, source")
+          .single();
       if (insErr) return json({ error: insErr.message }, 500);
 
       // Поддерживаем обратную совместимость: дублируем последний токен в automation_settings,
@@ -115,10 +107,9 @@ Deno.serve(async (req) => {
       const id = url.searchParams.get("id");
       if (!id) return json({ error: "id обязателен" }, 400);
 
-      const { error: delErr } = await admin
-        .from("meta_tokens")
-        .delete()
-        .eq("id", id);
+      let delQ = admin.from("meta_tokens").delete().eq("id", id);
+      if (!isAdmin) delQ = delQ.eq("created_by", user.id);
+      const { error: delErr } = await delQ;
       if (delErr) return json({ error: delErr.message }, 500);
 
       // Если удалили последний — чистим легаси-поле.

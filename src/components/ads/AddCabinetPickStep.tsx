@@ -23,6 +23,7 @@ import {
   type MetaListDiagnostics,
 } from "@/hooks/useMetaAdAccounts";
 import { MetaAccountStatusBlock } from "@/components/ads/MetaAccountStatusBlock";
+import { startMetaOAuth } from "@/lib/metaOAuth";
 
 function normalizeActId(id: string): string {
   const t = id.trim();
@@ -158,6 +159,17 @@ export function AddCabinetPickStep({
   const [diagnostics, setDiagnostics] = useState<MetaListDiagnostics | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "payment" | "other">("all");
+  const [oauthLoading, setOauthLoading] = useState(false);
+
+  const handleOAuth = async () => {
+    setOauthLoading(true);
+    try {
+      await startMetaOAuth({ returnTo: "/ads?meta_oauth=success" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+      setOauthLoading(false);
+    }
+  };
 
   const existingSet = useMemo(
     () => new Set(existingActIds.map(normalizeActId).filter(Boolean)),
@@ -236,12 +248,18 @@ export function AddCabinetPickStep({
             <div className="font-semibold">Не удалось получить список</div>
             <div className="mt-1">{listError}</div>
             <div className="mt-2 text-[11px] opacity-80">
-              Проверьте Meta-токен в Настройках → Автоматизация (или введите ниже).
-              Нужны права ads_read и business_management. Если ошибка «Edge Function» —
-              задеплойте функции meta-list-ad-accounts и meta-daily-sync на Supabase.
+              Подключите Facebook или укажите Access Token ниже.
             </div>
           </div>
         </div>
+        <Button
+          onClick={() => void handleOAuth()}
+          disabled={oauthLoading}
+          className="w-full gap-2 bg-[#1877F2] text-white hover:bg-[#166FE5]"
+        >
+          {oauthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Facebook className="h-4 w-4" />}
+          Подключить через Facebook
+        </Button>
         <Button variant="outline" onClick={() => void load()}>
           Повторить
         </Button>
@@ -269,6 +287,14 @@ export function AddCabinetPickStep({
             </p>
           )}
         </div>
+        <Button
+          onClick={() => void handleOAuth()}
+          disabled={oauthLoading}
+          className="w-full gap-2 bg-[#1877F2] text-white hover:bg-[#166FE5]"
+        >
+          {oauthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Facebook className="h-4 w-4" />}
+          Подключить через Facebook
+        </Button>
         <TokenRefreshBlock
           accessToken={accessToken}
           onAccessTokenChange={onAccessTokenChange}
