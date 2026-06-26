@@ -35,9 +35,9 @@ async function fetchCampaignSnapshot(token: string, campaignId: string) {
   return parsed;
 }
 
-async function postCampaign(token: string, campaignId: string, params: Record<string, string>) {
+async function postEntity(token: string, entityId: string, params: Record<string, string>) {
   const body = new URLSearchParams({ ...params, access_token: token });
-  const r = await fetch(`${GRAPH}/${campaignId}`, {
+  const r = await fetch(`${GRAPH}/${entityId}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
@@ -47,6 +47,39 @@ async function postCampaign(token: string, campaignId: string, params: Record<st
   try { parsed = JSON.parse(text); } catch { /* keep */ }
   if (!r.ok) throw new Error(parsed?.error?.error_user_msg ?? parsed?.error?.message ?? text);
   return parsed;
+}
+
+async function fetchEntitySnapshot(token: string, entityId: string) {
+  const url = `${GRAPH}/${entityId}?fields=status,effective_status,daily_budget,lifetime_budget&access_token=${encodeURIComponent(token)}`;
+  const r = await fetch(url);
+  const text = await r.text();
+  let parsed: any = text;
+  try { parsed = JSON.parse(text); } catch { /* ignore */ }
+  if (!r.ok) throw new Error(parsed?.error?.error_user_msg ?? parsed?.error?.message ?? text);
+  return parsed;
+}
+
+async function duplicateAdset(token: string, adsetId: string, statusOption: string) {
+  const body = new URLSearchParams({
+    access_token: token,
+    status_option: statusOption,
+    rename_suffix: " · auto",
+  });
+  const r = await fetch(`${GRAPH}/${adsetId}/copies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const text = await r.text();
+  let parsed: any = text;
+  try { parsed = JSON.parse(text); } catch { /* keep */ }
+  if (!r.ok) throw new Error(parsed?.error?.error_user_msg ?? parsed?.error?.message ?? text);
+  const copied = (parsed?.copied_adset_id ?? parsed?.id ?? null) as string | null;
+  return copied;
+}
+
+async function postCampaign(token: string, campaignId: string, params: Record<string, string>) {
+  return postEntity(token, campaignId, params);
 }
 
 async function notifyTelegram(admin: any, projectId: string, text: string) {
@@ -118,43 +151,65 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const before = await fetchCampaignSnapshot(token, action.campaign_id);
-    const beforeSnap = {
-      status: before.status,
-      daily_budget: before.daily_budget ? Number(before.daily_budget) / 100 : null,
-      lifetime_budget: before.lifetime_budget ? Number(before.lifetime_budget) / 100 : null,
-    };
-
+    let beforeSnap: Record<string, unknown> = {};
     let afterSnap: Record<string, unknown> = {};
     let notifyEmoji = "🤖";
     let notifyVerb = "";
+    const entityLabel = action.entity_name || action.campaign_name || action.adset_id || action.campaign_id;
 
-    if (action.action_type === "pause") {
-      await postCampaign(token, action.campaign_id, { status: "PAUSED" });
-      afterSnap = { ...beforeSnap, status: "PAUSED" };
-      notifyEmoji = "⏸️"; notifyVerb = "поставлена на паузу";
-    } else if (action.action_type === "resume") {
-      await postCampaign(token, action.campaign_id, { status: "ACTIVE" });
-      afterSnap = { ...beforeSnap, status: "ACTIVE" };
-      notifyEmoji = "▶️"; notifyVerb = "возобновлена";
-    } else if (action.action_type === "budget_cut" || action.action_type === "budget_bump") {
-      // Use target from after_value (set when action was created), else compute from reason_metrics.
-      const target = (action.after_value as any)?.daily_budget;
-      if (!target || target <= 0) throw new Error("Target daily_budget missing");
-      const cents = Math.round(Number(target) * 100);
-      await postCampaign(token, action.campaign_id, { daily_budget: String(cents) });
-      afterSnap = { ...beforeSnap, daily_budget: Number(target) };
-      notifyEmoji = action.action_type === "budget_cut" ? "⬇️" : "⬆️";
-      notifyVerb = `бюджет ${action.action_type === "budget_cut" ? "уменьшен" : "увеличен"} до ${Math.round(Number(target)).toLocaleString("ru-RU")}₸/день`;
-    }
+    if (action.action_type === "pause_adset" && action.adset_id) {
+      const before = await fetchEntitySnapshot(token, action.adset_id);
+      beforeSnap = { status: before.status, entity: action.adset_id };
+      await postEntity(token, action.adset_id, { status: "PAUSED" });
+      afterSnap = { status: "PAUSED", entity: action.adset_id };
+      notifyEmoji = "⏸️"; notifyVerb = "группа на паузе";
+      await admin.from("meta_creatives").update({ status: "PAUSED", effective_status: "PAUSED" }).eq("adset_id", action.adset_id);
+    } else if (action.action_type === "pause_ad" && action.ad_id) {
+      const before = await fetchEntitySnapshot(token, action.ad_id);
+      beforeSnap = { status: before.status, entity: action.ad_id };
+      await postEntity(token, action.ad_id, { status: "PAUSED" });
+      afterSnap = { status: "PAUSED", entity: action.ad_id };
+      notifyEmoji = "⏸️"; notifyVerb = "объявление на паузе";
+      await admin.from("meta_creatives").update({ status: "PAUSED", effective_status: "PAUSED" }).eq("ad_id", action.ad_id);
+    } else if (action.action_type === "duplicate_adset" && action.adset_id) {
+      const statusOpt = String((action.after_value as any)?.status_option ?? "PAUSED");
+      const copiedId = await duplicateAdset(token, action.adset_id, statusOpt);
+      beforeSnap = { adset_id: action.adset_id };
+      afterSnap = { copied_adset_id: copiedId, status_option: statusOpt };
+      notifyEmoji = "📋"; notifyVerb = `создан дубль группы${copiedId ? ` · ${copiedId}` : ""}`;
+    } else {
+      const before = await fetchCampaignSnapshot(token, action.campaign_id);
+      beforeSnap = {
+        status: before.status,
+        daily_budget: before.daily_budget ? Number(before.daily_budget) / 100 : null,
+        lifetime_budget: before.lifetime_budget ? Number(before.lifetime_budget) / 100 : null,
+      };
 
-    // Persist local meta_campaigns mirror (best-effort)
-    if (action.action_type === "pause") {
-      await admin.from("meta_campaigns").update({ status: "PAUSED", effective_status: "PAUSED", last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
-    } else if (action.action_type === "resume") {
-      await admin.from("meta_campaigns").update({ status: "ACTIVE", effective_status: "ACTIVE", last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
-    } else if (afterSnap.daily_budget) {
-      await admin.from("meta_campaigns").update({ daily_budget: Number(afterSnap.daily_budget), last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
+      if (action.action_type === "pause") {
+        await postCampaign(token, action.campaign_id, { status: "PAUSED" });
+        afterSnap = { ...beforeSnap, status: "PAUSED" };
+        notifyEmoji = "⏸️"; notifyVerb = "поставлена на паузу";
+      } else if (action.action_type === "resume") {
+        await postCampaign(token, action.campaign_id, { status: "ACTIVE" });
+        afterSnap = { ...beforeSnap, status: "ACTIVE" };
+        notifyEmoji = "▶️"; notifyVerb = "возобновлена";
+      } else if (action.action_type === "budget_cut" || action.action_type === "budget_bump") {
+        const target = (action.after_value as any)?.daily_budget;
+        if (!target || target <= 0) throw new Error("Target daily_budget missing");
+        const cents = Math.round(Number(target) * 100);
+        await postCampaign(token, action.campaign_id, { daily_budget: String(cents) });
+        afterSnap = { ...beforeSnap, daily_budget: Number(target) };
+        notifyEmoji = action.action_type === "budget_cut" ? "⬇️" : "⬆️";
+        notifyVerb = `бюджет ${action.action_type === "budget_cut" ? "уменьшен" : "увеличен"} до ${Math.round(Number(target)).toLocaleString("ru-RU")}₸/день`;
+      }
+
+      if (action.action_type === "pause") {
+        await admin.from("meta_campaigns").update({ status: "PAUSED", effective_status: "PAUSED", last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
+      } else if (action.action_type === "resume") {
+        await admin.from("meta_campaigns").update({ status: "ACTIVE", effective_status: "ACTIVE", last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
+      } else if (afterSnap.daily_budget) {
+        await admin.from("meta_campaigns").update({ daily_budget: Number(afterSnap.daily_budget), last_synced_at: new Date().toISOString() }).eq("campaign_id", action.campaign_id);
+      }
     }
 
     await admin.from("ad_auto_actions").update({
@@ -165,11 +220,10 @@ Deno.serve(async (req) => {
       applied_by: userId,
     }).eq("id", actionId);
 
-    const campName = action.campaign_name || action.campaign_id;
     await notifyTelegram(
       admin,
       action.project_id,
-      `${notifyEmoji} <b>Auto:</b> «${campName}» ${notifyVerb}\n<i>${action.reason ?? ""}</i>`,
+      `${notifyEmoji} <b>Auto:</b> «${entityLabel}» ${notifyVerb}\n<i>${action.reason ?? ""}</i>`,
     );
 
     return json({ ok: true, before: beforeSnap, after: afterSnap });

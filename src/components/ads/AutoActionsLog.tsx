@@ -9,7 +9,8 @@ type AutoAction = {
   id: string;
   campaign_id: string;
   campaign_name: string | null;
-  action_type: "pause" | "resume" | "budget_cut" | "budget_bump";
+  entity_name?: string | null;
+  action_type: "pause" | "resume" | "budget_cut" | "budget_bump" | "duplicate_adset" | "pause_adset" | "pause_ad";
   trigger: "kpi_evaluator" | "manual" | "rollback";
   mode: "off" | "suggest" | "enforce";
   reason: string | null;
@@ -22,10 +23,13 @@ type AutoAction = {
 };
 
 const TYPE_LABEL: Record<AutoAction["action_type"], { icon: string; text: string }> = {
-  pause: { icon: "⏸️", text: "Пауза" },
+  pause: { icon: "⏸️", text: "Пауза кампании" },
   resume: { icon: "▶️", text: "Возобновить" },
   budget_cut: { icon: "⬇️", text: "Снизить бюджет" },
   budget_bump: { icon: "⬆️", text: "Поднять бюджет" },
+  duplicate_adset: { icon: "📋", text: "Дубль группы" },
+  pause_adset: { icon: "⏸️", text: "Пауза группы" },
+  pause_ad: { icon: "⏸️", text: "Пауза объявления" },
 };
 
 const STATUS_STYLES: Record<AutoAction["status"], string> = {
@@ -54,7 +58,7 @@ export default function AutoActionsLog({ cabinetId }: { cabinetId: string }) {
     const since = new Date(Date.now() - 7 * 86400_000).toISOString();
     const { data } = await supabase
       .from("ad_auto_actions")
-      .select("id,campaign_id,campaign_name,action_type,trigger,mode,reason,before_value,after_value,status,error,created_at,applied_at")
+      .select("id,campaign_id,campaign_name,entity_name,action_type,trigger,mode,reason,before_value,after_value,status,error,created_at,applied_at")
       .eq("cabinet_id", cabinetId)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
@@ -140,7 +144,7 @@ export default function AutoActionsLog({ cabinetId }: { cabinetId: string }) {
                   )}
                 </div>
                 <div className="mt-1 text-[12px] text-muted-foreground">
-                  «{a.campaign_name || a.campaign_id}»
+                  «{a.entity_name || a.campaign_name || a.campaign_id}»
                 </div>
                 {a.reason && <div className="mt-1 text-[11px] text-muted-foreground">{a.reason}</div>}
                 {a.error && (

@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Target,
   Trash2,
+  Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import CabinetCampaignsPanel from "@/components/ads/CabinetCampaignsPanel";
 import CabinetKpiDialog from "@/components/ads/CabinetKpiDialog";
+import CabinetAutomationDialog from "@/components/ads/CabinetAutomationDialog";
 import { MetaAccountStatusInline } from "@/components/ads/MetaAccountStatusBlock";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -105,6 +107,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
 
   const [syncing, setSyncing] = useState(false);
   const [kpiOpen, setKpiOpen] = useState(false);
+  const [automationOpen, setAutomationOpen] = useState(false);
 
   const handleSync = async () => {
     if (!cabinet.adAccountId && !cabinet.externalId) {
@@ -290,6 +293,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
                   <Target className="mr-2 h-4 w-4" />
                   Настроить KPI
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setAutomationOpen(true)}>
+                  <Bot className="mr-2 h-4 w-4" />
+                  Автоматизация
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
@@ -388,6 +395,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
               <DropdownMenuItem onClick={() => setKpiOpen(true)}>
                 <Target className="mr-2 h-4 w-4" />
                 Настроить KPI
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAutomationOpen(true)}>
+                <Bot className="mr-2 h-4 w-4" />
+                Автоматизация
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -599,6 +610,13 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
         onOpenChange={setKpiOpen}
         cabinetId={cabinet.id}
         cabinetName={cabinet.name}
+      />
+      <CabinetAutomationDialog
+        open={automationOpen}
+        onOpenChange={setAutomationOpen}
+        cabinetId={cabinet.id}
+        cabinetName={cabinet.name}
+        currency={currency}
       />
     </article>
   );

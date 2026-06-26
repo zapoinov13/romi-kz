@@ -333,7 +333,244 @@ async function run(opts: { cabinet_id?: string; project_id?: string }) {
     }
   }
 
-  return { ok: true, evaluated: camps?.length || 0, written };
+  const adsetActions = await runAdsetAutomation(sb, opts);
+  return { ok: true, evaluated: camps?.length || 0, written, adset_actions: adsetActions };
+}
+
+type AdsetRules = {
+  auto_mode: "off" | "suggest" | "enforce";
+  auto_duplicate_adset_enabled: boolean;
+  auto_duplicate_stable_days: number;
+  auto_duplicate_max_cpl: number | null;
+  auto_duplicate_min_leads: number;
+  auto_smart_pause_enabled: boolean;
+  auto_pause_spend_threshold: number | null;
+  auto_pause_min_ctr_pct: number;
+  auto_pause_max_cpm: number | null;
+  auto_pause_scope: string;
+  cooldown_minutes: number;
+  daily_action_limit: number;
+};
+
+async function canInsertAdsetAction(sb: any, cabinetId: string, entityId: string, kpi: AdsetRules): Promise<boolean> {
+  const cooldownMs = (kpi.cooldown_minutes ?? 360) * 60 * 1000;
+  const { data: recent } = await sb.from("ad_auto_actions")
+    .select("id")
+    .eq("cabinet_id", cabinetId)
+    .or(`adset_id.eq.${entityId},ad_id.eq.${entityId}`)
+    .in("status", ["pending", "applied"])
+    .gte("created_at", new Date(Date.now() - cooldownMs).toISOString())
+    .limit(1);
+  if (recent?.length) return false;
+
+  const startOfDay = new Date(); startOfDay.setUTCHours(0, 0, 0, 0);
+  const { count } = await sb.from("ad_auto_actions")
+    .select("id", { count: "exact", head: true })
+    .eq("cabinet_id", cabinetId)
+    .gte("created_at", startOfDay.toISOString())
+    .neq("status", "skipped");
+  return (count ?? 0) < (kpi.daily_action_limit ?? 5);
+}
+
+async function queueAdsetAction(
+  sb: any,
+  params: {
+    cabinet_id: string;
+    project_id: string;
+    campaign_id: string;
+    adset_id?: string | null;
+    ad_id?: string | null;
+    entity_name?: string | null;
+    action_type: string;
+    mode: string;
+    reason: string;
+    reason_metrics: Record<string, unknown>;
+    after_value?: Record<string, unknown>;
+  },
+): Promise<number> {
+  const { data: inserted } = await sb.from("ad_auto_actions").insert({
+    cabinet_id: params.cabinet_id,
+    project_id: params.project_id,
+    campaign_id: params.campaign_id,
+    campaign_name: params.entity_name ?? null,
+    adset_id: params.adset_id ?? null,
+    ad_id: params.ad_id ?? null,
+    entity_name: params.entity_name ?? null,
+    action_type: params.action_type,
+    trigger: "kpi_evaluator",
+    mode: params.mode,
+    reason: params.reason,
+    reason_metrics: params.reason_metrics,
+    before_value: {},
+    after_value: params.after_value ?? {},
+    status: "pending",
+  }).select("id").single();
+
+  if (params.mode === "enforce" && inserted?.id) {
+    await fetch(`${SUPABASE_URL}/functions/v1/ads-action-executor`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ action_id: inserted.id }),
+    }).catch(() => null);
+  }
+  return 1;
+}
+
+async function runAdsetAutomation(sb: any, opts: { cabinet_id?: string; project_id?: string }): Promise<number> {
+  let cabQ = sb.from("ad_cabinets").select("id,project_id").eq("provider", "meta");
+  if (opts.cabinet_id) cabQ = cabQ.eq("id", opts.cabinet_id);
+  if (opts.project_id) cabQ = cabQ.eq("project_id", opts.project_id);
+  const { data: cabinets } = await cabQ;
+  if (!cabinets?.length) return 0;
+
+  let actions = 0;
+  const today = new Date();
+
+  for (const cab of cabinets) {
+    const { data: kpiRow } = await sb.from("ad_kpi_targets")
+      .select("*")
+      .eq("cabinet_id", cab.id)
+      .is("campaign_id", null)
+      .is("adset_id", null)
+      .maybeSingle();
+    if (!kpiRow) continue;
+
+    const rules: AdsetRules = {
+      auto_mode: kpiRow.auto_mode ?? "suggest",
+      auto_duplicate_adset_enabled: !!kpiRow.auto_duplicate_adset_enabled,
+      auto_duplicate_stable_days: Number(kpiRow.auto_duplicate_stable_days ?? 3),
+      auto_duplicate_max_cpl: kpiRow.auto_duplicate_max_cpl != null ? Number(kpiRow.auto_duplicate_max_cpl) : null,
+      auto_duplicate_min_leads: Number(kpiRow.auto_duplicate_min_leads ?? 3),
+      auto_smart_pause_enabled: !!kpiRow.auto_smart_pause_enabled,
+      auto_pause_spend_threshold: kpiRow.auto_pause_spend_threshold != null ? Number(kpiRow.auto_pause_spend_threshold) : 5,
+      auto_pause_min_ctr_pct: Number(kpiRow.auto_pause_min_ctr_pct ?? 0.8),
+      auto_pause_max_cpm: kpiRow.auto_pause_max_cpm != null ? Number(kpiRow.auto_pause_max_cpm) : null,
+      auto_pause_scope: kpiRow.auto_pause_scope ?? "adset",
+      cooldown_minutes: Number(kpiRow.cooldown_minutes ?? 360),
+      daily_action_limit: Number(kpiRow.daily_action_limit ?? 5),
+    };
+
+    if (rules.auto_mode === "off") continue;
+    if (!rules.auto_duplicate_adset_enabled && !rules.auto_smart_pause_enabled) continue;
+
+    const windowDays = Math.max(rules.auto_duplicate_stable_days, 3);
+    const since = new Date(today.getTime() - windowDays * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+    const { data: creatives } = await sb.from("meta_creatives")
+      .select("ad_id,adset_id,campaign_id,name,status,effective_status")
+      .eq("cabinet_id", cab.id)
+      .not("adset_id", "is", null);
+
+    const adIds = (creatives || []).map((c: { ad_id: string }) => c.ad_id).filter(Boolean);
+    if (!adIds.length) continue;
+
+    const { data: daily } = await sb.from("meta_creative_daily")
+      .select("ad_id,date,spend,leads,clicks,impressions")
+      .eq("cabinet_id", cab.id)
+      .gte("date", since);
+
+    const adToAdset = new Map<string, { adset_id: string; campaign_id: string; name: string }>();
+    const adsetActiveAds = new Map<string, number>();
+    for (const cr of creatives || []) {
+      if (!cr.adset_id) continue;
+      adToAdset.set(cr.ad_id, { adset_id: cr.adset_id, campaign_id: cr.campaign_id, name: cr.name });
+      const st = (cr.effective_status || cr.status || "").toUpperCase();
+      if (st === "ACTIVE") adsetActiveAds.set(cr.adset_id, (adsetActiveAds.get(cr.adset_id) ?? 0) + 1);
+    }
+
+    const adsetMap = new Map<string, {
+      adset_id: string; campaign_id: string; adset_name: string;
+      spend: number; leads: number; clicks: number; impressions: number; days: number; active_ads: number;
+    }>();
+
+    const dayKeys = new Set<string>();
+    for (const row of daily || []) {
+      const meta = adToAdset.get(row.ad_id);
+      if (!meta) continue;
+      dayKeys.add(`${meta.adset_id}:${row.date}`);
+      const cur = adsetMap.get(meta.adset_id) ?? {
+        adset_id: meta.adset_id,
+        campaign_id: meta.campaign_id,
+        adset_name: meta.name,
+        spend: 0, leads: 0, clicks: 0, impressions: 0, days: 0, active_ads: adsetActiveAds.get(meta.adset_id) ?? 0,
+      };
+      cur.spend += Number(row.spend || 0);
+      cur.leads += Number(row.leads || 0);
+      cur.clicks += Number(row.clicks || 0);
+      cur.impressions += Number(row.impressions || 0);
+      adsetMap.set(meta.adset_id, cur);
+    }
+    for (const key of dayKeys) {
+      const adsetId = key.split(":")[0];
+      const cur = adsetMap.get(adsetId);
+      if (cur) cur.days += 1;
+    }
+
+    for (const agg of adsetMap.values()) {
+      const cpl = agg.leads > 0 ? agg.spend / agg.leads : null;
+      const ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
+      const cpm = agg.impressions > 0 ? (agg.spend / agg.impressions) * 1000 : 0;
+
+      if (
+        rules.auto_duplicate_adset_enabled &&
+        rules.auto_duplicate_max_cpl != null &&
+        agg.leads >= rules.auto_duplicate_min_leads &&
+        cpl != null &&
+        cpl <= rules.auto_duplicate_max_cpl &&
+        agg.days >= rules.auto_duplicate_stable_days
+      ) {
+        if (await canInsertAdsetAction(sb, cab.id, agg.adset_id, rules)) {
+          actions += await queueAdsetAction(sb, {
+            cabinet_id: cab.id,
+            project_id: cab.project_id,
+            campaign_id: agg.campaign_id,
+            adset_id: agg.adset_id,
+            entity_name: agg.adset_name,
+            action_type: "duplicate_adset",
+            mode: rules.auto_mode,
+            reason: `CPL ${cpl.toFixed(2)} ≤ ${rules.auto_duplicate_max_cpl} за ${agg.days}д · ${agg.leads} заявок`,
+            reason_metrics: { cpl, spend: agg.spend, leads: agg.leads, ctr, cpm, days: agg.days },
+            after_value: { status_option: "PAUSED" },
+          });
+        }
+      }
+
+      if (
+        rules.auto_smart_pause_enabled &&
+        rules.auto_pause_spend_threshold != null &&
+        agg.leads === 0 &&
+        agg.spend >= rules.auto_pause_spend_threshold &&
+        ctr >= rules.auto_pause_min_ctr_pct &&
+        (rules.auto_pause_max_cpm == null || cpm <= rules.auto_pause_max_cpm)
+      ) {
+        const useAd = rules.auto_pause_scope === "ad" && agg.active_ads === 1;
+        const adRow = (creatives || []).find(
+          (c: { adset_id: string; effective_status?: string; status?: string }) =>
+            c.adset_id === agg.adset_id && (c.effective_status || c.status || "").toUpperCase() === "ACTIVE",
+        );
+        const entityId = useAd && adRow?.ad_id ? adRow.ad_id : agg.adset_id;
+        if (await canInsertAdsetAction(sb, cab.id, entityId, rules)) {
+          actions += await queueAdsetAction(sb, {
+            cabinet_id: cab.id,
+            project_id: cab.project_id,
+            campaign_id: agg.campaign_id,
+            adset_id: useAd ? null : agg.adset_id,
+            ad_id: useAd ? adRow?.ad_id : null,
+            entity_name: agg.adset_name,
+            action_type: useAd ? "pause_ad" : "pause_adset",
+            mode: rules.auto_mode,
+            reason: `Потрачено ${agg.spend.toFixed(2)} без заявок · CTR ${ctr.toFixed(2)}% в норме`,
+            reason_metrics: { spend: agg.spend, leads: 0, ctr, cpm, threshold: rules.auto_pause_spend_threshold },
+          });
+        }
+      }
+    }
+  }
+
+  return actions;
 }
 
 async function maybeAutoAction(
@@ -497,6 +734,11 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const presented = authHeader.replace(/^Bearer\s+/i, "").trim();
   let allowed = false;
+  let body: { cabinet_id?: string; project_id?: string } = {};
+  if (req.method === "POST") {
+    body = await req.json().catch(() => ({}));
+  }
+
   if (presented && presented === SUPABASE_SERVICE_ROLE_KEY) {
     allowed = true;
   } else if (presented) {
@@ -515,7 +757,15 @@ Deno.serve(async (req) => {
           .eq("user_id", data.claims.sub)
           .eq("role", "admin")
           .maybeSingle();
-        if (roleRow) allowed = true;
+        if (roleRow) {
+          allowed = true;
+        } else if (body?.cabinet_id) {
+          const { data: cab } = await admin.from("ad_cabinets").select("project_id").eq("id", body.cabinet_id).maybeSingle();
+          if (cab?.project_id) {
+            const { data: access } = await admin.rpc("user_can_access_project", { _project_id: cab.project_id });
+            if (access) allowed = true;
+          }
+        }
       }
     } catch {
       // reject below
@@ -529,7 +779,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const result = await run({ cabinet_id: body?.cabinet_id, project_id: body?.project_id });
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
