@@ -1,7 +1,7 @@
 {
-  "git_sha": "7d72f25",
-  "git_sha_full": "7d72f258745c4b66f7329baba77d55b407d5733d",
-  "updated_at": "2026-06-26T18:25:06+05:00",
-  "label": "feat: RNP metrics table, cabinet payment status, sidebar analytics",
+  "git_sha": "55b521e",
+  "git_sha_full": "55b521efaaf3351d2e20ca1a225577783f268f9e",
+  "updated_at": "2026-06-26T18:31:37+05:00",
+  "label": "chore: add /rnp alias and clearer sidebar label for metrics page",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
