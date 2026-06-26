@@ -207,7 +207,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
     upsertManual(isoDate, { manual_revenue: v });
 
   return (
-    <article className="group rounded-xl border border-border/50 bg-card/40 transition-all hover:border-success/30 hover:bg-card/60">
+    <article className="group meta-card transition-all hover:border-primary/30 hover:shadow-md">
       <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
         {/* Header row: icon + name + actions (always on one row on mobile) */}
         <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
@@ -311,7 +311,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
         <button
           type="button"
           onClick={onToggle}
-          className="grid w-full grid-cols-4 gap-2 rounded-lg border border-border/40 bg-background/30 p-2.5 text-left transition-colors hover:border-success/30 active:bg-background/50 lg:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:gap-5"
+          className="grid w-full grid-cols-4 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 lg:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:gap-5"
         >
           <Metric
             label="Расход"
@@ -321,7 +321,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             label="Лиды"
             value={
               <span>
-                <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>{" "}
+                <span className="text-primary">{formatNumber(totals?.leads ?? 0)}</span>{" "}
                 <span className="text-[10px] font-normal text-muted-foreground">
                   {cpl > 0 ? formatMoney(cpl, currency) : ""}
                 </span>
@@ -353,7 +353,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
             onClick={handleSync}
             disabled={syncing}
             title="Получить статистику из Meta"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-border/50 bg-transparent px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-success/30 hover:bg-success/5 hover:text-success disabled:opacity-60"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
           >
             {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
             <span>{syncing ? "Загрузка" : "Статистика"}</span>

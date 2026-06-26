@@ -39,7 +39,7 @@ const StatChip = ({
   accent: string;
   icon: LucideIcon;
 }) => (
-  <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-card/40 px-2 py-2 sm:gap-2.5 sm:px-3">
+  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-2 py-2 sm:gap-2.5 sm:px-3 shadow-sm">
     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
       <Icon className="h-3.5 w-3.5" />
     </span>
@@ -131,7 +131,7 @@ const Ads = () => {
               <>
                 {cabinets.length} {cabinets.length === 1 ? "кабинет" : cabinets.length < 5 ? "кабинета" : "кабинетов"}
                 {" · "}
-                <span className="text-success">{active} активных</span>
+                <span className="text-primary">{active} активных</span>
               </>
             )
         }
@@ -158,7 +158,7 @@ const Ads = () => {
               size="sm"
               aria-label="Добавить кабинет"
               title="Добавить кабинет"
-              className="h-9 w-9 shrink-0 gap-0 rounded-lg border border-success/30 bg-transparent px-0 text-success hover:bg-success/10 sm:w-auto sm:gap-1.5 sm:px-3"
+              className="h-9 w-9 shrink-0 gap-0 rounded-lg border border-primary/30 bg-transparent px-0 text-primary hover:bg-primary/10 sm:w-auto sm:gap-1.5 sm:px-3"
             >
               <Zap className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Кабинет</span>
@@ -167,7 +167,7 @@ const Ads = () => {
             <Button
               onClick={() => setCampaignOpen(true)}
               size="sm"
-              className="h-9 flex-1 gap-1.5 rounded-lg bg-success font-semibold text-slate-950 shadow-[0_4px_14px_-4px_hsl(var(--success)/0.5)] hover:bg-success/90 sm:flex-none"
+              className="h-9 flex-1 gap-1.5 rounded-lg bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:flex-none"
             >
               <Rocket className="h-3.5 w-3.5" />
               <span>Кампания</span>
@@ -188,13 +188,13 @@ const Ads = () => {
           <StatChip
             label="Лиды"
             value={totalLeads.toLocaleString("ru-RU")}
-            accent="bg-success/15 text-success"
+            accent="bg-primary/10 text-primary"
             icon={Target}
           />
           <StatChip
             label="Продажи"
             value={totalSales.toLocaleString("ru-RU")}
-            accent="bg-success/15 text-success"
+            accent="bg-primary/10 text-primary"
             icon={ShoppingCart}
           />
         </div>
@@ -209,7 +209,7 @@ const Ads = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Поиск по кабинетам…"
-                className="h-10 rounded-xl border-border/60 bg-card/60 pl-10"
+                className="h-10 rounded-lg border border-input bg-white pl-10"
               />
             </div>
           )}
@@ -226,12 +226,12 @@ const Ads = () => {
             />
           ))}
           {filtered.length === 0 && (
-            <div className="relative overflow-hidden rounded-[2rem] border border-dashed border-border/60 bg-gradient-to-b from-card/60 to-transparent p-12 text-center">
-              <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-success/10 blur-[100px]" />
+            <div className="relative overflow-hidden rounded-lg border border-dashed border-border bg-white p-12 text-center shadow-sm">
+              <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
               <div className="relative mx-auto mb-7 h-24 w-24">
-                <div className="absolute inset-0 scale-150 rounded-full bg-success/20 blur-xl" />
-                <div className="relative grid h-full w-full place-items-center rounded-full border border-success/30 bg-card shadow-2xl">
-                  <Megaphone className="h-10 w-10 text-success" />
+                <div className="absolute inset-0 scale-150 rounded-full bg-primary/15 blur-xl" />
+                <div className="relative grid h-full w-full place-items-center rounded-full border border-primary/25 bg-white shadow-md">
+                  <Megaphone className="h-10 w-10 text-primary" />
                 </div>
               </div>
               <h3 className="relative text-2xl font-bold text-foreground">
@@ -248,7 +248,7 @@ const Ads = () => {
                     setAddInitialStep("pick");
                     setAddOpen(true);
                   }}
-                  className="relative mt-8 h-12 gap-2 rounded-2xl bg-success px-8 font-bold text-slate-950 shadow-[0_10px_25px_-5px_hsl(var(--success)/0.5)] transition-all hover:scale-[1.02] hover:bg-success/90 active:scale-95"
+                  className="relative mt-8 h-11 gap-2 rounded-lg bg-primary px-8 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90"
                 >
                   <Plus className="h-5 w-5" />
                   Добавить первый кабинет

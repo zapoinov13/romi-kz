@@ -2,106 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ROMI design system — Charcoal + Neon Lime.
-   Inspired by romi.kz brand: matte dark gray surface, single neon-green accent.
-   All colors in HSL.
-*/
+/* Meta Ads Manager design system — white + Meta blue (#1877F2).
+   All colors in HSL. */
 
 @layer base {
   :root {
-    /* Surfaces — neutral charcoal (no color tint) */
-    --background: 0 0% 8%;
-    --foreground: 0 0% 96%;
+    --background: 220 14% 96%;
+    --foreground: 220 9% 12%;
 
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 12%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 9% 12%;
 
-    /* Primary — ROMI neon lime */
-    --primary: 75 92% 62%;
-    --primary-foreground: 0 0% 8%;
-    --primary-glow: 75 100% 70%;
+    --primary: 214 89% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 214 100% 60%;
 
-    --secondary: 0 0% 16%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 9% 12%;
 
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 62%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 5% 41%;
 
-    /* Accent — softer lime variant for variety */
-    --accent: 75 70% 52%;
-    --accent-foreground: 0 0% 8%;
+    --accent: 214 100% 95%;
+    --accent-foreground: 214 89% 42%;
 
-    --destructive: 0 75% 58%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 351 87% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 75 92% 62%;
-    --success-foreground: 0 0% 8%;
-    --warning: 40 95% 60%;
-    --warning-foreground: 0 0% 8%;
+    --success: 128 61% 41%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 100% 50%;
+    --warning-foreground: 220 9% 12%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 75 92% 62%;
+    --border: 220 8% 86%;
+    --input: 220 8% 86%;
+    --ring: 214 89% 52%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Gradients & shadows — monochrome lime */
-    --gradient-primary: linear-gradient(135deg, hsl(75 92% 62%), hsl(75 100% 70%));
-    --gradient-accent: linear-gradient(135deg, hsl(75 70% 52%), hsl(75 92% 62%));
-    --gradient-hero: linear-gradient(135deg, hsl(75 100% 70%) 0%, hsl(75 70% 50%) 100%);
-    --gradient-card-hover: linear-gradient(135deg, hsl(75 92% 62% / 0.10), hsl(75 92% 62% / 0.04));
-    --shadow-glow: 0 0 32px hsl(75 92% 62% / 0.30);
-    --shadow-glow-accent: 0 0 32px hsl(75 92% 62% / 0.22);
-    --shadow-card: 0 2px 14px -4px hsl(0 0% 0% / 0.7);
-    --shadow-elevated: 0 18px 50px -16px hsl(75 92% 62% / 0.28);
+    --gradient-primary: linear-gradient(180deg, hsl(214 89% 54%), hsl(214 89% 48%));
+    --gradient-accent: linear-gradient(180deg, hsl(214 100% 97%), hsl(214 100% 93%));
+    --gradient-hero: linear-gradient(135deg, hsl(214 89% 52%), hsl(214 89% 42%));
+    --gradient-card-hover: linear-gradient(135deg, hsl(214 100% 97%), hsl(0 0% 100%));
+    --shadow-glow: 0 0 0 1px hsl(214 89% 52% / 0.2);
+    --shadow-glow-accent: 0 2px 8px hsl(214 89% 52% / 0.25);
+    --shadow-card: 0 1px 2px hsl(220 9% 12% / 0.08), 0 0 0 1px hsl(220 8% 86% / 0.8);
+    --shadow-elevated: 0 4px 16px hsl(220 9% 12% / 0.12);
 
-    /* Sidebar */
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 78%;
-    --sidebar-primary: 75 92% 62%;
-    --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 0 0% 13%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 16%;
-    --sidebar-ring: 75 92% 62%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 5% 41%;
+    --sidebar-primary: 214 89% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 100% 95%;
+    --sidebar-accent-foreground: 214 89% 42%;
+    --sidebar-border: 220 8% 86%;
+    --sidebar-ring: 214 89% 52%;
+
+    --meta-blue: 214 89% 52%;
+    --meta-blue-dark: 214 89% 42%;
+    --meta-bg: 220 14% 96%;
+    --meta-nav-active: 214 100% 95%;
   }
 
   .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 96%;
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 96%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 75 92% 62%;
-    --primary-foreground: 0 0% 8%;
-    --primary-glow: 75 100% 70%;
-    --secondary: 0 0% 16%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 0 0% 14%;
-    --muted-foreground: 0 0% 62%;
-    --accent: 75 70% 52%;
-    --accent-foreground: 0 0% 8%;
-    --destructive: 0 75% 58%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 75 92% 62%;
-    --success-foreground: 0 0% 8%;
-    --warning: 40 95% 60%;
-    --warning-foreground: 0 0% 8%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 75 92% 62%;
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 78%;
-    --sidebar-primary: 75 92% 62%;
-    --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 0 0% 13%;
-    --sidebar-accent-foreground: 0 0% 96%;
-    --sidebar-border: 0 0% 16%;
-    --sidebar-ring: 75 92% 62%;
+    --background: 220 14% 96%;
+    --foreground: 220 9% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 9% 12%;
+    --primary: 214 89% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 214 100% 60%;
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 220 9% 12%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 5% 41%;
+    --accent: 214 100% 95%;
+    --accent-foreground: 214 89% 42%;
+    --destructive: 351 87% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 128 61% 41%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 100% 50%;
+    --warning-foreground: 220 9% 12%;
+    --border: 220 8% 86%;
+    --input: 220 8% 86%;
+    --ring: 214 89% 52%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 5% 41%;
+    --sidebar-primary: 214 89% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 214 100% 95%;
+    --sidebar-accent-foreground: 214 89% 42%;
+    --sidebar-border: 220 8% 86%;
+    --sidebar-ring: 214 89% 52%;
   }
 }
 
@@ -111,22 +109,39 @@
   }
 
   html {
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, Inter, ui-sans-serif, system-ui, sans-serif;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, Inter, ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-image:
-      radial-gradient(ellipse 60% 35% at 15% -5%, hsl(75 92% 62% / 0.07), transparent 60%),
-      radial-gradient(ellipse 60% 35% at 90% 0%, hsl(75 92% 62% / 0.05), transparent 60%);
+    background-color: hsl(var(--background));
   }
 
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .meta-card {
+    @apply rounded-lg border border-border bg-card shadow-card;
+  }
+
+  .meta-toolbar {
+    @apply flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-sm;
+  }
+
+  .meta-table-wrap {
+    @apply overflow-hidden rounded-lg border border-border bg-card shadow-card;
+  }
+
+  .meta-nav-active {
+    background-color: hsl(var(--meta-nav-active));
+    color: hsl(var(--meta-blue));
   }
 }
 
@@ -173,7 +188,6 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
-  /* Отступ под нижнюю мобильную навигацию (h-16 + safe-area + запас под FAB). */
   .mobile-main {
     padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
@@ -184,7 +198,6 @@
     }
   }
 
-  /* Sticky-CTA, поднятая над нижней навигацией на мобильных. */
   .mobile-sticky-cta {
     position: sticky;
     bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
@@ -197,7 +210,6 @@
   }
 }
 
-/* Нативные тач-ощущения на мобильных. */
 @media (hover: none) and (pointer: coarse) {
   html,
   body {
@@ -215,12 +227,10 @@
   .mobile-main {
     -webkit-overflow-scrolling: touch;
   }
-  /* Минимальный тап-таргет 44px по Apple HIG для всех интерактивов в основной области. */
   .mobile-main button:not(.no-min-tap),
   .mobile-main a[role="button"]:not(.no-min-tap) {
     min-height: 36px;
   }
-  /* iOS не должен зумить input при фокусе → ≥16px. */
   .mobile-main input,
   .mobile-main select,
   .mobile-main textarea {

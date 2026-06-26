@@ -332,7 +332,7 @@ const Metrics = () => {
         meta={
           <div className="hidden min-w-[180px] flex-col gap-1 sm:flex">
             <Progress value={monthProgress} className="h-2" />
-            <span className="text-right text-[11px] font-medium text-success">
+            <span className="text-right text-[11px] font-medium text-primary">
               {monthProgress}% месяца
             </span>
           </div>
@@ -350,7 +350,7 @@ const Metrics = () => {
         <div className="flex flex-wrap items-center gap-3">
           <PeriodPicker range={period} onChange={setPeriod} />
           <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
-            <SelectTrigger className="h-11 min-w-[240px] rounded-xl border-border/60 bg-card/60">
+            <SelectTrigger className="h-11 min-w-[240px] rounded-lg border border-input bg-white">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Выберите кабинет" />
             </SelectTrigger>
@@ -364,11 +364,11 @@ const Metrics = () => {
           </Select>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleResync} disabled={resyncing || !canEdit}>
+          <Button variant="outline" className="h-11 gap-2 rounded-lg border-border bg-white" onClick={handleResync} disabled={resyncing || !canEdit}>
             {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Meta
           </Button>
-          <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleExportCsv}>
+          <Button variant="outline" className="h-11 gap-2 rounded-lg border-border bg-white" onClick={handleExportCsv}>
             <Download className="h-4 w-4" />
             CSV
           </Button>
@@ -376,7 +376,7 @@ const Metrics = () => {
       </div>
 
       {canEdit && (
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-2.5 text-[11px] text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-white px-4 py-2.5 text-[11px] text-muted-foreground shadow-sm">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
             <Pencil className="h-3.5 w-3.5 text-primary" />
             Клик по ячейке → ввод · Enter сохранить · Esc отмена
@@ -402,7 +402,7 @@ const Metrics = () => {
       )}
 
       {plan && (
-        <div className="mt-4 grid gap-2 rounded-xl border border-border/60 bg-card/40 p-4 sm:grid-cols-3">
+        <div className="mt-4 grid gap-2 rounded-lg border border-border bg-white p-4 shadow-sm sm:grid-cols-3">
           <PlanFactRow label="Расходы" plan={plan.spend} fact={totals.spend} format={fmtTenge} />
           <PlanFactRow label="Лиды" plan={plan.leads} fact={totals.leads} format={fmtNum} />
           <PlanFactRow label="КЭВ" plan={plan.diagnostics} fact={totals.kev} format={fmtNum} />
@@ -411,14 +411,14 @@ const Metrics = () => {
         </div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card/30 shadow-sm">
+      <div className="meta-table-wrap mt-6">
         <div className="max-h-[min(70vh,720px)] overflow-auto">
           <table className="w-full min-w-[1000px] border-collapse text-xs">
             <thead className="sticky top-0 z-30">
-              <tr className="border-b border-border/60">
+              <tr className="border-b border-border bg-secondary/40">
                 <th
                   rowSpan={2}
-                  className="sticky left-0 z-40 min-w-[76px] border-r border-border/40 bg-card px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  className="sticky left-0 z-40 min-w-[76px] border-r border-border bg-white px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                 >
                   Дата
                 </th>
@@ -435,7 +435,7 @@ const Metrics = () => {
                   </th>
                 ))}
               </tr>
-              <tr className="border-b border-border/60 bg-card/95">
+              <tr className="border-b border-border bg-white">
                 {RNP_COLUMNS.map((col) => (
                   <th
                     key={col.key}
@@ -525,10 +525,10 @@ function KpiCard({
     success: "border-success/30 bg-success/5",
     primary: "border-primary/30 bg-primary/5",
     warning: "border-warning/30 bg-warning/5",
-    muted: "border-border/60 bg-card/40",
+    muted: "border-border bg-white",
   };
   return (
-    <div className={cn("rounded-2xl border p-4", tones[tone])}>
+    <div className={cn("meta-card p-4", tones[tone])}>
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}

@@ -35,7 +35,7 @@ export function PageHeader({
       )}
     >
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-success/10 text-success">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0">

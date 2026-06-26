@@ -1,4 +1,4 @@
-import { Bell, Sparkles } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import {
   SidebarInset,
   SidebarProvider,
@@ -19,42 +19,45 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <ContentFactoryGalleryProvider>
-    <SidebarProvider>
-      <div className="flex min-h-svh w-full">
-        <AppSidebar />
-        <SidebarInset className="flex min-w-0 flex-1 flex-col bg-background">
-          <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center gap-2 border-b border-border/60 bg-background/75 px-2.5 pt-[env(safe-area-inset-top)] backdrop-blur-2xl sm:h-14 sm:gap-3 sm:px-6">
-            <SidebarTrigger className="h-10 w-10 shrink-0 md:hidden" aria-label="Открыть меню" />
-            <div className="min-w-0 flex-1 md:hidden">
-              <div className="truncate text-[15px] font-semibold leading-tight">{active?.name ?? "MarkVision"}</div>
-              <div className="truncate text-[10px] leading-tight text-muted-foreground">Проект</div>
-            </div>
-            <div className="relative hidden min-w-0 flex-1 md:mx-auto md:block md:max-w-2xl">
-              <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary" />
-              <input
-                placeholder="Спросите ИИ… (скоро)"
-                disabled
-                title="AI-поиск появится в следующих обновлениях"
-                className="h-10 w-full cursor-not-allowed rounded-full border border-border/60 bg-secondary/30 pl-10 pr-14 text-sm outline-none placeholder:text-muted-foreground/60"
+      <SidebarProvider>
+        <div className="flex min-h-svh w-full bg-background">
+          <AppSidebar />
+          <SidebarInset className="flex min-w-0 flex-1 flex-col bg-background">
+            <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-white px-3 pt-[env(safe-area-inset-top)] shadow-sm sm:px-5">
+              <SidebarTrigger
+                className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-secondary hover:text-primary md:hidden"
+                aria-label="Открыть меню"
               />
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-border bg-background px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-                ⌘K
-              </span>
-            </div>
-            <button
-              type="button"
-              aria-label="Уведомления"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-secondary"
-            >
-              <Bell className="h-4 w-4" />
-            </button>
-          </header>
-          <main className="mobile-main min-w-0 flex-1 overflow-x-hidden">{children}</main>
-          <MobileBottomNav />
-        </SidebarInset>
-      </div>
-      <TaskReminderToast />
-    </SidebarProvider>
+              <div className="min-w-0 flex-1 md:hidden">
+                <div className="truncate text-[15px] font-semibold leading-tight text-foreground">
+                  {active?.name ?? "ROMI"}
+                </div>
+                <div className="truncate text-[11px] leading-tight text-muted-foreground">
+                  Рекламный кабинет
+                </div>
+              </div>
+              <div className="relative hidden min-w-0 flex-1 md:mx-auto md:block md:max-w-xl">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  placeholder="Поиск по кампаниям и кабинетам…"
+                  disabled
+                  className="h-9 w-full rounded-md border border-input bg-secondary/50 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Уведомления"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-primary"
+              >
+                <Bell className="h-[18px] w-[18px]" />
+              </button>
+            </header>
+            <main className="mobile-main min-w-0 flex-1 overflow-x-hidden">{children}</main>
+            <MobileBottomNav />
+          </SidebarInset>
+        </div>
+        <TaskReminderToast />
+      </SidebarProvider>
     </ContentFactoryGalleryProvider>
   );
 };
