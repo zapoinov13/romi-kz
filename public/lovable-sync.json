@@ -1,7 +1,7 @@
 {
-  "git_sha": "b8bb452",
-  "git_sha_full": "b8bb4524a9a85bc59aad9d51723707a967930696",
-  "updated_at": "2026-06-26T20:37:14+05:00",
-  "label": "fix: restore expanded sidebar with labels and project switcher",
+  "git_sha": "1c90972",
+  "git_sha_full": "1c90972f6ae9d45558a09fd9edd317861ae08f81",
+  "updated_at": "2026-06-26T21:01:09+05:00",
+  "label": "feat: Facebook OAuth for Meta ad account connection",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
