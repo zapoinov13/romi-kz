@@ -1,7 +1,7 @@
 {
-  "git_sha": "1c90972",
-  "git_sha_full": "1c90972f6ae9d45558a09fd9edd317861ae08f81",
-  "updated_at": "2026-06-26T21:01:09+05:00",
-  "label": "feat: Facebook OAuth for Meta ad account connection",
+  "git_sha": "b1c7a38",
+  "git_sha_full": "b1c7a38e5076450c8be830c471a3bffcf9b42cf0",
+  "updated_at": "2026-06-26T21:08:52+05:00",
+  "label": "fix: wire Meta OAuth into CI deploy and add manual deploy script",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
