@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Check, ChevronsUpDown, Plus, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown, Plus, Settings2, Trash2, ChevronDown } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -85,9 +85,10 @@ function ProjectQuickCreatePanel({
 
 interface Props {
   collapsed: boolean;
+  metaStyle?: boolean;
 }
 
-export function ProjectSwitcher({ collapsed }: Props) {
+export function ProjectSwitcher({ collapsed, metaStyle = false }: Props) {
   const { projects, active, activeId, setActive, removeProject } = useProjectsStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -99,20 +100,36 @@ export function ProjectSwitcher({ collapsed }: Props) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-2.5 text-left transition-colors hover:bg-card"
+            className={cn(
+              "flex items-center gap-2 text-left transition-colors",
+              metaStyle
+                ? "max-w-full rounded-md px-1 py-1 hover:bg-[hsl(var(--meta-header-bg))]"
+                : "w-full gap-3 rounded-xl border border-border/60 bg-card/60 p-2.5 hover:bg-card",
+            )}
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-success/20 text-base font-bold text-success ring-1 ring-success/40">
+            <span
+              className={cn(
+                "grid shrink-0 place-items-center rounded-md bg-primary/15 font-bold text-primary",
+                metaStyle ? "h-7 w-7 text-[11px]" : "h-10 w-10 rounded-xl text-base ring-1 ring-primary/30",
+              )}
+            >
               {active?.initials ?? "PR"}
             </span>
-            {!collapsed && (
+            {(!collapsed || metaStyle) && (
               <>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{active?.name ?? "Проект"}</div>
-                  <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {active?.domain ?? "Проект"}
-                  </div>
+                  <div className="truncate text-[13px] font-semibold">{active?.name ?? "Проект"}</div>
+                  {!metaStyle && (
+                    <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {active?.domain ?? "Проект"}
+                    </div>
+                  )}
                 </div>
-                <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                {metaStyle ? (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </>
             )}
           </button>
@@ -134,11 +151,11 @@ export function ProjectSwitcher({ collapsed }: Props) {
                       isActive && "bg-secondary",
                     )}
                   >
-                    <span className="grid h-7 w-7 place-items-center rounded-md bg-success/20 text-xs font-bold text-success">
+                    <span className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 text-xs font-bold text-primary">
                       {p.initials}
                     </span>
                     <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                    {isActive && <Check className="h-4 w-4 text-success" />}
+                    {isActive && <Check className="h-4 w-4 text-primary" />}
                   </button>
                   {!p.isPrimary && (
                     <button
@@ -158,7 +175,7 @@ export function ProjectSwitcher({ collapsed }: Props) {
             <button
               type="button"
               onClick={() => { setCreateOpen(true); setOpen(false); }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-success hover:bg-success/10"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-primary hover:bg-primary/10"
             >
               <Plus className="h-4 w-4" />
               Быстрое создание

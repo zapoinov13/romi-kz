@@ -1,15 +1,13 @@
 import { useMemo, useState } from "react";
 import {
-  LayoutGrid,
   Megaphone,
   Plus,
   RefreshCw,
-  Rocket,
   Search,
   ShoppingCart,
   Target,
   Wallet,
-  Zap,
+  ChevronDown,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,9 +19,13 @@ import AlertsBanner from "@/components/ads/AlertsBanner";
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCabinetsStore } from "@/hooks/useCabinetsStore";
 
 const SEARCH_THRESHOLD = 3;
@@ -39,7 +41,7 @@ const StatChip = ({
   accent: string;
   icon: LucideIcon;
 }) => (
-  <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-2 py-2 sm:gap-2.5 sm:px-3 shadow-sm">
+  <div className="flex items-center gap-2 bg-white px-3 py-2 sm:gap-2.5 sm:px-3">
     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
       <Icon className="h-3.5 w-3.5" />
     </span>
@@ -120,100 +122,99 @@ const Ads = () => {
   const totalSales = cabinets.reduce((s, c) => s + (c.sales || 0), 0);
 
   return (
-    <PageContainer>
-      <PageHeader
-        icon={Megaphone}
-        title="Управление рекламой"
-        description={
-          cabinets.length === 0
-            ? "Нет подключённых кабинетов"
-            : (
-              <>
-                {cabinets.length} {cabinets.length === 1 ? "кабинет" : cabinets.length < 5 ? "кабинета" : "кабинетов"}
-                {" · "}
-                <span className="text-primary">{active} активных</span>
-              </>
-            )
-        }
-        actions={
-          <div className="flex w-full items-center gap-1.5 sm:w-auto sm:gap-2">
-            <PeriodPicker range={period} onChange={setPeriod} />
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-lg border-border/50"
-              aria-label="Обновить"
-              onClick={handleRefresh}
-              title="Обновить данные"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-            </Button>
-
-            <Button
-              onClick={() => {
-                setAddInitialStep("pick");
-                setAddOpen(true);
-              }}
-              size="sm"
-              aria-label="Добавить кабинет"
-              title="Добавить кабинет"
-              className="h-9 w-9 shrink-0 gap-0 rounded-lg border border-primary/30 bg-transparent px-0 text-primary hover:bg-primary/10 sm:w-auto sm:gap-1.5 sm:px-3"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Кабинет</span>
-            </Button>
-
-            <Button
-              onClick={() => setCampaignOpen(true)}
-              size="sm"
-              className="h-9 flex-1 gap-1.5 rounded-lg bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:flex-none"
-            >
-              <Rocket className="h-3.5 w-3.5" />
-              <span>Кампания</span>
-            </Button>
+    <PageContainer noAnimate className="max-w-none px-2 sm:px-3">
+      {/* Meta-style tabs + period */}
+      <div className="meta-card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[hsl(var(--meta-border))] bg-white px-2 sm:px-3">
+          <div className="flex items-center">
+            <button type="button" className="meta-tab meta-tab-active">
+              Кабинеты
+            </button>
+            <button type="button" className="meta-tab" disabled title="Скоро">
+              Кампании
+            </button>
+            <button type="button" className="meta-tab" disabled title="Скоро">
+              Объявления
+            </button>
           </div>
-        }
-      />
-
-      {/* Aggregate KPIs — only when multiple cabinets (otherwise the row itself shows the same numbers) */}
-      {showAggregate && (
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <StatChip
-            label="Расход за месяц"
-            value={`${Math.round(totalSpend).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`}
-            accent="bg-warning/15 text-warning"
-            icon={Wallet}
-          />
-          <StatChip
-            label="Лиды"
-            value={totalLeads.toLocaleString("ru-RU")}
-            accent="bg-primary/10 text-primary"
-            icon={Target}
-          />
-          <StatChip
-            label="Продажи"
-            value={totalSales.toLocaleString("ru-RU")}
-            accent="bg-primary/10 text-primary"
-            icon={ShoppingCart}
-          />
+          <div className="flex items-center gap-2 py-2">
+            <span className="hidden text-[12px] text-muted-foreground sm:inline">
+              {cabinets.length} {cabinets.length === 1 ? "кабинет" : "кабинетов"}
+              {cabinets.length > 0 && (
+                <>
+                  {" · "}
+                  <span className="text-[hsl(var(--meta-create))]">{active} активных</span>
+                </>
+              )}
+            </span>
+            <PeriodPicker range={period} onChange={setPeriod} />
+          </div>
         </div>
-      )}
 
-      {/* Tabs */}
-      <div className="mt-6 space-y-3">
+        {/* Toolbar — как в Meta Ads Manager */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[hsl(var(--meta-border))] bg-white px-2 py-2 sm:px-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className="meta-btn-create">
+                <Plus className="h-4 w-4" />
+                Создать
+                <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem
+                onClick={() => {
+                  setAddInitialStep("pick");
+                  setAddOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Кабинет
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCampaignOpen(true)}>
+                <Target className="mr-2 h-4 w-4" />
+                Кампанию
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="meta-btn-outline"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Обновить
+          </button>
+
           {showSearch && (
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative ml-auto w-full sm:w-56">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск по кабинетам…"
-                className="h-10 rounded-lg border border-input bg-white pl-10"
+                placeholder="Поиск…"
+                className="h-9 rounded-md border-[hsl(var(--meta-border))] bg-white pl-8 text-[13px]"
               />
             </div>
           )}
-          <AlertsBanner />
+        </div>
+
+        <AlertsBanner />
+
+        {/* Table header — desktop */}
+        {filtered.length > 0 && (
+          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
+            <div>Кабинет</div>
+            <div className="text-right">Расход</div>
+            <div className="text-right">Лиды</div>
+            <div className="text-right">Клики</div>
+            <div className="text-right">Показы</div>
+            <div />
+          </div>
+        )}
+
+        <div className="divide-y divide-[hsl(var(--meta-border))] bg-white">
           {filtered.map((c) => (
             <CabinetRow
               key={`${c.id}-${refreshKey}`}
@@ -223,6 +224,7 @@ const Ads = () => {
               monthCursor={monthCursor}
               onToggleOnline={handleToggleOnline}
               onRemove={removeCabinet}
+              metaTable
             />
           ))}
           {filtered.length === 0 && (
@@ -243,19 +245,44 @@ const Ads = () => {
                   : "Попробуйте изменить поисковый запрос"}
               </p>
               {cabinets.length === 0 && (
-                <Button
+                <button
+                  type="button"
                   onClick={() => {
                     setAddInitialStep("pick");
                     setAddOpen(true);
                   }}
-                  className="relative mt-8 h-11 gap-2 rounded-lg bg-primary px-8 font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90"
+                  className="meta-btn-create relative mt-8 gap-2 px-6"
                 >
-                  <Plus className="h-5 w-5" />
-                  Добавить первый кабинет
-                </Button>
+                  <Plus className="h-4 w-4" />
+                  Создать
+                </button>
               )}
             </div>
           )}
+        </div>
+
+        {showAggregate && filtered.length > 0 && (
+          <div className="grid grid-cols-3 gap-px border-t border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-border))]">
+            <StatChip
+              label="Расход за месяц"
+              value={`${Math.round(totalSpend).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`}
+              accent="bg-warning/15 text-warning"
+              icon={Wallet}
+            />
+            <StatChip
+              label="Лиды"
+              value={totalLeads.toLocaleString("ru-RU")}
+              accent="bg-primary/10 text-primary"
+              icon={Target}
+            />
+            <StatChip
+              label="Продажи"
+              value={totalSales.toLocaleString("ru-RU")}
+              accent="bg-primary/10 text-primary"
+              icon={ShoppingCart}
+            />
+          </div>
+        )}
       </div>
 
       <AddCabinetDialog

@@ -89,9 +89,10 @@ interface Props {
   onToggleOnline: (id: string) => void;
   onRemove: (id: string) => void;
   onSynced?: () => void;
+  metaTable?: boolean;
 }
 
-const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, onRemove, onSynced }: Props) => {
+const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, onRemove, onSynced, metaTable }: Props) => {
   const monthParam = `${monthCursor.getFullYear()}-${String(
     monthCursor.getMonth() + 1,
   ).padStart(2, "0")}`;
@@ -207,7 +208,14 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
     upsertManual(isoDate, { manual_revenue: v });
 
   return (
-    <article className="group meta-card transition-all hover:border-primary/30 hover:shadow-md">
+    <article
+      className={cn(
+        "group transition-colors",
+        metaTable
+          ? "border-0 bg-white hover:bg-[hsl(var(--meta-header-bg))]"
+          : "meta-card hover:border-primary/30 hover:shadow-md",
+      )}
+    >
       <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
         {/* Header row: icon + name + actions (always on one row on mobile) */}
         <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
@@ -219,11 +227,16 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="truncate text-sm font-bold tracking-tight">{cabinet.name}</h3>
-              {cabinet.online && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-success">
-                  <span className="h-1 w-1 rounded-full bg-success" />
-                  Online
+              <h3 className="truncate text-sm font-semibold text-primary hover:underline">{cabinet.name}</h3>
+              {cabinet.online ? (
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-foreground">
+                  <span className="meta-status-dot meta-status-active" />
+                  Активно
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                  <span className="meta-status-dot meta-status-paused" />
+                  Выкл.
                 </span>
               )}
               <span className="hidden rounded-md bg-muted/30 px-1.5 py-0.5 text-[9px] uppercase text-muted-foreground sm:inline">
