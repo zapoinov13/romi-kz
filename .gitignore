@@ -40,3 +40,4 @@ blob-report/
 playwright/.cache/
 
 .vercel
+.env.vercel.production
