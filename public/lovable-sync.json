@@ -1,7 +1,7 @@
 {
-  "git_sha": "35834ea",
-  "git_sha_full": "35834ea7d088cada9a1091671bc7b88365ec7878",
-  "updated_at": "2026-06-26T18:46:24+05:00",
-  "label": "style: Meta Ads Manager white/blue theme across app shell and pages",
+  "git_sha": "f11f9c8",
+  "git_sha_full": "f11f9c8d8861c250837ab7885ade006731122304",
+  "updated_at": "2026-06-26T20:19:13+05:00",
+  "label": "fix: login page contrast — Meta blue panel with readable white text",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
