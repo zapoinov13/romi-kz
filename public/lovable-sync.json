@@ -1,7 +1,7 @@
 {
-  "git_sha": "79278c9",
-  "git_sha_full": "79278c9a486449be8c4cf9d20a98dc36b8c1f717",
-  "updated_at": "2026-06-26T18:39:03+05:00",
-  "label": "chore: remove vercel env pull file from repo",
+  "git_sha": "fd2399a",
+  "git_sha_full": "fd2399aae7301fcb53872782c1c55b74f83e4ac0",
+  "updated_at": "2026-06-26T18:40:40+05:00",
+  "label": "fix: sidebar RNP label truncation and readable nav text",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
