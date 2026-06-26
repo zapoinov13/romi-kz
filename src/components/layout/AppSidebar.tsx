@@ -26,6 +26,8 @@ type NavItem = {
   title: string;
   url: string;
   icon: typeof LayoutGrid;
+  /** Полное название во всплывающей подсказке */
+  hint?: string;
 };
 
 // HIDDEN: «Дашборд» (/dashboard, LayoutGrid) — скрыт по запросу пользователя.
@@ -36,7 +38,12 @@ const marketing: NavItem[] = [
 ];
 
 const analytics: NavItem[] = [
-  { title: "РНП · Таблица показателей", url: "/metrics", icon: Table2 },
+  {
+    title: "Таблица РНП",
+    hint: "РНП · Таблица показателей по дням",
+    url: "/metrics",
+    icon: Table2,
+  },
 ];
 
 const system: NavItem[] = [
@@ -62,11 +69,14 @@ export function AppSidebar() {
 
   const itemClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium uppercase tracking-wide transition-colors",
+      "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
       isActive
         ? "bg-success/10 text-success before:absolute before:left-0 before:top-1/2 before:h-6 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-success"
         : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
     );
+
+  const itemLabelClass =
+    "min-w-0 flex-1 !overflow-visible !whitespace-normal leading-snug normal-case tracking-normal";
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/60">
@@ -104,7 +114,11 @@ export function AppSidebar() {
                         end={item.url === "/"}
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && (
+                          <span className={itemLabelClass} title={item.hint ?? item.title}>
+                            {item.title}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -130,7 +144,11 @@ export function AppSidebar() {
                       className={({ isActive }) => itemClass({ isActive })}
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && (
+                        <span className={itemLabelClass} title={item.hint ?? item.title}>
+                          {item.title}
+                        </span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
