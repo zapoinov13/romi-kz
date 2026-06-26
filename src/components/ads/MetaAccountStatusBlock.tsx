@@ -6,7 +6,7 @@ import {
   STATUS_TONE_CLASS,
   type MetaAccountStatusInfo,
 } from "@/lib/metaAccountStatus";
-import { useMetaAccountPay } from "@/hooks/useMetaAccountStatus";
+import { useMetaAccountPay, useMetaAccountStatus } from "@/hooks/useMetaAccountStatus";
 
 interface Props {
   status: MetaAccountStatusInfo;
