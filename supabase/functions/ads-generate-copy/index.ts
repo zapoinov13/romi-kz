@@ -148,10 +148,11 @@ Deno.serve(async (req) => {
   ];
 
 
-  const dataUrl = `data:${mime};base64,${imageB64}`;
+  // Также используем gpt-4o (а не mini), если есть транскрипт - он лучше держит длинный контекст.
+  const model = transcript ? "gpt-4o" : "gpt-4o-mini";
 
   const oaBody = {
-    model: "gpt-4o-mini",
+    model,
     temperature: 0.7,
     response_format: {
       type: "json_schema",
@@ -178,7 +179,7 @@ Deno.serve(async (req) => {
         role: "user",
         content: [
           { type: "text", text: userPrompt },
-          { type: "image_url", image_url: { url: dataUrl, detail: "low" } },
+          ...imageBlocks,
         ],
       },
     ],
