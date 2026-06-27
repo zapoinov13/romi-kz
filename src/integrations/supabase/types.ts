@@ -575,8 +575,17 @@ export type Database = {
           attribution_window: string | null
           auto_budget_bump_enabled: boolean
           auto_budget_cut_enabled: boolean
+          auto_duplicate_adset_enabled: boolean
+          auto_duplicate_max_cpl: number | null
+          auto_duplicate_min_leads: number
+          auto_duplicate_stable_days: number
           auto_mode: Database["public"]["Enums"]["ad_auto_mode"]
           auto_pause_enabled: boolean
+          auto_pause_max_cpm: number | null
+          auto_pause_min_ctr_pct: number | null
+          auto_pause_scope: string
+          auto_pause_spend_threshold: number | null
+          auto_smart_pause_enabled: boolean
           budget_bump_pct: number
           budget_cut_pct: number
           bump_max_daily_kzt: number | null
@@ -606,8 +615,17 @@ export type Database = {
           attribution_window?: string | null
           auto_budget_bump_enabled?: boolean
           auto_budget_cut_enabled?: boolean
+          auto_duplicate_adset_enabled?: boolean
+          auto_duplicate_max_cpl?: number | null
+          auto_duplicate_min_leads?: number
+          auto_duplicate_stable_days?: number
           auto_mode?: Database["public"]["Enums"]["ad_auto_mode"]
           auto_pause_enabled?: boolean
+          auto_pause_max_cpm?: number | null
+          auto_pause_min_ctr_pct?: number | null
+          auto_pause_scope?: string
+          auto_pause_spend_threshold?: number | null
+          auto_smart_pause_enabled?: boolean
           budget_bump_pct?: number
           budget_cut_pct?: number
           bump_max_daily_kzt?: number | null
@@ -637,8 +655,17 @@ export type Database = {
           attribution_window?: string | null
           auto_budget_bump_enabled?: boolean
           auto_budget_cut_enabled?: boolean
+          auto_duplicate_adset_enabled?: boolean
+          auto_duplicate_max_cpl?: number | null
+          auto_duplicate_min_leads?: number
+          auto_duplicate_stable_days?: number
           auto_mode?: Database["public"]["Enums"]["ad_auto_mode"]
           auto_pause_enabled?: boolean
+          auto_pause_max_cpm?: number | null
+          auto_pause_min_ctr_pct?: number | null
+          auto_pause_scope?: string
+          auto_pause_spend_threshold?: number | null
+          auto_smart_pause_enabled?: boolean
           budget_bump_pct?: number
           budget_cut_pct?: number
           bump_max_daily_kzt?: number | null

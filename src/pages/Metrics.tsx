@@ -178,7 +178,7 @@ const Metrics = () => {
       if (existing?.id) {
         const { error: updErr } = await supabase
           .from("cabinet_daily_insights")
-          .update(normalized)
+          .update(normalized as Record<string, never>)
           .eq("id", existing.id);
         if (updErr) throw updErr;
       } else {
@@ -189,7 +189,7 @@ const Metrics = () => {
           date: isoDate,
           spend: 0,
           leads: 0,
-          ...normalized,
+          ...(normalized as Record<string, never>),
         });
         if (insErr) throw insErr;
       }
