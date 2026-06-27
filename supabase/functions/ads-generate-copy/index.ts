@@ -48,6 +48,11 @@ Deno.serve(async (req) => {
   const projectId = String(body?.project_id || "");
   const imageB64 = String(body?.image_base64 || "");
   const mime = String(body?.mime || "image/jpeg");
+  const extraFrames: string[] = Array.isArray(body?.extra_frames_base64)
+    ? body.extra_frames_base64.filter((s: unknown) => typeof s === "string" && s.length > 100)
+    : [];
+  const videoB64 = typeof body?.video_base64 === "string" ? body.video_base64 : "";
+  const videoMime = String(body?.video_mime || "video/mp4");
   const goal = String(body?.goal || "");
   const ctaOptions: string[] = Array.isArray(body?.cta_options) ? body.cta_options : [];
   const language = String(body?.language || "ru");
@@ -86,18 +91,68 @@ Deno.serve(async (req) => {
   try { apiKey = await decryptApiKey(keyRow.api_key_encrypted); }
   catch { return json({ error: "Не удалось расшифровать ключ OpenAI" }, 500); }
 
+  // Если пришло видео - транскрибируем звук через Whisper, чтобы понять,
+  // о чём говорят в ролике.
+  let transcript = "";
+  if (videoB64 && videoB64.length > 200) {
+    try {
+      const bin = atob(videoB64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const ext = videoMime.includes("webm") ? "webm"
+        : videoMime.includes("quicktime") || videoMime.includes("mov") ? "mov"
+        : videoMime.includes("m4a") || videoMime.includes("mp4") ? "mp4"
+        : "mp4";
+      const fd = new FormData();
+      fd.append("file", new Blob([bytes], { type: videoMime }), `creative.${ext}`);
+      fd.append("model", "whisper-1");
+      if (language) fd.append("language", language);
+      fd.append("response_format", "text");
+      const wResp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: fd,
+      });
+      if (wResp.ok) {
+        transcript = (await wResp.text()).trim();
+      } else {
+        const errTxt = await wResp.text();
+        console.warn("[ads-generate-copy] whisper error", wResp.status, errTxt.slice(0, 300));
+      }
+    } catch (e) {
+      console.warn("[ads-generate-copy] whisper exception", (e as Error).message);
+    }
+  }
+
+  const isVideo = extraFrames.length > 0 || !!transcript;
   const userPrompt = [
     `language: ${language}`,
     goal ? `goal: ${goal}` : "",
     ctaOptions.length ? `cta_options: ${JSON.stringify(ctaOptions)}` : "",
     brandHint ? `brand_hint: ${brandHint}` : "",
-    `Проанализируй изображение: что на нем, какой текст/оффер виден, кому подходит. На основе этого напиши тексты для Meta Ads.`,
+    isVideo
+      ? `Тебе передано ${1 + extraFrames.length} кадра(ов) из видео-креатива (начало, середина, конец) - проанализируй динамику.`
+      : `Проанализируй изображение креатива.`,
+    transcript
+      ? `Транскрипт того, что говорят в видео:\n"""\n${transcript.slice(0, 4000)}\n"""\nОбязательно учти смысл речи при составлении текстов рекламы.`
+      : "",
+    `На основе всего этого напиши тексты для Meta Ads.`,
   ].filter(Boolean).join("\n");
 
-  const dataUrl = `data:${mime};base64,${imageB64}`;
+  const imageBlocks = [
+    { type: "image_url", image_url: { url: `data:${mime};base64,${imageB64}`, detail: "low" } },
+    ...extraFrames.map((b) => ({
+      type: "image_url" as const,
+      image_url: { url: `data:image/jpeg;base64,${b}`, detail: "low" as const },
+    })),
+  ];
+
+
+  // Также используем gpt-4o (а не mini), если есть транскрипт - он лучше держит длинный контекст.
+  const model = transcript ? "gpt-4o" : "gpt-4o-mini";
 
   const oaBody = {
-    model: "gpt-4o-mini",
+    model,
     temperature: 0.7,
     response_format: {
       type: "json_schema",
@@ -124,7 +179,7 @@ Deno.serve(async (req) => {
         role: "user",
         content: [
           { type: "text", text: userPrompt },
-          { type: "image_url", image_url: { url: dataUrl, detail: "low" } },
+          ...imageBlocks,
         ],
       },
     ],
@@ -184,5 +239,8 @@ Deno.serve(async (req) => {
     description,
     suggested_cta,
     creative_summary: oneLine(out.creative_summary, 1000),
+    transcript: transcript ? transcript.slice(0, 2000) : "",
+    used_frames: 1 + extraFrames.length,
+    used_audio: !!transcript,
   });
 });
