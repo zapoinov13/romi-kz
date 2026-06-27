@@ -538,7 +538,34 @@ const CreateCampaignDialog = ({
     setAiGenStatus("running");
     setAiGenError(null);
     try {
+      const isVideo = source.type.startsWith("video/");
       const image_base64 = await fileToAnalyzableJpegBase64(source);
+      let extra_frames_base64: string[] | undefined;
+      let video_base64: string | undefined;
+      let video_mime: string | undefined;
+
+      if (isVideo) {
+        try {
+          const frames = await extractVideoFrames(source, 3, 1024);
+          // первый кадр уже ушёл как image_base64 (он из ~5% длительности),
+          // добавим только middle + end (или все три, если что-то отвалится)
+          extra_frames_base64 = frames.slice(1);
+        } catch (e) {
+          console.warn("[ai] extractVideoFrames failed:", e);
+        }
+        // Whisper API лимит ~25MB. Отправляем файл, только если влезает.
+        if (source.size <= 22 * 1024 * 1024) {
+          try {
+            video_base64 = await fileToBase64(source);
+            video_mime = source.type || "video/mp4";
+          } catch (e) {
+            console.warn("[ai] video to base64 failed:", e);
+          }
+        } else {
+          toast.message("Видео больше 22 MB - звук не анализирую, опираюсь только на кадры");
+        }
+      }
+
       const ctaList = CTA_BY_GOAL[goal as AdsGoal]?.map((c) => c.value) ?? [];
       const { data, error } = await supabase.functions.invoke<{
         ok?: boolean;
@@ -553,6 +580,9 @@ const CreateCampaignDialog = ({
           project_id: projectId,
           image_base64,
           mime: "image/jpeg",
+          extra_frames_base64,
+          video_base64,
+          video_mime,
           goal,
           cta_options: ctaList,
           current_cta: cta,
