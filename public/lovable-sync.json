@@ -1,7 +1,7 @@
 {
-  "git_sha": "89b2cc6",
-  "git_sha_full": "89b2cc6243c08c10aecf6f5137287f0517a6036b",
-  "updated_at": "2026-06-27T05:12:53Z",
-  "label": "Исправил типы и добавил колонки",
+  "git_sha": "a37caa4",
+  "git_sha_full": "a37caa401ac023d0c5b60bff3c426d714b49b6b8",
+  "updated_at": "2026-06-27T05:17:59Z",
+  "label": "Fixed all selected security issues",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
