@@ -1,7 +1,7 @@
 {
-  "git_sha": "ad9700b",
-  "git_sha_full": "ad9700b16c2b99c6c5d582268867f1bdd8264a1a",
-  "updated_at": "2026-06-27T05:10:07Z",
-  "label": "Fixed security scan issues",
+  "git_sha": "89b2cc6",
+  "git_sha_full": "89b2cc6243c08c10aecf6f5137287f0517a6036b",
+  "updated_at": "2026-06-27T05:12:53Z",
+  "label": "Исправил типы и добавил колонки",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
