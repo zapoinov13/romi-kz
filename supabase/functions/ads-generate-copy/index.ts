@@ -239,5 +239,8 @@ Deno.serve(async (req) => {
     description,
     suggested_cta,
     creative_summary: oneLine(out.creative_summary, 1000),
+    transcript: transcript ? transcript.slice(0, 2000) : "",
+    used_frames: 1 + extraFrames.length,
+    used_audio: !!transcript,
   });
 });
