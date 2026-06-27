@@ -1,7 +1,7 @@
 {
-  "git_sha": "b1c7a38",
-  "git_sha_full": "b1c7a38e5076450c8be830c471a3bffcf9b42cf0",
-  "updated_at": "2026-06-26T21:08:52+05:00",
-  "label": "fix: wire Meta OAuth into CI deploy and add manual deploy script",
+  "git_sha": "ad9700b",
+  "git_sha_full": "ad9700b16c2b99c6c5d582268867f1bdd8264a1a",
+  "updated_at": "2026-06-27T05:10:07Z",
+  "label": "Fixed security scan issues",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
