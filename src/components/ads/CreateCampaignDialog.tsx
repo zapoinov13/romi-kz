@@ -122,6 +122,72 @@ async function fileToAnalyzableJpegBase64(file: File, maxSide = 1280): Promise<s
   }
 }
 
+/** Извлечь несколько кадров из видео (start / middle / end). */
+async function extractVideoFrames(file: File, count = 3, maxSide = 1024): Promise<string[]> {
+  const url = URL.createObjectURL(file);
+  try {
+    return await new Promise<string[]>((resolve, reject) => {
+      const v = document.createElement("video");
+      v.preload = "auto";
+      v.muted = true;
+      v.playsInline = true;
+      v.src = url;
+      const frames: string[] = [];
+      const fail = (msg: string) => reject(new Error(msg));
+      v.onerror = () => fail("Не удалось прочитать видео");
+      v.onloadedmetadata = async () => {
+        try {
+          const dur = Math.max(0.1, v.duration || 1);
+          const points: number[] = [];
+          for (let i = 0; i < count; i++) {
+            const pct = count === 1 ? 0.5 : 0.1 + (0.8 * i) / (count - 1);
+            points.push(Math.min(dur - 0.05, dur * pct));
+          }
+          for (const t of points) {
+            await new Promise<void>((res, rej) => {
+              const onSeeked = () => {
+                try {
+                  const vw = v.videoWidth, vh = v.videoHeight;
+                  if (!vw || !vh) return rej(new Error("empty frame"));
+                  const scale = Math.min(1, maxSide / Math.max(vw, vh));
+                  const w = Math.round(vw * scale), h = Math.round(vh * scale);
+                  const c = document.createElement("canvas");
+                  c.width = w; c.height = h;
+                  const ctx = c.getContext("2d");
+                  if (!ctx) return rej(new Error("no canvas"));
+                  ctx.drawImage(v, 0, 0, w, h);
+                  const dataUrl = c.toDataURL("image/jpeg", 0.75);
+                  frames.push(dataUrl.split(",")[1] || "");
+                  v.removeEventListener("seeked", onSeeked);
+                  res();
+                } catch (e) { rej(e as Error); }
+              };
+              v.addEventListener("seeked", onSeeked);
+              try { v.currentTime = t; } catch (e) { rej(e as Error); }
+            });
+          }
+          resolve(frames);
+        } catch (e) { fail(String((e as Error).message || e)); }
+      };
+      setTimeout(() => fail("timeout"), 30000);
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Прочитать файл как base64 (без data: префикса). */
+async function fileToBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(bin);
+}
+
 /**
  * View-state, который ребёнок-CreativeUpload отдаёт наверх при каждом изменении.
  * Нужен, чтобы при сабмите «запечь» точно то, что видит пользователь.
