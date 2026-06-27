@@ -3517,6 +3517,58 @@ export type Database = {
           },
         ]
       }
+      meta_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          label: string | null
+          project_id: string | null
+          return_to: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          label?: string | null
+          project_id?: string | null
+          return_to?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          label?: string | null
+          project_id?: string | null
+          return_to?: string | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_oauth_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "meta_oauth_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_oauth_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_tokens: {
         Row: {
           access_token: string
@@ -3526,6 +3578,9 @@ export type Database = {
           fb_user_name: string | null
           id: string
           label: string
+          scopes: string[] | null
+          source: string
+          token_expires_at: string | null
           updated_at: string
         }
         Insert: {
@@ -3536,6 +3591,9 @@ export type Database = {
           fb_user_name?: string | null
           id?: string
           label?: string
+          scopes?: string[] | null
+          source?: string
+          token_expires_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -3546,6 +3604,9 @@ export type Database = {
           fb_user_name?: string | null
           id?: string
           label?: string
+          scopes?: string[] | null
+          source?: string
+          token_expires_at?: string | null
           updated_at?: string
         }
         Relationships: []
