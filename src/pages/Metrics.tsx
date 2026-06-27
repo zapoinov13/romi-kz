@@ -189,7 +189,7 @@ const Metrics = () => {
           date: isoDate,
           spend: 0,
           leads: 0,
-          ...normalized,
+          ...(normalized as Record<string, never>),
         });
         if (insErr) throw insErr;
       }
