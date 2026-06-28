@@ -1,7 +1,7 @@
 {
-  "git_sha": "2833c18",
-  "git_sha_full": "2833c18ff311c10b9fd8205f92d1db46e042dad1",
-  "updated_at": "2026-06-27T05:21:37Z",
-  "label": "Переписал генерацию видео",
+  "git_sha": "6fb6353",
+  "git_sha_full": "6fb63534f0628b46d4ddee25529d5d9b0d1ca068",
+  "updated_at": "2026-06-28T04:39:55Z",
+  "label": "Анализировал видео по кадрам",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
