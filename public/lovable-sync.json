@@ -1,7 +1,7 @@
 {
-  "git_sha": "eae770e",
-  "git_sha_full": "eae770e6b3eb9bb31343fafed11d339e7bd45dd3",
-  "updated_at": "2026-06-28T14:53:58Z",
-  "label": "Убрал лишние табы",
+  "git_sha": "ae85dc9",
+  "git_sha_full": "ae85dc93e44f34c42dd6c2d8dea18b55249bf988",
+  "updated_at": "2026-06-28T14:58:06Z",
+  "label": "Убрал итоговые блоки",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
