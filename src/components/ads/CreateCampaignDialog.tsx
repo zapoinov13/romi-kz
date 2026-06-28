@@ -548,22 +548,15 @@ const CreateCampaignDialog = ({
         try {
           const frames = await extractVideoFrames(source, 3, 1024);
           // первый кадр уже ушёл как image_base64 (он из ~5% длительности),
-          // добавим только middle + end (или все три, если что-то отвалится)
+          // добавим только middle + end - этого достаточно, чтобы ИИ уловил суть видео
           extra_frames_base64 = frames.slice(1);
         } catch (e) {
           console.warn("[ai] extractVideoFrames failed:", e);
         }
-        // Whisper API лимит ~25MB. Отправляем файл, только если влезает.
-        if (source.size <= 22 * 1024 * 1024) {
-          try {
-            video_base64 = await fileToBase64(source);
-            video_mime = source.type || "video/mp4";
-          } catch (e) {
-            console.warn("[ai] video to base64 failed:", e);
-          }
-        } else {
-          toast.message("Видео больше 22 MB - звук не анализирую, опираюсь только на кадры");
-        }
+        // Звук намеренно не отправляем: для рекламного описания хватает кадров,
+        // полная транскрипция замедляет и удорожает генерацию.
+        void video_base64;
+        void video_mime;
       }
 
       const ctaList = CTA_BY_GOAL[goal as AdsGoal]?.map((c) => c.value) ?? [];
