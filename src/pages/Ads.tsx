@@ -145,15 +145,9 @@ const Ads = () => {
       <div className="meta-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[hsl(var(--meta-border))] bg-white px-2 sm:px-3">
           <div className="flex items-center">
-            <button type="button" className="meta-tab meta-tab-active">
+            <span className="px-3 py-2 text-[13px] font-semibold text-[hsl(var(--meta-create))]">
               Кабинеты
-            </button>
-            <button type="button" className="meta-tab" disabled title="Скоро">
-              Кампании
-            </button>
-            <button type="button" className="meta-tab" disabled title="Скоро">
-              Объявления
-            </button>
+            </span>
           </div>
           <div className="flex items-center gap-2 py-2">
             <span className="hidden text-[12px] text-muted-foreground sm:inline">
