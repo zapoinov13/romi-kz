@@ -54,7 +54,6 @@ const Ads = () => {
 
   const active = cabinets.filter((c) => c.online).length;
   const showSearch = cabinets.length > SEARCH_THRESHOLD;
-  const showAggregate = cabinets.length > 1;
 
   const handleRefresh = () => {
     setRefreshKey((k) => k + 1);
