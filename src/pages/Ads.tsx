@@ -108,10 +108,6 @@ const Ads = () => {
     }
   };
 
-  const totalSpend = cabinets.reduce((s, c) => s + (c.spend || 0), 0);
-  const totalLeads = cabinets.reduce((s, c) => s + (c.leads || 0), 0);
-  const totalSales = cabinets.reduce((s, c) => s + (c.sales || 0), 0);
-
   return (
     <PageContainer noAnimate className="max-w-none px-2 sm:px-3">
       {/* Meta-style tabs + period */}
@@ -245,29 +241,6 @@ const Ads = () => {
             </div>
           )}
         </div>
-
-        {showAggregate && filtered.length > 0 && (
-          <div className="grid grid-cols-3 gap-px border-t border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-border))]">
-            <StatChip
-              label="Расход за месяц"
-              value={`${Math.round(totalSpend).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`}
-              accent="bg-warning/15 text-warning"
-              icon={Wallet}
-            />
-            <StatChip
-              label="Лиды"
-              value={totalLeads.toLocaleString("ru-RU")}
-              accent="bg-primary/10 text-primary"
-              icon={Target}
-            />
-            <StatChip
-              label="Продажи"
-              value={totalSales.toLocaleString("ru-RU")}
-              accent="bg-primary/10 text-primary"
-              icon={ShoppingCart}
-            />
-          </div>
-        )}
       </div>
 
       <AddCabinetDialog
