@@ -5,11 +5,8 @@ import {
   Plus,
   RefreshCw,
   Search,
-  ShoppingCart,
   Target,
-  Wallet,
   ChevronDown,
-  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,29 +28,6 @@ import { useCabinetsStore } from "@/hooks/useCabinetsStore";
 
 const SEARCH_THRESHOLD = 3;
 
-const StatChip = ({
-  label,
-  value,
-  accent,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  accent: string;
-  icon: LucideIcon;
-}) => (
-  <div className="flex items-center gap-2 bg-white px-3 py-2 sm:gap-2.5 sm:px-3">
-    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${accent}`}>
-      <Icon className="h-3.5 w-3.5" />
-    </span>
-    <div className="min-w-0 flex-1">
-      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/80 leading-none">
-        {label}
-      </div>
-      <div className="mt-1 truncate text-[13px] sm:text-sm font-bold tabular-nums leading-none">{value}</div>
-    </div>
-  </div>
-);
 
 const Ads = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -80,7 +54,6 @@ const Ads = () => {
 
   const active = cabinets.filter((c) => c.online).length;
   const showSearch = cabinets.length > SEARCH_THRESHOLD;
-  const showAggregate = cabinets.length > 1;
 
   const handleRefresh = () => {
     setRefreshKey((k) => k + 1);
@@ -134,10 +107,6 @@ const Ads = () => {
       toast.error(msg, { id: t, duration: 8000 });
     }
   };
-
-  const totalSpend = cabinets.reduce((s, c) => s + (c.spend || 0), 0);
-  const totalLeads = cabinets.reduce((s, c) => s + (c.leads || 0), 0);
-  const totalSales = cabinets.reduce((s, c) => s + (c.sales || 0), 0);
 
   return (
     <PageContainer noAnimate className="max-w-none px-2 sm:px-3">
@@ -272,29 +241,6 @@ const Ads = () => {
             </div>
           )}
         </div>
-
-        {showAggregate && filtered.length > 0 && (
-          <div className="grid grid-cols-3 gap-px border-t border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-border))]">
-            <StatChip
-              label="Расход за месяц"
-              value={`${Math.round(totalSpend).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`}
-              accent="bg-warning/15 text-warning"
-              icon={Wallet}
-            />
-            <StatChip
-              label="Лиды"
-              value={totalLeads.toLocaleString("ru-RU")}
-              accent="bg-primary/10 text-primary"
-              icon={Target}
-            />
-            <StatChip
-              label="Продажи"
-              value={totalSales.toLocaleString("ru-RU")}
-              accent="bg-primary/10 text-primary"
-              icon={ShoppingCart}
-            />
-          </div>
-        )}
       </div>
 
       <AddCabinetDialog
