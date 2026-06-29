@@ -1854,27 +1854,30 @@ const CreateCampaignDialog = ({
               )}
             </div>
 
-            <div className="overflow-y-auto px-6 py-5">
-              <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Креативы
+            {adMode === "create" && (
+              <div className="overflow-y-auto px-6 py-5">
+                <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Креативы
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <CreativeUpload
+                    label="Лента (4:5)"
+                    ratio="4:5"
+                    file={feed}
+                    onFile={setFeed}
+                    onView={(s) => { feedViewRef.current = s; }}
+                  />
+                  <CreativeUpload
+                    label="Stories (9:16)"
+                    ratio="9:16"
+                    file={stories}
+                    onFile={setStories}
+                    onView={(s) => { storiesViewRef.current = s; }}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CreativeUpload
-                  label="Лента (4:5)"
-                  ratio="4:5"
-                  file={feed}
-                  onFile={setFeed}
-                  onView={(s) => { feedViewRef.current = s; }}
-                />
-                <CreativeUpload
-                  label="Stories (9:16)"
-                  ratio="9:16"
-                  file={stories}
-                  onFile={setStories}
-                  onView={(s) => { storiesViewRef.current = s; }}
-                />
-              </div>
-            </div>
+            )}
+
           </div>
 
           <div className="border-t border-border/60 bg-background/40 px-6 py-4">
