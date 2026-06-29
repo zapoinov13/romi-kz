@@ -102,7 +102,8 @@ Deno.serve(async (req) => {
     // only expose metadata for accounts the shared META token can already
     // see, so authenticated users may call them without an existing cabinet.
     const isDiscovery =
-      kind === "pages" || kind === "pixels" || kind === "instagram";
+      kind === "pages" || kind === "pixels" || kind === "instagram" || kind === "ig_media";
+
     if (actId && !isDiscovery) {
       const actAccess = await requireMetaAdAccountAccess(auth.authHeader, actId);
       if (!actAccess.ok) return actAccess.response;
