@@ -1,7 +1,7 @@
 {
-  "git_sha": "d59e18a",
-  "git_sha_full": "d59e18a8aef03f829ff83265db2c2dc775135ee2",
-  "updated_at": "2026-06-29T06:01:25Z",
-  "label": "Исправил импорт шаблонов",
+  "git_sha": "3a39873",
+  "git_sha_full": "3a398733a2800e16df5cdeebd4b884c0126a5c5c",
+  "updated_at": "2026-06-29T06:13:59Z",
+  "label": "Добавил режим продвигания в цели",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
