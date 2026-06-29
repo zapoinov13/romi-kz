@@ -1,7 +1,7 @@
 {
-  "git_sha": "4732138",
-  "git_sha_full": "473213874ebbed0b69585bf10e1a6848044a64ae",
-  "updated_at": "2026-06-29T05:47:12Z",
-  "label": "Исправил ссылку на форму",
+  "git_sha": "15fa5f3",
+  "git_sha_full": "15fa5f3930c8d062dc97e9d53e4ee427c4de95d3",
+  "updated_at": "2026-06-29T05:53:03Z",
+  "label": "Added ad_cabinets.config col",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
