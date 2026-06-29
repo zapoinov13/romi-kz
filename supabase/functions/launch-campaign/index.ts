@@ -593,13 +593,16 @@ Deno.serve(async (req) => {
           ? "LEARN_MORE"
           : "WHATSAPP_MESSAGE";
     const ctaType = inCta || defaultCta;
+    const leadExternalFallback = websiteUrl || pickStr(client.landing_url) || "https://romi.kz/";
     const linkUrl = isWebsiteGoal
-      ? (websiteUrl || pickStr(client.landing_url) || "https://facebook.com/")
+      ? (websiteUrl || pickStr(client.landing_url) || "https://romi.kz/")
       : isTraffic
-        ? (trafficUrl || websiteUrl || pickStr(client.landing_url) || "https://facebook.com/")
+        ? (trafficUrl || websiteUrl || pickStr(client.landing_url) || "https://romi.kz/")
         : isWhatsApp && (waDigits || whatsappNumber)
           ? `https://wa.me/${waDigits || whatsappNumber.replace(/\D/g, "")}`
-          : "https://facebook.com/";
+          : isMetaForm
+            ? leadExternalFallback
+            : leadExternalFallback;
 
     // ===== 6. ЗАГРУЖАЕМ КРЕАТИВЫ В META (параллельно с созданием campaign/adset) =====
     const creativeFeedFile = incoming.get("creative_feed");
