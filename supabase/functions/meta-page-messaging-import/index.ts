@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
   const { data: cabRow, error: cabErr } = await admin
     .from("ad_cabinets")
-    .select("id, project_id, config, access_token")
+    .select("id, project_id, config, access_token, page_id")
     .eq("id", cabinetId)
     .maybeSingle();
   if (cabErr) return json({ error: cabErr.message }, 500);
@@ -62,7 +62,11 @@ Deno.serve(async (req) => {
   if (!acc.ok) return acc.response;
 
   const config = (cabRow.config ?? {}) as Record<string, unknown>;
-  const pageId = String((config as { pageId?: string })?.pageId || "");
+  const pageId = String(
+    (config as { pageId?: string })?.pageId
+      || (cabRow as { page_id?: string | null }).page_id
+      || "",
+  );
   if (!pageId) {
     return json({ ok: false, error: "no_page", message: "У кабинета не указана Facebook-страница" }, 400);
   }
