@@ -869,9 +869,10 @@ const CreateCampaignDialog = ({
       // Параллелим feed и stories — обычно это два независимых файла.
       setBakePct(50);
       const [feedRes, storiesRes] = await Promise.all([
-        bake(feed, feedViewRef.current, "ленту 4:5"),
-        bake(stories, storiesViewRef.current, "сторис 9:16"),
+        bake(bakedFeed, feedViewRef.current, "ленту 4:5"),
+        bake(bakedStories, storiesViewRef.current, "сторис 9:16"),
       ]);
+
       bakedFeed = feedRes.file;
       feedCropMeta = feedRes.cropMeta;
       bakedStories = storiesRes.file;
