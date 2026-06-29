@@ -775,16 +775,26 @@ const CreateCampaignDialog = ({
         return;
       }
     }
-    if (!headline.trim()) { toast.error("Введите заголовок объявления"); return; }
-    if (!primaryText.trim()) { toast.error("Введите основной текст объявления"); return; }
+    if (adMode === "create") {
+      if (!headline.trim()) { toast.error("Введите заголовок объявления"); return; }
+      if (!primaryText.trim()) { toast.error("Введите основной текст объявления"); return; }
+    }
     if (!campaignName.trim() || !adsetName.trim() || !adName.trim()) {
       toast.error("Имена кампании / группы / объявления не могут быть пустыми");
       return;
     }
-    if (!feed && !stories) {
-      toast.error("Загрузите хотя бы один креатив (лента или сторис)");
-      return;
+    if (adMode === "create") {
+      if (!feed && !stories) {
+        toast.error("Загрузите хотя бы один креатив (лента или сторис)");
+        return;
+      }
+    } else {
+      if (!boostMediaId) {
+        toast.error("Выберите публикацию Instagram для продвижения");
+        return;
+      }
     }
+
     if (!countryCode) {
       toast.error("Выберите страну");
       return;
