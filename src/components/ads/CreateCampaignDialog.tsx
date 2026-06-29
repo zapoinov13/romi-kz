@@ -675,6 +675,24 @@ const CreateCampaignDialog = ({
     pagesAssets.data.find((p) => p.id === effectivePageId)?.name ??
     selectedCabinet?.pageName ?? "";
 
+  // IG-аккаунт привязанный к выбранной странице.
+  const effectiveInstagramId =
+    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ??
+    selectedCabinet?.instagramId ?? "";
+
+  // Список существующих публикаций IG — нужен только для режима «продвигать».
+  const igMediaAssets = useMetaPageAssets({
+    kind: "ig_media",
+    igId: effectiveInstagramId,
+    enabled: adMode === "boost" && !!effectiveInstagramId,
+  });
+
+  // При смене кабинета сбрасываем выбранный пост.
+  useEffect(() => {
+    setBoostMediaId(null);
+  }, [cabinetId, effectiveInstagramId, adMode]);
+
+
   const [submitting, setSubmitting] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{
