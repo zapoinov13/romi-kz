@@ -90,8 +90,10 @@ Deno.serve(async (req) => {
     const actId = url.searchParams.get("actId");
     const pageId = url.searchParams.get("pageId");
     const pixelId = url.searchParams.get("pixelId");
+    const igId = url.searchParams.get("igId");
 
     if (!kind) return jsonResponse({ error: "kind is required" }, 400);
+
 
     // Tenant authorization: caller must have RLS access to a cabinet that
     // matches the requested ad account or page.
