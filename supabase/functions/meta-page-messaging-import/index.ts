@@ -104,16 +104,76 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "no_page", message: "У кабинета не указана Facebook-страница. Привяжите страницу в настройках кабинета." }, 400);
   }
 
+  // Strategy: scan existing ad creatives in the ad account for Click-to-Messenger /
+  // Click-to-WhatsApp welcome message payloads. This uses ads_management permission,
+  // which the cabinet token already has (avoids pages_messaging).
+  const extId = String((cabRow as { external_id?: string }).external_id || "");
+  const actId = extId.startsWith("act_") ? extId : extId ? `act_${extId}` : "";
+  if (!actId) {
+    return json({ ok: false, error: "no_act", message: "У кабинета не указан ad account" }, 400);
+  }
+
+  type Template = { name: string; greeting: string; iceBreakers: { question: string; answer: string }[] };
+  const templates = new Map<string, Template>();
+
+  const parseWelcome = (raw: unknown, fallbackName: string) => {
+    if (!raw) return;
+    let pwm: any = raw;
+    if (typeof raw === "string") {
+      try { pwm = JSON.parse(raw); } catch { return; }
+    }
+    // page_welcome_message can be { message: { text }, quick_replies: [...] }
+    // or { welcome_message_flow: [{ messages: [...] }] }
+    let greeting = "";
+    const ice: { question: string; answer: string }[] = [];
+
+    const collectMessages = (msgs: any[]) => {
+      for (const m of msgs ?? []) {
+        const t = m?.text || m?.message?.text;
+        if (t && !greeting) greeting = String(t);
+        const qrs = m?.quick_replies || m?.message?.quick_replies || [];
+        for (const q of qrs) {
+          const title = String(q?.title || q?.payload || "").trim();
+          if (title) ice.push({ question: title, answer: "" });
+        }
+      }
+    };
+
+    if (Array.isArray(pwm?.welcome_message_flow)) {
+      for (const step of pwm.welcome_message_flow) {
+        collectMessages(step?.messages ?? []);
+      }
+    } else if (Array.isArray(pwm?.messages)) {
+      collectMessages(pwm.messages);
+    } else if (pwm?.message?.text || pwm?.text) {
+      collectMessages([pwm]);
+    }
+
+    if (!greeting && ice.length === 0) return;
+
+    const key = JSON.stringify({ greeting, ice });
+    if (templates.has(key)) return;
+    templates.set(key, { name: fallbackName, greeting, iceBreakers: ice });
+  };
+
   const tryOne = async (userToken: string) => {
-    const pageToken = await fetchPageAccessToken(pageId, userToken);
-    if (!pageToken) return { ok: false as const, error: "page_token_unavailable" };
-    const r = await fetch(
-      `${GRAPH}/${pageId}/messenger_profile?fields=greeting,ice_breakers&access_token=${encodeURIComponent(pageToken)}`,
-    );
+    const url = `${GRAPH}/${actId}/ads?fields=name,creative{object_story_spec,asset_feed_spec}&limit=200&access_token=${encodeURIComponent(userToken)}`;
+    const r = await fetch(url);
     const text = await r.text();
     if (!r.ok) return { ok: false as const, error: text.slice(0, 500) };
     try {
-      return { ok: true as const, data: JSON.parse(text) };
+      const j = JSON.parse(text);
+      const ads: any[] = j?.data ?? [];
+      for (const ad of ads) {
+        const oss = ad?.creative?.object_story_spec;
+        const candidates: unknown[] = [
+          oss?.link_data?.page_welcome_message,
+          oss?.video_data?.page_welcome_message,
+          oss?.template_data?.page_welcome_message,
+        ];
+        for (const c of candidates) parseWelcome(c, `Из объявления: ${ad?.name || ad?.id}`);
+      }
+      return { ok: true as const, data: j };
     } catch {
       return { ok: false as const, error: "bad_json_response" };
     }
@@ -124,74 +184,49 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "fetch_failed", message: `Meta API: ${result.error}` }, 400);
   }
 
-  const profile = (result.data as { data?: Array<Record<string, unknown>> })?.data?.[0]
-    || (result.data as Record<string, unknown>);
-
-  const greetingArr = (profile?.greeting as Array<{ locale?: string; text?: string }> | undefined) ?? [];
-  const greeting =
-    greetingArr.find((x) => x?.locale === "default")?.text
-    || greetingArr[0]?.text
-    || "";
-
-  const iceArr = (profile?.ice_breakers as Array<{ locale?: string; call_to_actions?: Array<{ question?: string; payload?: string }> }> | undefined) ?? [];
-  const ice = iceArr.find((x) => x?.locale === "default") || iceArr[0];
-  const iceBreakers = (ice?.call_to_actions ?? []).map((c) => ({
-    question: String(c?.question ?? "").trim(),
-    answer: "",
-  })).filter((x) => x.question);
-
-  if (!greeting && iceBreakers.length === 0) {
+  if (templates.size === 0) {
     return json({
       ok: true,
       imported: 0,
-      message: "В Meta нет настроенного приветствия или быстрых ответов на этой странице",
+      message: "В объявлениях этого кабинета не найдено шаблонов приветствий (Click-to-Messenger / WhatsApp)",
     });
   }
 
-  // Upsert: look for an existing "import" template (we keep one synced row per cabinet)
-  const name = "Импортировано из Meta";
-  const { data: existing } = await admin
-    .from("cabinet_message_templates")
-    .select("id")
-    .eq("cabinet_id", cabinetId)
-    .eq("name", name)
-    .maybeSingle();
-
-  // clear previous synced flag on siblings
+  // Clear previous synced flags
   await admin
     .from("cabinet_message_templates")
     .update({ meta_sync_status: "local" })
     .eq("cabinet_id", cabinetId)
     .eq("meta_sync_status", "synced");
 
-  const payload = {
-    cabinet_id: cabinetId,
-    project_id: cabRow.project_id as string,
-    name,
-    greeting,
-    ice_breakers: iceBreakers as unknown,
-    cta_label: null,
-    cta_payload: null,
-    is_default: false,
-    meta_sync_status: "synced",
-    meta_synced_at: new Date().toISOString(),
-    meta_last_error: null,
-  };
-
-  if (existing?.id) {
-    const { error: upErr } = await admin
+  let imported = 0;
+  for (const tpl of templates.values()) {
+    const payload = {
+      cabinet_id: cabinetId,
+      project_id: cabRow.project_id as string,
+      name: tpl.name.slice(0, 200),
+      greeting: tpl.greeting,
+      ice_breakers: tpl.iceBreakers as unknown,
+      cta_label: null,
+      cta_payload: null,
+      is_default: false,
+      meta_sync_status: "synced",
+      meta_synced_at: new Date().toISOString(),
+      meta_last_error: null,
+    };
+    const { data: existing } = await admin
       .from("cabinet_message_templates")
-      .update(payload)
-      .eq("id", existing.id);
-    if (upErr) return json({ ok: false, error: upErr.message }, 500);
-    return json({ ok: true, imported: 1, template_id: existing.id, updated: true });
-  } else {
-    const { data: ins, error: insErr } = await admin
-      .from("cabinet_message_templates")
-      .insert(payload)
       .select("id")
-      .single();
-    if (insErr) return json({ ok: false, error: insErr.message }, 500);
-    return json({ ok: true, imported: 1, template_id: ins?.id, updated: false });
+      .eq("cabinet_id", cabinetId)
+      .eq("name", payload.name)
+      .maybeSingle();
+    if (existing?.id) {
+      await admin.from("cabinet_message_templates").update(payload).eq("id", existing.id);
+    } else {
+      await admin.from("cabinet_message_templates").insert(payload);
+    }
+    imported++;
   }
+
+  return json({ ok: true, imported });
 });
