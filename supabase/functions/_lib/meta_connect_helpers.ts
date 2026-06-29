@@ -29,7 +29,7 @@ export function getFrontendUrl(): string {
   return (
     Deno.env.get("FRONTEND_URL")?.trim() ||
     Deno.env.get("APP_URL")?.trim() ||
-    "https://romi-agency.vercel.app"
+    "https://romi-kz.vercel.app"
   ).replace(/\/$/, "");
 }
 

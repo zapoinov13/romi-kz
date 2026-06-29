@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://romi-agency.vercel.app/sitemap.xml
+Sitemap: https://romi-kz.vercel.app/sitemap.xml

@@ -70,7 +70,7 @@ export function LovablePublishGuide() {
               rel="noopener noreferrer"
               className="font-medium text-primary underline-offset-2 hover:underline"
             >
-              romi-agency.vercel.app
+              romi-kz.vercel.app
             </a>
             . Обновления идут из GitHub <code className="text-xs">{GITHUB_REPO}</code> → Vercel,
             не через Lovable Publish.

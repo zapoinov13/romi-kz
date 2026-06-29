@@ -33,7 +33,7 @@ jobs:
               git_sha_full: $full,
               updated_at: $ts,
               label: $label,
-              publish_hint: "GitHub main → Vercel romi-agency.vercel.app (см. Настройки → Деплой)"
+              publish_hint: "GitHub main → Vercel romi-kz.vercel.app"
             }' > public/lovable-sync.json
 
       - name: Commit stamp if changed

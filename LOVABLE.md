@@ -2,7 +2,9 @@
 
 ## Главная ссылка
 
-**Прод:** https://romi-agency.vercel.app/
+**Прод:** https://romi-kz.vercel.app/
+
+> Старый URL `romi-agency.vercel.app` — другой Vercel-аккаунт (`stdentalmarketing`), **не обновляется**. Используйте **romi-kz.vercel.app**.
 
 Код: **zapoinov13/romi-kz**, ветка **main**.
 
