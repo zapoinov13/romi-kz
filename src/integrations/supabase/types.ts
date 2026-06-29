@@ -257,6 +257,7 @@ export type Database = {
           business_id: string | null
           campaign_objective: string | null
           city: string | null
+          config: Json
           created_at: string
           created_by: string | null
           creative_cta: string | null
@@ -320,6 +321,7 @@ export type Database = {
           business_id?: string | null
           campaign_objective?: string | null
           city?: string | null
+          config?: Json
           created_at?: string
           created_by?: string | null
           creative_cta?: string | null
@@ -383,6 +385,7 @@ export type Database = {
           business_id?: string | null
           campaign_objective?: string | null
           city?: string | null
+          config?: Json
           created_at?: string
           created_by?: string | null
           creative_cta?: string | null
