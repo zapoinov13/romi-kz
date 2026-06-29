@@ -1,7 +1,7 @@
 {
-  "git_sha": "15fa5f3",
-  "git_sha_full": "15fa5f3930c8d062dc97e9d53e4ee427c4de95d3",
-  "updated_at": "2026-06-29T05:53:03Z",
-  "label": "Added ad_cabinets.config col",
+  "git_sha": "5b3e8b4",
+  "git_sha_full": "5b3e8b48aea00325f086382646ed428c2997c43e",
+  "updated_at": "2026-06-29T05:56:07Z",
+  "label": "Добавил подхват page_id из кабинета",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
