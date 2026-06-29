@@ -1307,6 +1307,110 @@ const CreateCampaignDialog = ({
                 </div>
               )}
 
+              {/* Режим: создать новое объявление или продвигать существующую IG-публикацию */}
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Настройка рекламы
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdMode("create")}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left text-xs transition",
+                      adMode === "create"
+                        ? "border-success bg-success/10 text-foreground"
+                        : "border-border/60 bg-background/40 hover:border-border",
+                    )}
+                  >
+                    <div className="font-semibold">Создать объявление</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Загрузить новый креатив
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdMode("boost")}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left text-xs transition",
+                      adMode === "boost"
+                        ? "border-success bg-success/10 text-foreground"
+                        : "border-border/60 bg-background/40 hover:border-border",
+                    )}
+                  >
+                    <div className="font-semibold">Продвигать публикацию</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Использовать пост из Instagram
+                    </div>
+                  </button>
+                </div>
+
+                {adMode === "boost" && (
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-background/40 p-3">
+                    {!effectiveInstagramId ? (
+                      <div className="text-[11px] text-muted-foreground">
+                        У выбранной страницы не привязан Instagram-аккаунт.
+                      </div>
+                    ) : igMediaAssets.isLoading ? (
+                      <div className="text-[11px] text-muted-foreground">Загружаем публикации…</div>
+                    ) : igMediaAssets.error ? (
+                      <div className="text-[11px] text-destructive">{igMediaAssets.error}</div>
+                    ) : igMediaAssets.data.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground">
+                        Публикации не найдены.
+                      </div>
+                    ) : (
+                      <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                        {igMediaAssets.data.map((m) => {
+                          const selected = boostMediaId === m.id;
+                          const caption = (m.caption || "В этой публикации нет текста").trim();
+                          const date = m.timestamp
+                            ? new Date(m.timestamp).toLocaleDateString("ru-RU", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "";
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setBoostMediaId(m.id)}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition",
+                                selected
+                                  ? "border-success bg-success/10"
+                                  : "border-border/60 bg-background hover:border-border",
+                              )}
+                            >
+                              {m.thumbnail_url ? (
+                                <img
+                                  src={m.thumbnail_url}
+                                  alt=""
+                                  className="h-12 w-12 shrink-0 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 shrink-0 rounded bg-muted" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-xs text-foreground">
+                                  {caption.length > 60 ? caption.slice(0, 60) + "…" : caption}
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                  Instagram · {m.media_type} {date && `· ${date}`}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+
+
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Цель кампании
