@@ -1,7 +1,7 @@
 {
-  "git_sha": "f19a3ca",
-  "git_sha_full": "f19a3ca18c891f9d04f84bc874bd3203c53b0f09",
-  "updated_at": "2026-06-29T15:01:10+05:00",
-  "label": "fix: Vercel as primary deploy — docs, UI, GitHub Action",
+  "git_sha": "c9daa64",
+  "git_sha_full": "c9daa64c2030f2bf6b7c6980541a633277ff3b46",
+  "updated_at": "2026-06-29T15:15:46+05:00",
+  "label": "fix: sync package-lock.json for npm ci in CI/Vercel",
   "publish_hint": "GitHub main → Vercel romi-agency.vercel.app (см. Настройки → Деплой)"
 }
