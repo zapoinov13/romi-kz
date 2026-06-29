@@ -1,7 +1,7 @@
 {
-  "git_sha": "6e22816",
-  "git_sha_full": "6e22816947bd3473ae2a36943ee9845aa99a5059",
-  "updated_at": "2026-06-29T16:24:53+05:00",
-  "label": "fix: treat Vercel BLOCKED deploy as success when prod alias is up",
+  "git_sha": "21b7f1e",
+  "git_sha_full": "21b7f1ec64e0b779e3eab6a782526309228f910a",
+  "updated_at": "2026-06-29T20:41:31+05:00",
+  "label": "fix: idempotent Meta OAuth migration for Lovable Supabase",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
