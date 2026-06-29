@@ -1,7 +1,7 @@
 {
-  "git_sha": "71f4d91",
-  "git_sha_full": "71f4d918150989ce247501d731fcdbbaab364484",
-  "updated_at": "2026-06-29T05:40:01Z",
-  "label": "Removed lead_gen_form_id",
+  "git_sha": "ca1652d",
+  "git_sha_full": "ca1652d1c4a65c5128be76317f8e7942882905e6",
+  "updated_at": "2026-06-29T05:44:15Z",
+  "label": "Исправил URL для lead-рекламы",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
