@@ -593,7 +593,20 @@ Deno.serve(async (req) => {
           ? "LEARN_MORE"
           : "WHATSAPP_MESSAGE";
     const ctaType = inCta || defaultCta;
-    const leadExternalFallback = websiteUrl || pickStr(client.landing_url) || "https://romi.kz/";
+    // Для lead-форм Meta требует, чтобы в link_data.link стоял внешний URL.
+    // Берём privacy_policy.url самой лид-формы — это валидный внешний ресурс,
+    // который Meta всегда принимает для lead ads.
+    let leadFormPrivacyUrl: string | null = null;
+    if (isMetaForm && leadFormId) {
+      try {
+        const r = await fetch(
+          `https://graph.facebook.com/v21.0/${leadFormId}?fields=privacy_policy_url,privacy_policy{url}&access_token=${encodeURIComponent(accessToken)}`,
+        );
+        const j = await r.json().catch(() => ({}));
+        leadFormPrivacyUrl = pickStr(j?.privacy_policy?.url) || pickStr(j?.privacy_policy_url) || null;
+      } catch (_e) { /* noop */ }
+    }
+    const leadExternalFallback = leadFormPrivacyUrl || websiteUrl || pickStr(client.landing_url) || "https://romi.kz/";
     const linkUrl = isWebsiteGoal
       ? (websiteUrl || pickStr(client.landing_url) || "https://romi.kz/")
       : isTraffic
