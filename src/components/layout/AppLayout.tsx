@@ -5,6 +5,7 @@ import {
 import AppSidebar from "./AppSidebar";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MetaTopBar } from "./MetaTopBar";
+import { PublishUpdateBanner } from "./PublishUpdateBanner";
 import { TaskReminderToast } from "@/components/crm/TaskReminderToast";
 import { ContentFactoryGalleryProvider } from "@/contexts/ContentFactoryGalleryContext";
 
@@ -19,6 +20,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <div className="flex min-h-svh w-full bg-white">
           <AppSidebar />
           <SidebarInset className="flex min-w-0 flex-1 flex-col bg-white">
+            <PublishUpdateBanner />
             <MetaTopBar />
             <main className="mobile-main min-w-0 flex-1 overflow-x-hidden bg-[hsl(var(--meta-bg))]">
               {children}

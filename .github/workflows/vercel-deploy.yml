@@ -1,0 +1,41 @@
+# Production deploy → https://romi-agency.vercel.app
+# Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+name: Vercel Production Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "supabase/**"
+      - ".github/workflows/supabase-deploy.yml"
+      - ".github/workflows/deploy-meta-edge-functions.yml"
+      - ".github/workflows/content-factory-cleanup.yml"
+      - "docs/**"
+      - "*.md"
+  workflow_dispatch: {}
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Vercel secrets
+        run: |
+          set -e
+          test -n "${{ secrets.VERCEL_TOKEN }}" || (echo "::error::VERCEL_TOKEN missing in GitHub Secrets"; exit 1)
+          test -n "${{ secrets.VERCEL_ORG_ID }}" || (echo "::error::VERCEL_ORG_ID missing"; exit 1)
+          test -n "${{ secrets.VERCEL_PROJECT_ID }}" || (echo "::error::VERCEL_PROJECT_ID missing"; exit 1)
+
+      - name: Deploy to Vercel (production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          working-directory: ./

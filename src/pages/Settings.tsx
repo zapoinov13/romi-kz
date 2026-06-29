@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
+import { LovablePublishGuide } from "@/components/settings/LovablePublishGuide";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
 import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Settings as SettingsIcon, Sparkles, Rocket } from "lucide-react";
 import {
   ROLE_LABELS,
   TeamMember,
@@ -38,7 +39,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "telegram-ads", "openai"] as const;
+const SETTINGS_TABS = ["team", "meta", "publish", "telegram-ads", "openai"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
@@ -107,6 +108,7 @@ export default function Settings() {
         <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-card/40 p-1">
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
+          <TabsTrigger value="publish" className="gap-2"><Rocket className="h-3.5 w-3.5" /> Деплой</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
           <TabsTrigger value="openai" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> OpenAI</TabsTrigger>
         </TabsList>
@@ -206,6 +208,10 @@ export default function Settings() {
 
         <TabsContent value="meta" className="mt-0">
           <MetaConnectSettings />
+        </TabsContent>
+
+        <TabsContent value="publish" className="mt-0">
+          <LovablePublishGuide />
         </TabsContent>
 
         <TabsContent value="telegram-ads" className="mt-0">

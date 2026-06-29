@@ -1,21 +1,48 @@
-# Как выкатить обновления в Lovable
+# Деплой ROMI (фронт)
 
-Код лежит в GitHub: **MarkVision2/markvision-a1**, ветка **main**.
+## Главная ссылка
 
-Cursor/агент **не может** нажать Publish в Lovable за вас — это кнопка платформы.
+**Прод:** https://romi-agency.vercel.app/
 
-## Быстрый чеклист
+Код: **zapoinov13/romi-kz**, ветка **main**.
 
-1. Откройте проект: https://lovable.dev/projects/f271a37b-306d-4edb-aaa5-782c76cf9ae3  
-2. **Project settings → Git → GitHub** — Connected, ветка **main**.  
-3. Дождитесь синхронизации с GitHub (минуты).  
-4. **Publish** (правый верхний угол) → **Update**, если уже публиковали.  
-5. Живой сайт: https://markvision-a1.lovable.app/ — Ctrl+Shift+R.
+## Как выкатить обновления
 
-## Проверка версии
+### Вариант 1 — автоматически (рекомендуется)
 
-В приложении: **Настройки → Обновления** — показывается `lovable-sync.json` (коммит и дата).
+1. Push в `main` на GitHub.
+2. GitHub Action **Vercel Production Deploy** собирает и выкладывает на `romi-agency.vercel.app`.
+3. Проверка: https://romi-agency.vercel.app/lovable-sync.json — `git_sha` должен совпадать с последним коммитом.
+
+**Секреты в GitHub** (Settings → Secrets → Actions):
+
+| Secret | Где взять |
+|--------|-----------|
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | Vercel → Team Settings → General |
+| `VERCEL_PROJECT_ID` | Проект **romi-agency** → Settings → General |
+
+### Вариант 2 — вручную в Vercel
+
+1. [vercel.com](https://vercel.com) → проект **romi-agency**
+2. **Settings → Git** — репозиторий `zapoinov13/romi-kz`, ветка `main`
+3. **Deployments → Redeploy** (последний коммит)
+
+### Lovable (опционально, не для Vercel)
+
+Lovable **не деплоит** на `romi-agency.vercel.app`. Кнопка Publish выкладывает только на `*.lovable.app`.
+
+Если всё же используете редактор Lovable:
+
+1. **Project settings → Git** — подключите **`zapoinov13/romi-kz`** (не `MarkVision2/markvision-a1`), ветка `main`.
+2. Дождитесь sync, затем **Publish → Update** для preview на lovable.app.
+
+## Проверка версии в приложении
+
+**Настройки → Деплой** — коммит и дата из `lovable-sync.json`.
 
 ## Supabase (Meta, CRM)
 
-Publish выкладывает только фронт. Edge Functions и секреты — в Supabase проекта **mekwfbqmsqiborjdrjxc**.
+Фронт на Vercel, бэкенд — Supabase **`rgttklitvvqsnlsakvzr`**.
+
+Edge Functions и секреты (`META_APP_ID`, …) — в Dashboard этого проекта, не в Lovable Publish.
