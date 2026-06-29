@@ -1,7 +1,7 @@
 {
-  "git_sha": "c9daa64",
-  "git_sha_full": "c9daa64c2030f2bf6b7c6980541a633277ff3b46",
-  "updated_at": "2026-06-29T15:15:46+05:00",
-  "label": "fix: sync package-lock.json for npm ci in CI/Vercel",
+  "git_sha": "e4fd3f3",
+  "git_sha_full": "e4fd3f3240f57a9a98479dca45f433190b8ce713",
+  "updated_at": "2026-06-29T15:18:32+05:00",
+  "label": "fix: update audit checks for CreativePreview mediaError refactor",
   "publish_hint": "GitHub main → Vercel romi-agency.vercel.app (см. Настройки → Деплой)"
 }
