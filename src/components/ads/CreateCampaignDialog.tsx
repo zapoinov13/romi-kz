@@ -810,11 +810,12 @@ const CreateCampaignDialog = ({
     // Картинки — мгновенно через canvas. Видео — через ffmpeg.wasm
     // (загрузка ядра при первом запуске, дальше — кешируется).
     setSubmitting(true);
-    let bakedFeed: File | null = feed;
-    let bakedStories: File | null = stories;
+    let bakedFeed: File | null = adMode === "boost" ? null : feed;
+    let bakedStories: File | null = adMode === "boost" ? null : stories;
     // Метаданные кропа для видео (n8n обрежет ffmpeg-ом за пару секунд).
     let feedCropMeta: Record<string, unknown> | null = null;
     let storiesCropMeta: Record<string, unknown> | null = null;
+
     try {
       const bake = async (
         f: File | null,
