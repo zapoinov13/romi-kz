@@ -510,6 +510,11 @@ const CreateCampaignDialog = ({
   const [cabinetId, setCabinetId] = useState<string>(cabinets[0]?.id ?? "");
   const [messageTemplateId, setMessageTemplateId] = useState<string | null>(null);
   const [goal, setGoal] = useState<Goal>("whatsapp");
+  // "create" — стандартный мастер с загрузкой креатива.
+  // "boost" — продвигаем уже опубликованный IG-пост (выбираем из ленты страницы).
+  const [adMode, setAdMode] = useState<"create" | "boost">("create");
+  const [boostMediaId, setBoostMediaId] = useState<string | null>(null);
+
   const [budget, setBudget] = useState("50");
   const [feed, setFeed] = useState<File | null>(null);
   const [stories, setStories] = useState<File | null>(null);
@@ -670,6 +675,24 @@ const CreateCampaignDialog = ({
     pagesAssets.data.find((p) => p.id === effectivePageId)?.name ??
     selectedCabinet?.pageName ?? "";
 
+  // IG-аккаунт привязанный к выбранной странице.
+  const effectiveInstagramId =
+    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ??
+    selectedCabinet?.instagramId ?? "";
+
+  // Список существующих публикаций IG — нужен только для режима «продвигать».
+  const igMediaAssets = useMetaPageAssets({
+    kind: "ig_media",
+    igId: effectiveInstagramId,
+    enabled: adMode === "boost" && !!effectiveInstagramId,
+  });
+
+  // При смене кабинета сбрасываем выбранный пост.
+  useEffect(() => {
+    setBoostMediaId(null);
+  }, [cabinetId, effectiveInstagramId, adMode]);
+
+
   const [submitting, setSubmitting] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{
@@ -752,16 +775,26 @@ const CreateCampaignDialog = ({
         return;
       }
     }
-    if (!headline.trim()) { toast.error("Введите заголовок объявления"); return; }
-    if (!primaryText.trim()) { toast.error("Введите основной текст объявления"); return; }
+    if (adMode === "create") {
+      if (!headline.trim()) { toast.error("Введите заголовок объявления"); return; }
+      if (!primaryText.trim()) { toast.error("Введите основной текст объявления"); return; }
+    }
     if (!campaignName.trim() || !adsetName.trim() || !adName.trim()) {
       toast.error("Имена кампании / группы / объявления не могут быть пустыми");
       return;
     }
-    if (!feed && !stories) {
-      toast.error("Загрузите хотя бы один креатив (лента или сторис)");
-      return;
+    if (adMode === "create") {
+      if (!feed && !stories) {
+        toast.error("Загрузите хотя бы один креатив (лента или сторис)");
+        return;
+      }
+    } else {
+      if (!boostMediaId) {
+        toast.error("Выберите публикацию Instagram для продвижения");
+        return;
+      }
     }
+
     if (!countryCode) {
       toast.error("Выберите страну");
       return;
@@ -777,11 +810,12 @@ const CreateCampaignDialog = ({
     // Картинки — мгновенно через canvas. Видео — через ffmpeg.wasm
     // (загрузка ядра при первом запуске, дальше — кешируется).
     setSubmitting(true);
-    let bakedFeed: File | null = feed;
-    let bakedStories: File | null = stories;
+    let bakedFeed: File | null = adMode === "boost" ? null : feed;
+    let bakedStories: File | null = adMode === "boost" ? null : stories;
     // Метаданные кропа для видео (n8n обрежет ffmpeg-ом за пару секунд).
     let feedCropMeta: Record<string, unknown> | null = null;
     let storiesCropMeta: Record<string, unknown> | null = null;
+
     try {
       const bake = async (
         f: File | null,
@@ -835,9 +869,10 @@ const CreateCampaignDialog = ({
       // Параллелим feed и stories — обычно это два независимых файла.
       setBakePct(50);
       const [feedRes, storiesRes] = await Promise.all([
-        bake(feed, feedViewRef.current, "ленту 4:5"),
-        bake(stories, storiesViewRef.current, "сторис 9:16"),
+        bake(bakedFeed, feedViewRef.current, "ленту 4:5"),
+        bake(bakedStories, storiesViewRef.current, "сторис 9:16"),
       ]);
+
       bakedFeed = feedRes.file;
       feedCropMeta = feedRes.cropMeta;
       bakedStories = storiesRes.file;
@@ -964,6 +999,14 @@ const CreateCampaignDialog = ({
       adsetName,
       adName,
       creativeName: buildCreativeName(adName),
+      // Режим продвижения существующей IG-публикации:
+      // launch-campaign увидит source_instagram_media_id и соберёт креатив
+      // через adcreatives.object_story_id вместо загрузки нового файла.
+      adMode,
+      source_instagram_media_id: adMode === "boost" ? boostMediaId ?? undefined : undefined,
+      sourceInstagramMediaId: adMode === "boost" ? boostMediaId ?? undefined : undefined,
+      isBoostExisting: adMode === "boost",
+
       pageId: effectivePageId || cab?.pageId || undefined,
       pageName: effectivePageName || cab?.pageName || undefined,
       whatsappNumber: goal === "whatsapp" ? whatsappId : undefined,
@@ -1263,6 +1306,110 @@ const CreateCampaignDialog = ({
                   )}
                 </div>
               )}
+
+              {/* Режим: создать новое объявление или продвигать существующую IG-публикацию */}
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Настройка рекламы
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdMode("create")}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left text-xs transition",
+                      adMode === "create"
+                        ? "border-success bg-success/10 text-foreground"
+                        : "border-border/60 bg-background/40 hover:border-border",
+                    )}
+                  >
+                    <div className="font-semibold">Создать объявление</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Загрузить новый креатив
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdMode("boost")}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left text-xs transition",
+                      adMode === "boost"
+                        ? "border-success bg-success/10 text-foreground"
+                        : "border-border/60 bg-background/40 hover:border-border",
+                    )}
+                  >
+                    <div className="font-semibold">Продвигать публикацию</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Использовать пост из Instagram
+                    </div>
+                  </button>
+                </div>
+
+                {adMode === "boost" && (
+                  <div className="space-y-2 rounded-xl border border-border/60 bg-background/40 p-3">
+                    {!effectiveInstagramId ? (
+                      <div className="text-[11px] text-muted-foreground">
+                        У выбранной страницы не привязан Instagram-аккаунт.
+                      </div>
+                    ) : igMediaAssets.isLoading ? (
+                      <div className="text-[11px] text-muted-foreground">Загружаем публикации…</div>
+                    ) : igMediaAssets.error ? (
+                      <div className="text-[11px] text-destructive">{igMediaAssets.error}</div>
+                    ) : igMediaAssets.data.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground">
+                        Публикации не найдены.
+                      </div>
+                    ) : (
+                      <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                        {igMediaAssets.data.map((m) => {
+                          const selected = boostMediaId === m.id;
+                          const caption = (m.caption || "В этой публикации нет текста").trim();
+                          const date = m.timestamp
+                            ? new Date(m.timestamp).toLocaleDateString("ru-RU", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "";
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setBoostMediaId(m.id)}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition",
+                                selected
+                                  ? "border-success bg-success/10"
+                                  : "border-border/60 bg-background hover:border-border",
+                              )}
+                            >
+                              {m.thumbnail_url ? (
+                                <img
+                                  src={m.thumbnail_url}
+                                  alt=""
+                                  className="h-12 w-12 shrink-0 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="h-12 w-12 shrink-0 rounded bg-muted" />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-xs text-foreground">
+                                  {caption.length > 60 ? caption.slice(0, 60) + "…" : caption}
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                                  Instagram · {m.media_type} {date && `· ${date}`}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+
 
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1707,27 +1854,30 @@ const CreateCampaignDialog = ({
               )}
             </div>
 
-            <div className="overflow-y-auto px-6 py-5">
-              <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Креативы
+            {adMode === "create" && (
+              <div className="overflow-y-auto px-6 py-5">
+                <div className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Креативы
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <CreativeUpload
+                    label="Лента (4:5)"
+                    ratio="4:5"
+                    file={feed}
+                    onFile={setFeed}
+                    onView={(s) => { feedViewRef.current = s; }}
+                  />
+                  <CreativeUpload
+                    label="Stories (9:16)"
+                    ratio="9:16"
+                    file={stories}
+                    onFile={setStories}
+                    onView={(s) => { storiesViewRef.current = s; }}
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <CreativeUpload
-                  label="Лента (4:5)"
-                  ratio="4:5"
-                  file={feed}
-                  onFile={setFeed}
-                  onView={(s) => { feedViewRef.current = s; }}
-                />
-                <CreativeUpload
-                  label="Stories (9:16)"
-                  ratio="9:16"
-                  file={stories}
-                  onFile={setStories}
-                  onView={(s) => { storiesViewRef.current = s; }}
-                />
-              </div>
-            </div>
+            )}
+
           </div>
 
           <div className="border-t border-border/60 bg-background/40 px-6 py-4">

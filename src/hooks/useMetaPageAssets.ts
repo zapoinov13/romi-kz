@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AssetKind = "whatsapp" | "pixels" | "pixel_events" | "lead_forms" | "pages" | "instagram";
+export type AssetKind = "whatsapp" | "pixels" | "pixel_events" | "lead_forms" | "pages" | "instagram" | "ig_media";
 
 export interface WhatsAppItem {
   id: string;
@@ -37,6 +37,14 @@ export interface InstagramItem {
   username?: string;
   name?: string;
 }
+export interface IgMediaItem {
+  id: string;
+  caption: string;
+  media_type: string;
+  thumbnail_url: string | null;
+  permalink: string | null;
+  timestamp: string | null;
+}
 
 type ItemMap = {
   whatsapp: WhatsAppItem;
@@ -45,6 +53,7 @@ type ItemMap = {
   lead_forms: LeadFormItem;
   pages: PageItem;
   instagram: InstagramItem;
+  ig_media: IgMediaItem;
 };
 
 interface Params {
@@ -52,8 +61,10 @@ interface Params {
   actId?: string;
   pageId?: string;
   pixelId?: string;
+  igId?: string;
   enabled?: boolean;
 }
+
 
 // 60s in-memory cache
 const cache = new Map<string, { ts: number; data: any[] }>();
@@ -64,6 +75,7 @@ export function useMetaPageAssets<K extends AssetKind>({
   actId,
   pageId,
   pixelId,
+  igId,
   enabled = true,
 }: Params & { kind: K }) {
   const [data, setData] = useState<ItemMap[K][]>([]);
@@ -71,20 +83,17 @@ export function useMetaPageAssets<K extends AssetKind>({
   const [error, setError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
-  const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}`;
+  const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}|${igId ?? ""}`;
 
   const fetchData = useCallback(
     async (force = false) => {
       if (!enabled) return;
-      // Validate required params per kind
-      // WhatsApp: достаточно pageId ИЛИ actId — edge-функция умеет тянуть
-      // номера из нескольких источников (WABA на Page, CTA, CTWA ad sets, ads).
       if (kind === "whatsapp" && !pageId && !actId) return;
       if (kind === "pixels" && !actId) return;
       if (kind === "pixel_events" && !pixelId) return;
       if (kind === "lead_forms" && !pageId) return;
       if (kind === "pages" && !actId) return;
-
+      if (kind === "ig_media" && !igId) return;
 
       const cached = cache.get(cacheKey);
       if (!force && cached && Date.now() - cached.ts < TTL) {
@@ -100,6 +109,7 @@ export function useMetaPageAssets<K extends AssetKind>({
       if (actId) params.set("actId", actId);
       if (pageId) params.set("pageId", pageId);
       if (pixelId) params.set("pixelId", pixelId);
+      if (igId) params.set("igId", igId);
 
       const { data: resp, error: invokeErr } = await supabase.functions.invoke(
         `meta-page-assets?${params.toString()}`,
@@ -128,7 +138,7 @@ export function useMetaPageAssets<K extends AssetKind>({
       setData(items);
       setLoading(false);
     },
-    [cacheKey, kind, actId, pageId, pixelId, enabled],
+    [cacheKey, kind, actId, pageId, pixelId, igId, enabled],
   );
 
   useEffect(() => {
@@ -138,3 +148,4 @@ export function useMetaPageAssets<K extends AssetKind>({
 
   return { data, isLoading, error, refetch: () => fetchData(true) };
 }
+

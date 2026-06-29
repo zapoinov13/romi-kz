@@ -90,8 +90,10 @@ Deno.serve(async (req) => {
     const actId = url.searchParams.get("actId");
     const pageId = url.searchParams.get("pageId");
     const pixelId = url.searchParams.get("pixelId");
+    const igId = url.searchParams.get("igId");
 
     if (!kind) return jsonResponse({ error: "kind is required" }, 400);
+
 
     // Tenant authorization: caller must have RLS access to a cabinet that
     // matches the requested ad account or page.
@@ -100,7 +102,8 @@ Deno.serve(async (req) => {
     // only expose metadata for accounts the shared META token can already
     // see, so authenticated users may call them without an existing cabinet.
     const isDiscovery =
-      kind === "pages" || kind === "pixels" || kind === "instagram";
+      kind === "pages" || kind === "pixels" || kind === "instagram" || kind === "ig_media";
+
     if (actId && !isDiscovery) {
       const actAccess = await requireMetaAdAccountAccess(auth.authHeader, actId);
       if (!actAccess.ok) return actAccess.response;
@@ -406,7 +409,34 @@ Deno.serve(async (req) => {
       if (ig?.id) items.push({ id: String(ig.id), username: ig.username, name: ig.name });
       if (ig2?.id && ig2.id !== ig?.id) {
         items.push({ id: String(ig2.id), username: ig2.username, name: ig2.name });
+    }
+
+    // ============ INSTAGRAM MEDIA (existing posts to boost) ============
+    if (kind === "ig_media") {
+      if (!igId) return jsonResponse({ error: "igId is required" }, 400);
+      // /{ig-user-id}/media — список последних публикаций IG Business аккаунта.
+      // Возвращаем id (это IG media id, который Meta принимает в
+      // adcreatives.source_instagram_media_id), превью, подпись и timestamp.
+      const r = await metaGet(
+        `/${igId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=50`,
+        META_ACCESS_TOKEN,
+      );
+      if (!r.ok) {
+        const warning = r.body?.error?.message ??
+          "Не удалось получить публикации Instagram (проверьте права токена: instagram_basic, pages_show_list).";
+        return jsonResponse({ items: [], warning, meta_status: r.status });
       }
+      const items = (r.body?.data ?? []).map((m: any) => ({
+        id: String(m.id),
+        caption: m.caption ?? "",
+        media_type: m.media_type ?? "IMAGE",
+        thumbnail_url: m.thumbnail_url ?? m.media_url ?? null,
+        permalink: m.permalink ?? null,
+        timestamp: m.timestamp ?? null,
+      }));
+      return jsonResponse({ items });
+    }
+
       return jsonResponse({ items });
     }
 
