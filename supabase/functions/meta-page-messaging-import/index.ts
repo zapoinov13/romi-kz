@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
   const { data: cabRow, error: cabErr } = await admin
     .from("ad_cabinets")
-    .select("id, project_id, config, access_token, page_id")
+    .select("id, project_id, config, access_token, page_id, external_id")
     .eq("id", cabinetId)
     .maybeSingle();
   if (cabErr) return json({ error: cabErr.message }, 500);
@@ -62,20 +62,46 @@ Deno.serve(async (req) => {
   if (!acc.ok) return acc.response;
 
   const config = (cabRow.config ?? {}) as Record<string, unknown>;
-  const pageId = String(
+  let pageId = String(
     (config as { pageId?: string })?.pageId
       || (cabRow as { page_id?: string | null }).page_id
       || "",
   );
-  if (!pageId) {
-    return json({ ok: false, error: "no_page", message: "У кабинета не указана Facebook-страница" }, 400);
-  }
 
   const candidateUserTokens = await resolveMetaTokens(
     (cabRow.access_token as string | null) ?? null,
   );
   if (candidateUserTokens.length === 0) {
     return json({ ok: false, error: "no_token", message: "Нет ни одного Meta access token" }, 400);
+  }
+
+  // Auto-discover page via ad account when not bound yet
+  if (!pageId) {
+    const extId = String((cabRow as { external_id?: string }).external_id || "");
+    const actId = extId.startsWith("act_") ? extId : extId ? `act_${extId}` : "";
+    if (actId) {
+      for (const tok of candidateUserTokens) {
+        try {
+          const r = await fetch(
+            `${GRAPH}/${actId}/promote_pages?fields=id,name&limit=1&access_token=${encodeURIComponent(tok)}`,
+          );
+          if (!r.ok) continue;
+          const j = await r.json();
+          const p = j?.data?.[0];
+          if (p?.id) {
+            pageId = String(p.id);
+            await admin.from("ad_cabinets")
+              .update({ page_id: pageId, page_name: p?.name ?? null })
+              .eq("id", cabinetId);
+            break;
+          }
+        } catch { /* try next */ }
+      }
+    }
+  }
+
+  if (!pageId) {
+    return json({ ok: false, error: "no_page", message: "У кабинета не указана Facebook-страница. Привяжите страницу в настройках кабинета." }, 400);
   }
 
   const tryOne = async (userToken: string) => {
