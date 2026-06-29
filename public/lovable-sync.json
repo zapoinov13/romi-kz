@@ -1,7 +1,7 @@
 {
-  "git_sha": "3a39873",
-  "git_sha_full": "3a398733a2800e16df5cdeebd4b884c0126a5c5c",
-  "updated_at": "2026-06-29T06:13:59Z",
-  "label": "Добавил режим продвигания в цели",
-  "publish_hint": "Lovable → Publish (справа вверху) → Update"
+  "git_sha": "f19a3ca",
+  "git_sha_full": "f19a3ca18c891f9d04f84bc874bd3203c53b0f09",
+  "updated_at": "2026-06-29T15:01:10+05:00",
+  "label": "fix: Vercel as primary deploy — docs, UI, GitHub Action",
+  "publish_hint": "GitHub main → Vercel romi-agency.vercel.app (см. Настройки → Деплой)"
 }
