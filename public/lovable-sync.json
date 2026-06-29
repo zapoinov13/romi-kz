@@ -1,7 +1,7 @@
 {
-  "git_sha": "e4fd3f3",
-  "git_sha_full": "e4fd3f3240f57a9a98479dca45f433190b8ce713",
-  "updated_at": "2026-06-29T15:18:32+05:00",
-  "label": "fix: update audit checks for CreativePreview mediaError refactor",
-  "publish_hint": "GitHub main → Vercel romi-agency.vercel.app (см. Настройки → Деплой)"
+  "git_sha": "060a0ad",
+  "git_sha_full": "060a0ad48f7697ba40de6a564257f23c3578063b",
+  "updated_at": "2026-06-29T15:54:48+05:00",
+  "label": "fix: point production URL to romi-kz.vercel.app",
+  "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
