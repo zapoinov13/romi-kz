@@ -1,7 +1,7 @@
 {
-  "git_sha": "ca1652d",
-  "git_sha_full": "ca1652d1c4a65c5128be76317f8e7942882905e6",
-  "updated_at": "2026-06-29T05:44:15Z",
-  "label": "Исправил URL для lead-рекламы",
+  "git_sha": "4732138",
+  "git_sha_full": "473213874ebbed0b69585bf10e1a6848044a64ae",
+  "updated_at": "2026-06-29T05:47:12Z",
+  "label": "Исправил ссылку на форму",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
