@@ -1,7 +1,7 @@
 {
-  "git_sha": "ae85dc9",
-  "git_sha_full": "ae85dc93e44f34c42dd6c2d8dea18b55249bf988",
-  "updated_at": "2026-06-28T14:58:06Z",
-  "label": "Убрал итоговые блоки",
+  "git_sha": "71f4d91",
+  "git_sha_full": "71f4d918150989ce247501d731fcdbbaab364484",
+  "updated_at": "2026-06-29T05:40:01Z",
+  "label": "Removed lead_gen_form_id",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
