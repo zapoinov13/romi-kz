@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AssetKind = "whatsapp" | "pixels" | "pixel_events" | "lead_forms" | "pages" | "instagram";
+export type AssetKind = "whatsapp" | "pixels" | "pixel_events" | "lead_forms" | "pages" | "instagram" | "ig_media";
 
 export interface WhatsAppItem {
   id: string;
@@ -37,6 +37,14 @@ export interface InstagramItem {
   username?: string;
   name?: string;
 }
+export interface IgMediaItem {
+  id: string;
+  caption: string;
+  media_type: string;
+  thumbnail_url: string | null;
+  permalink: string | null;
+  timestamp: string | null;
+}
 
 type ItemMap = {
   whatsapp: WhatsAppItem;
@@ -45,6 +53,7 @@ type ItemMap = {
   lead_forms: LeadFormItem;
   pages: PageItem;
   instagram: InstagramItem;
+  ig_media: IgMediaItem;
 };
 
 interface Params {
@@ -52,8 +61,10 @@ interface Params {
   actId?: string;
   pageId?: string;
   pixelId?: string;
+  igId?: string;
   enabled?: boolean;
 }
+
 
 // 60s in-memory cache
 const cache = new Map<string, { ts: number; data: any[] }>();
