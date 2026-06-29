@@ -1,7 +1,7 @@
 {
-  "git_sha": "cdea27a",
-  "git_sha_full": "cdea27a8174bd9770982b94aa0ecec4e32420bb2",
-  "updated_at": "2026-06-29T05:58:34Z",
-  "label": "Подтянул страницу Meta-профиля",
+  "git_sha": "d59e18a",
+  "git_sha_full": "d59e18a8aef03f829ff83265db2c2dc775135ee2",
+  "updated_at": "2026-06-29T06:01:25Z",
+  "label": "Исправил импорт шаблонов",
   "publish_hint": "Lovable → Publish (справа вверху) → Update"
 }
