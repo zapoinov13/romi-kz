@@ -510,6 +510,11 @@ const CreateCampaignDialog = ({
   const [cabinetId, setCabinetId] = useState<string>(cabinets[0]?.id ?? "");
   const [messageTemplateId, setMessageTemplateId] = useState<string | null>(null);
   const [goal, setGoal] = useState<Goal>("whatsapp");
+  // "create" — стандартный мастер с загрузкой креатива.
+  // "boost" — продвигаем уже опубликованный IG-пост (выбираем из ленты страницы).
+  const [adMode, setAdMode] = useState<"create" | "boost">("create");
+  const [boostMediaId, setBoostMediaId] = useState<string | null>(null);
+
   const [budget, setBudget] = useState("50");
   const [feed, setFeed] = useState<File | null>(null);
   const [stories, setStories] = useState<File | null>(null);
