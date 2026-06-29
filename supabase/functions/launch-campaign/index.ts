@@ -792,7 +792,7 @@ Deno.serve(async (req) => {
         call_to_action: cta,
       };
       if (inDescription) linkData.description = inDescription;
-      if (isMetaForm && leadFormId) linkData.lead_gen_form_id = leadFormId;
+      // lead_gen_form_id передаётся внутри call_to_action.value, в link_data его указывать нельзя.
       storySpec = { page_id: pageId, link_data: linkData };
     }
 
