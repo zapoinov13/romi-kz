@@ -999,6 +999,14 @@ const CreateCampaignDialog = ({
       adsetName,
       adName,
       creativeName: buildCreativeName(adName),
+      // Режим продвижения существующей IG-публикации:
+      // launch-campaign увидит source_instagram_media_id и соберёт креатив
+      // через adcreatives.object_story_id вместо загрузки нового файла.
+      adMode,
+      source_instagram_media_id: adMode === "boost" ? boostMediaId ?? undefined : undefined,
+      sourceInstagramMediaId: adMode === "boost" ? boostMediaId ?? undefined : undefined,
+      isBoostExisting: adMode === "boost",
+
       pageId: effectivePageId || cab?.pageId || undefined,
       pageName: effectivePageName || cab?.pageName || undefined,
       whatsappNumber: goal === "whatsapp" ? whatsappId : undefined,
