@@ -1,0 +1,1 @@
+ALTER TABLE public.ad_cabinets ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb;
