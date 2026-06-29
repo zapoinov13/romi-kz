@@ -1,7 +1,7 @@
 {
-  "git_sha": "953b8a1",
-  "git_sha_full": "953b8a128149f7aebdac5f0ecc79fb80fb8e9652",
-  "updated_at": "2026-06-29T15:56:02+05:00",
-  "label": "fix: use latest Vercel CLI in GitHub deploy workflow",
+  "git_sha": "e76d372",
+  "git_sha_full": "e76d37270d7e5b70c18e0e5c6a124e3390376f84",
+  "updated_at": "2026-06-29T16:22:38+05:00",
+  "label": "fix: prevent Vercel deploy workflow hang on protected deployments",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
