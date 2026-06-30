@@ -4,6 +4,12 @@
 // 3. Регистрирует webhook в Telegram, чтобы апдейты шли в ads-telegram-webhook.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { AUTH_CORS_HEADERS, requireUser, requireProjectAccess } from "../_lib/auth.ts";
+import {
+  CABINET_META_SELECT,
+  enrichCabinetMeta,
+  type CabinetMetaRow,
+} from "../_lib/cabinet_meta_resolve.ts";
+import { resolveMetaTokens } from "../_lib/meta_tokens.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -175,6 +181,22 @@ Deno.serve(async (req) => {
       const { error: insErr } = await admin.from("ads_telegram_bot_cabinets").insert(clean);
       if (insErr) return json({ error: `cabinets: ${insErr.message}` }, 500);
     }
+  }
+
+  // Подтянуть external_id / page_id в колонки (старый ads-telegram-webhook читает только их).
+  const cabinetIds = Array.isArray(body.cabinets) && body.cabinets.length
+    ? body.cabinets.map((c) => c.cabinet_id)
+    : body.default_cabinet_id
+      ? [body.default_cabinet_id]
+      : [];
+  for (const cabinetId of cabinetIds) {
+    const { data: cabRow } = await admin
+      .from("ad_cabinets")
+      .select(CABINET_META_SELECT)
+      .eq("id", cabinetId)
+      .maybeSingle();
+    const metaTokens = await resolveMetaTokens((cabRow as CabinetMetaRow | null)?.access_token ?? null);
+    await enrichCabinetMeta(admin, cabRow as CabinetMetaRow | null, metaTokens);
   }
 
   return json({ ok: true, bot_username: username });

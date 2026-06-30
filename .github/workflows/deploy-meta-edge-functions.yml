@@ -59,3 +59,9 @@ jobs:
           echo "::group::Deploy ads-telegram-webhook (no JWT)"
           supabase functions deploy ads-telegram-webhook --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
           echo "::endgroup::"
+          echo "::group::Deploy ads-telegram-bot-save"
+          supabase functions deploy ads-telegram-bot-save --project-ref "$SUPABASE_PROJECT_REF"
+          echo "::endgroup::"
+          echo "::group::Deploy ads-telegram-bot-test"
+          supabase functions deploy ads-telegram-bot-test --project-ref "$SUPABASE_PROJECT_REF"
+          echo "::endgroup::"
