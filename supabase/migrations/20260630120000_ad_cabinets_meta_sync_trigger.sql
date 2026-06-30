@@ -4,6 +4,7 @@
 CREATE OR REPLACE FUNCTION public.sync_ad_cabinet_meta_columns()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 DECLARE
   cfg jsonb;
