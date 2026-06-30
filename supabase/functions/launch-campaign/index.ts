@@ -195,14 +195,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const auth = await requireUser(req);
-    if (!auth.ok) return auth.response;
-    const isAdmin = await userHasRole(auth.userId, "admin");
-    const isManager = isAdmin || (await userHasRole(auth.userId, "manager"));
-    if (!isManager) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Internal service-role call (Telegram-бот, server-to-server). Если в Authorization
+    // лежит SUPABASE_SERVICE_ROLE_KEY — пропускаем JWT-проверку и роли.
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const rawAuth = req.headers.get("Authorization") || req.headers.get("authorization") || "";
+    const isServiceCall = !!SERVICE_ROLE_KEY && rawAuth === `Bearer ${SERVICE_ROLE_KEY}`;
+
+    if (!isServiceCall) {
+      const auth = await requireUser(req);
+      if (!auth.ok) return auth.response;
+      const isAdmin = await userHasRole(auth.userId, "admin");
+      const isManager = isAdmin || (await userHasRole(auth.userId, "manager"));
+      if (!isManager) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
     // Сначала пытаемся взять токен из automation_settings (тот, что подключён
     // через UI «Настройки → Подключить Meta»), затем фолбэк на env.
