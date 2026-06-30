@@ -75,6 +75,40 @@ interface Overrides {
   gender?: string;
 }
 
+const LAUNCH_VERB_RE = /\b(?:\/launch|запусти|launch|старт|start)\b/i;
+
+const DEST_WORDS = new Set([
+  "whatsapp", "вотсап", "ватсап", "вацап", "wa",
+  "instagram", "инстаграм", "инст", "ig",
+  "messenger", "мессенджер", "messanger",
+  "site", "сайт", "website", "landing", "лендинг",
+  "traffic", "трафик",
+]);
+
+/** Служебные слова между глаголом и целью: «запусти на ватсап». */
+const FILLER_WORDS = new Set([
+  "на", "в", "во", "для", "по", "to", "on", "the", "a",
+]);
+
+function detectDestination(lower: string): Destination {
+  if (/(whatsapp|вотсап|ватсап|вацап|\bwa\b)/.test(lower)) return "whatsapp";
+  if (/(instagram|инстаграм|\bинст\b|\big\b)/.test(lower)) return "instagram";
+  if (/(messenger|мессенджер|messanger)/.test(lower)) return "messenger";
+  if (/(site|сайт|website|landing|лендинг)/.test(lower)) return "site";
+  if (/(traffic|трафик)/.test(lower)) return "traffic";
+  return null;
+}
+
+function stripLaunchCommand(text: string): string {
+  return text
+    .replace(
+      /\b(?:\/launch|запусти|launch|старт|start)\b(?:\s+на)?(?:\s+(?:whatsapp|вотсап|ватсап|вацап|wa|instagram|инстаграм|инст|ig|messenger|мессенджер|site|сайт|website|landing|лендинг|traffic|трафик))*/gi,
+      " ",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function parseCommand(raw: string): {
   action: Action;
   destination: Destination;
@@ -90,27 +124,18 @@ function parseCommand(raw: string): {
   if (/^\/?(cabinets|кабинеты)\b/.test(lower)) return { action: "cabinets", destination: null, alias: null, overrides: {} };
   if (/^\/?(defaults|дефолты|настройки)\b/.test(lower)) return { action: "defaults", destination: null, alias: null, overrides: {} };
 
-  const launchRe = /^(\/launch|запусти|launch|старт|start)\b/;
-  if (!launchRe.test(lower)) return { action: null, destination: null, alias: null, overrides: {} };
+  // «запусти на ватсап», «/launch whatsapp», или в подписи к фото: «текст … запусти на сайт»
+  if (!LAUNCH_VERB_RE.test(lower)) {
+    return { action: null, destination: null, alias: null, overrides: {} };
+  }
 
-  // Extract destination
-  let dest: Destination = null;
-  if (/(whatsapp|вотсап|ватсап|вацап|\bwa\b)/.test(lower)) dest = "whatsapp";
-  else if (/(instagram|инстаграм|\bинст\b|\big\b)/.test(lower)) dest = "instagram";
-  else if (/(messenger|мессенджер|messanger)/.test(lower)) dest = "messenger";
-  else if (/(site|сайт|website|landing|лендинг)/.test(lower)) dest = "site";
-  else if (/(traffic|трафик)/.test(lower)) dest = "traffic";
-
-  // Tokens after the launch keyword. First non-keyword non-key=val token = alias.
-  const stripped = original.replace(launchRe, "").trim();
+  const dest = detectDestination(lower);
+  const launchMatch = lower.match(LAUNCH_VERB_RE);
+  const launchIdx = launchMatch?.index ?? 0;
+  const launchLen = launchMatch?.[0].length ?? 0;
+  const stripped = original.slice(launchIdx + launchLen).trim();
   const tokens = stripped.split(/\s+/).filter(Boolean);
-  const DEST_WORDS = new Set([
-    "whatsapp","вотсап","ватсап","вацап","wa",
-    "instagram","инстаграм","инст","ig",
-    "messenger","мессенджер","messanger",
-    "site","сайт","website","landing","лендинг",
-    "traffic","трафик",
-  ]);
+
   let alias: string | null = null;
   const overrides: Overrides = {};
   for (const tok of tokens) {
@@ -133,7 +158,7 @@ function parseCommand(raw: string): {
       continue;
     }
     const low = tok.toLowerCase();
-    if (DEST_WORDS.has(low)) continue;
+    if (DEST_WORDS.has(low) || FILLER_WORDS.has(low)) continue;
     if (alias === null) alias = low;
   }
 
@@ -204,20 +229,16 @@ async function downloadAndStoreMedia(
 }
 
 const HELP_TEXT =
-  "<b>Команды:</b>\n" +
-  "• <code>/launch [кабинет] whatsapp</code> — запустить рекламу на WhatsApp\n" +
-  "   (также: instagram / messenger / site / traffic)\n" +
-  "• Без кабинета — берётся кабинет по умолчанию\n" +
-  "• Параметры через пробел: <code>budget=5000 geo=Алматы,Астана age=25-45 gender=ж</code>\n" +
-  "• <code>/cabinets</code> — список доступных кабинетов\n" +
-  "• <code>/defaults</code> — текущие дефолты\n" +
-  "• <code>/status</code> — последние запуски\n" +
-  "• <code>/help</code> — эта справка\n\n" +
-  "<b>Буст IG-публикации:</b>\n" +
-  "Пришли ссылку на пост/reels/карусель из Instagram + цель, например:\n" +
-  "<code>https://www.instagram.com/p/CxYz123/ запусти на whatsapp</code>\n" +
-  "Бот найдёт пост в подключённом IG-аккаунте и предложит подтвердить запуск.\n\n" +
-  "Русские синонимы: <code>запусти</code>, <code>статус</code>, <code>помощь</code>, <code>кабинеты</code>, <code>дефолты</code>.";
+  "<b>Запуск рекламы (фото или видео + подпись):</b>\n" +
+  "• <code>запусти на ватсап</code> — WhatsApp\n" +
+  "• <code>запусти на сайт</code> — лиды с сайта\n" +
+  "• также: инстаграм / мессенджер / трафик\n" +
+  "• можно в конце подписи: <code>…запусти на ватсап</code>\n" +
+  "• кабинет по умолчанию, или: <code>запусти clinic1 на ватсап</code>\n" +
+  "• параметры: <code>budget=5000 geo=Алматы age=25-45 gender=ж</code>\n\n" +
+  "<b>Служебное:</b> <code>/cabinets</code> · <code>/defaults</code> · <code>/status</code> · <code>/help</code>\n\n" +
+  "<b>Буст IG-публикации:</b> ссылка на пост + <code>запусти на ватсап</code>\n\n" +
+  "Синонимы: <code>старт</code>, <code>/launch</code> (необязательно).";
 
 const IG_URL_RE = /https?:\/\/(?:www\.)?instagram\.com\/(?:[^/\s?]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i;
 
@@ -750,7 +771,7 @@ Deno.serve(async (req) => {
       replyText = "⚠️ Нужно прислать фото или видео вместе с командой запуска.";
       status = "failed";
     } else if (!parsed.destination) {
-      replyText = "⚠️ Не понял куда запускать. Пример: <code>/launch whatsapp</code> (также: site / traffic / messenger / instagram).";
+      replyText = "⚠️ Не понял куда запускать. Пример: <code>запусти на ватсап</code> или <code>запусти на сайт</code>.";
       status = "failed";
     } else if (!cab) {
       replyText = parsed.alias
@@ -802,7 +823,7 @@ Deno.serve(async (req) => {
         const goal = goalMap[parsed.destination] ?? "whatsapp";
 
         // Подпись из ТГ (без команды) → primary text. Если пусто — мягкий дефолт.
-        const captionText = (text || "").replace(/^[\s\S]*?\b(?:launch|launch|запусти|старт|start)\b\s*\S*/i, "").trim();
+        const captionText = stripLaunchCommand(text || "");
         const primaryText = captionText
           || (goal === "whatsapp" ? "Напишите нам в WhatsApp - ответим быстро." : "Узнайте подробнее.");
 
@@ -912,7 +933,7 @@ Deno.serve(async (req) => {
     }
   } else if (mediaKind) {
     replyText =
-      "📎 Медиа сохранил. Добавь команду в подпись, например: <code>/launch whatsapp</code>.";
+      "📎 Медиа сохранил. Добавь в подпись, например: <code>запусти на ватсап</code> или <code>запусти на сайт</code>.";
     status = "received";
   } else {
     replyText = "Не понял команду. Напиши <code>/help</code>.";
