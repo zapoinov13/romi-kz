@@ -12,6 +12,7 @@ on:
       - "supabase/functions/meta-connect-token/**"
       - "supabase/functions/meta-oauth-start/**"
       - "supabase/functions/meta-oauth-callback/**"
+      - "supabase/functions/ads-telegram-webhook/**"
       - "supabase/functions/_lib/meta_list_ad_accounts.ts"
       - "supabase/functions/_lib/meta_connect_helpers.ts"
       - "supabase/functions/_lib/auth.ts"

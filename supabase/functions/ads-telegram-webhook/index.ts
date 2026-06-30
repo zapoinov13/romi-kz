@@ -39,6 +39,81 @@ function safeEqual(a: string | null, b: string): boolean {
   return diff === 0;
 }
 
+const CABINET_META_SELECT =
+  "id, name, external_id, ad_account_id, page_id, page_name, instagram_id, access_token, whatsapp_number, pixel_id, pixel_event, website_url, business_id, app_id, currency, lead_form_id";
+
+type CabinetMetaRow = {
+  id: string;
+  name: string | null;
+  external_id: string | null;
+  ad_account_id: string | null;
+  page_id: string | null;
+  page_name: string | null;
+  instagram_id: string | null;
+  access_token: string | null;
+  whatsapp_number: string | null;
+  pixel_id: string | null;
+  pixel_event: string | null;
+  website_url: string | null;
+  business_id: string | null;
+  app_id: string | null;
+  currency: string | null;
+  lead_form_id: string | null;
+};
+
+function resolveAdAccountId(cab: CabinetMetaRow | null | undefined): string {
+  const fromCol = String(cab?.ad_account_id ?? "").trim();
+  const fromExt = String(cab?.external_id ?? "").trim();
+  return fromCol || fromExt;
+}
+
+function cabinetLaunchMissingFields(
+  cab: CabinetMetaRow | null | undefined,
+  destination: string,
+): string[] {
+  const missing: string[] = [];
+  if (!cab) return ["кабинет не найден"];
+  if (!resolveAdAccountId(cab)) missing.push("ad_account_id (ID рекламного аккаунта act_…)");
+  if (!String(cab.page_id ?? "").trim()) missing.push("page_id (Facebook-страница)");
+  if (destination === "whatsapp") {
+    const digits = String(cab.whatsapp_number ?? "").replace(/\D/g, "");
+    if (digits.length < 10) missing.push("whatsapp_number");
+  }
+  if (destination === "site" && !String(cab.pixel_id ?? "").trim()) {
+    missing.push("pixel_id");
+  }
+  return missing;
+}
+
+function cabinetFieldsErrorText(cabName: string, missing: string[]): string {
+  return (
+    `⚠️ У кабинета <b>${cabName}</b> не заполнены обязательные поля:\n` +
+    missing.map((f) => `• ${f}`).join("\n") +
+    "\n\nОткрой <b>Реклама → карточка кабинета</b> и заполни настройки Meta."
+  );
+}
+
+function clientConfigFromCabinet(cab: CabinetMetaRow, metaToken: string, budget: number | null) {
+  const adAccountId = resolveAdAccountId(cab);
+  return {
+    client_name: cab.name,
+    ad_account_id: adAccountId,
+    page_id: cab.page_id,
+    page_name: cab.page_name,
+    instagram_actor_id: cab.instagram_id,
+    fb_pixel_id: cab.pixel_id,
+    pixel_event: cab.pixel_event ?? "Lead",
+    website_url: cab.website_url,
+    whatsapp_number: cab.whatsapp_number,
+    business_id: cab.business_id,
+    app_id: cab.app_id,
+    currency: cab.currency,
+    lead_form_id: cab.lead_form_id ?? null,
+    access_token: metaToken,
+    daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
+  };
+}
+
 type Destination = "whatsapp" | "instagram" | "messenger" | "site" | "traffic" | null;
 
 type Action = "launch" | "status" | "help" | "cabinets" | "defaults" | null;
@@ -545,10 +620,21 @@ Deno.serve(async (req) => {
     // Загружаем кабинет с IG/Page/token
     const { data: cabRow } = await admin
       .from("ad_cabinets")
-      .select("id, name, external_id, page_id, page_name, instagram_id, access_token, whatsapp_number, fb_pixel_id, website_url, business_id, app_id, currency")
+      .select(CABINET_META_SELECT)
       .eq("id", cab.cabinet_id)
       .maybeSingle();
-    if (!cabRow?.instagram_id) {
+    const cabMeta = cabRow as CabinetMetaRow | null;
+    const missingIg = cabinetLaunchMissingFields(cabMeta, destination);
+    if (missingIg.length > 0) {
+      await sendMessage(
+        bot.bot_token as string,
+        chatId,
+        cabinetFieldsErrorText(cab.ad_cabinets?.name ?? cab.alias, missingIg),
+        message.message_id,
+      );
+      return json({ ok: true });
+    }
+    if (!cabMeta?.instagram_id) {
       await sendMessage(bot.bot_token as string, chatId,
         `⚠️ К кабинету <b>${cab.ad_cabinets?.name ?? cab.alias}</b> не привязан Instagram Business аккаунт. Заполни поле в карточке кабинета.`,
         message.message_id);
@@ -556,7 +642,7 @@ Deno.serve(async (req) => {
     }
 
     // Берём Meta access_token: сначала с кабинета, иначе глобальный.
-    let metaToken = (cabRow.access_token as string | null) ?? "";
+    let metaToken = (cabMeta.access_token as string | null) ?? "";
     if (!metaToken) {
       const { data: aset } = await admin.from("automation_settings").select("meta_access_token").eq("id", true).maybeSingle();
       metaToken = (aset?.meta_access_token as string | null) ?? "";
@@ -569,7 +655,7 @@ Deno.serve(async (req) => {
     }
 
     // Поиск IG-поста
-    const igMedia = await resolveIgMedia(cabRow.instagram_id as string, igHit.shortcode, metaToken);
+    const igMedia = await resolveIgMedia(cabMeta.instagram_id as string, igHit.shortcode, metaToken);
     if (!igMedia) {
       await sendMessage(bot.bot_token as string, chatId,
         `❌ Не нашёл пост <code>${igHit.shortcode}</code> в IG-аккаунте кабинета <b>${cab.ad_cabinets?.name ?? cab.alias}</b>. Проверь, что пост опубликован с того же IG-Business аккаунта.`,
@@ -614,7 +700,7 @@ Deno.serve(async (req) => {
       headline: "",
       description: "",
       budget: budget,
-      currency: cabRow.currency ?? "KZT",
+      currency: cabMeta.currency ?? "KZT",
       scheduleMode: "now",
       targeting: {
         // Страна: если первый элемент гео — 2-буквенный ISO-код, иначе страна из дефолтов или KZ.
@@ -633,21 +719,7 @@ Deno.serve(async (req) => {
         age_max: ageMax,
         gender,
       },
-      clientConfig: {
-        client_name: cabRow.name,
-        ad_account_id: cabRow.external_id,
-        page_id: cabRow.page_id,
-        page_name: cabRow.page_name,
-        instagram_actor_id: cabRow.instagram_id,
-        fb_pixel_id: cabRow.fb_pixel_id,
-        pixel_event: "Lead",
-        website_url: cabRow.website_url,
-        whatsapp_number: cabRow.whatsapp_number,
-        business_id: cabRow.business_id,
-        app_id: cabRow.app_id,
-        currency: cabRow.currency,
-        daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
-      },
+      clientConfig: clientConfigFromCabinet(cabMeta, metaToken, budget),
     };
 
     const token = shortToken(10);
@@ -655,9 +727,9 @@ Deno.serve(async (req) => {
       `📸 <b>Буст IG-публикации</b>`,
       `Пост: <a href="${igHit.permalink}">${igHit.shortcode}</a>${igMedia.media_type ? ` · ${igMedia.media_type}` : ""}`,
       igMedia.caption ? `Подпись: <i>${(igMedia.caption ?? "").slice(0, 120).replace(/[<>&]/g, "")}…</i>` : "",
-      `Кабинет: <b>${cabRow.name ?? cab.alias}</b>`,
+      `Кабинет: <b>${cabMeta.name ?? cab.alias}</b>`,
       `Цель: <b>${destination}</b>`,
-      `Бюджет/день: <b>${budget ?? "—"} ${cabRow.currency ?? "KZT"}</b>`,
+      `Бюджет/день: <b>${budget ?? "—"} ${cabMeta.currency ?? "KZT"}</b>`,
       `Гео: <b>${geo.join(", ") || "—"}</b>`,
       `Возраст: <b>${ageMin}–${ageMax}</b> · Пол: <b>${gender}</b>`,
       "",
@@ -752,18 +824,20 @@ Deno.serve(async (req) => {
       // ===== Полные настройки кабинета для launch-campaign =====
       const { data: cabRow } = await admin
         .from("ad_cabinets")
-        .select("id, name, external_id, page_id, page_name, instagram_id, access_token, whatsapp_number, fb_pixel_id, pixel_event, website_url, business_id, app_id, currency, lead_form_id")
+        .select(CABINET_META_SELECT)
         .eq("id", cab.cabinet_id)
         .maybeSingle();
+      const cabMeta = cabRow as CabinetMetaRow | null;
 
       // Meta token: с кабинета → automation_settings → env.
-      let metaToken = (cabRow?.access_token as string | null) ?? "";
+      let metaToken = (cabMeta?.access_token as string | null) ?? "";
       if (!metaToken) {
         const { data: aset } = await admin.from("automation_settings").select("meta_access_token").eq("id", true).maybeSingle();
         metaToken = (aset?.meta_access_token as string | null) ?? "";
       }
-      if (!cabRow || !cabRow.external_id || !cabRow.page_id) {
-        replyText = "⚠️ У кабинета не заполнены обязательные поля (ad_account_id / page_id). Открой карточку кабинета.";
+      const missingFields = cabinetLaunchMissingFields(cabMeta, parsed.destination);
+      if (missingFields.length > 0) {
+        replyText = cabinetFieldsErrorText(cab.ad_cabinets?.name ?? cab.alias, missingFields);
         status = "failed";
       } else if (!metaToken) {
         replyText = "⚠️ Не настроен Meta access token. Открой Настройки → Подключить Meta.";
@@ -822,13 +896,13 @@ Deno.serve(async (req) => {
             goal,
             campaignName: `TG · ${parsed.destination} · ${dateTag}`,
             adsetName: `TG · ${ageMin}-${ageMax} · ${gender}`,
-            adName: `TG · ${parsed.destination} · ${cabRow.name ?? cab.alias}`,
+            adName: `TG · ${parsed.destination} · ${cabMeta!.name ?? cab.alias}`,
             creativeName: `TG · ${parsed.destination} · creative`,
             primaryText,
             headline: "",
             description: "",
             budget,
-            currency: cabRow.currency ?? "KZT",
+            currency: cabMeta!.currency ?? "KZT",
             scheduleMode: "now",
             targeting: {
               country: (geo[0]?.length === 2
@@ -843,23 +917,7 @@ Deno.serve(async (req) => {
               age_max: ageMax,
               gender,
             },
-            clientConfig: {
-              client_name: cabRow.name,
-              ad_account_id: cabRow.external_id,
-              page_id: cabRow.page_id,
-              page_name: cabRow.page_name,
-              instagram_actor_id: cabRow.instagram_id,
-              fb_pixel_id: cabRow.fb_pixel_id,
-              pixel_event: (cabRow as any).pixel_event ?? "Lead",
-              website_url: cabRow.website_url,
-              whatsapp_number: cabRow.whatsapp_number,
-              business_id: cabRow.business_id,
-              app_id: cabRow.app_id,
-              currency: cabRow.currency,
-              lead_form_id: (cabRow as any).lead_form_id ?? null,
-              access_token: metaToken,
-              daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
-            },
+            clientConfig: clientConfigFromCabinet(cabMeta!, metaToken, budget),
           };
 
           // Заводим запись ad_campaigns ДО запуска (launch-campaign делает UPDATE WHERE launch_id=…).
@@ -912,14 +970,14 @@ Deno.serve(async (req) => {
           const ageStr = `${ageMin}-${ageMax}`;
           replyText = launchOk
             ? `✅ Запущено в Meta!\n` +
-              `• Кабинет: <b>${cabRow.name ?? cab.alias}</b>\n` +
+              `• Кабинет: <b>${cabMeta!.name ?? cab.alias}</b>\n` +
               `• Цель: <b>${parsed.destination}</b>\n` +
-              `• Бюджет/день: <b>${budget ?? "-"} ${cabRow.currency ?? "KZT"}</b>\n` +
+              `• Бюджет/день: <b>${budget ?? "-"} ${cabMeta!.currency ?? "KZT"}</b>\n` +
               `• Гео: <b>${(geo as string[]).join(", ") || "-"}</b>\n` +
               `• Возраст: <b>${ageStr}</b> · Пол: <b>${gender}</b>\n` +
               `• Campaign: <code>${launchMeta.metaCampaignId ?? "?"}</code>\n` +
               `• Ad: <code>${launchMeta.metaAdId ?? "?"}</code>`
-            : `❌ Запуск не удался: ${launchErr.slice(0, 400)}\n\nКабинет: <b>${cabRow.name ?? cab.alias}</b>, цель: <b>${parsed.destination}</b>.`;
+            : `❌ Запуск не удался: ${launchErr.slice(0, 400)}\n\nКабинет: <b>${cabMeta!.name ?? cab.alias}</b>, цель: <b>${parsed.destination}</b>.`;
         }
       }
     }
