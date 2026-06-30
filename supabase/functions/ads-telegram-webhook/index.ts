@@ -734,11 +734,11 @@ Deno.serve(async (req) => {
     status = "status";
   } else if (parsed.action === "launch") {
     const cab = findCabinetByAlias(parsed.alias);
-    if (!mediaKind) {
+    if (!mediaKind || !fileId || !mediaPath) {
       replyText = "⚠️ Нужно прислать фото или видео вместе с командой запуска.";
       status = "failed";
     } else if (!parsed.destination) {
-      replyText = "⚠️ Не понял куда запускать. Пример: <code>/launch whatsapp</code>.";
+      replyText = "⚠️ Не понял куда запускать. Пример: <code>/launch whatsapp</code> (также: site / traffic / messenger / instagram).";
       status = "failed";
     } else if (!cab) {
       replyText = parsed.alias
@@ -748,33 +748,181 @@ Deno.serve(async (req) => {
     } else {
       resolvedCabinetId = cab.cabinet_id;
       resolvedAlias = cab.alias;
-      const geo = parsed.overrides.geo?.length
-        ? parsed.overrides.geo
-        : ((bot.default_geo as string[] | null)?.length
-            ? (bot.default_geo as string[])
-            : [bot.default_city, bot.default_country].filter(Boolean) as string[]);
-      resolvedParams = {
-        destination: parsed.destination,
-        cabinet_id: cab.cabinet_id,
-        budget_daily: parsed.overrides.budget ?? bot.default_daily_budget ?? null,
-        geo,
-        age_min: parsed.overrides.age_min ?? bot.default_age_min ?? null,
-        age_max: parsed.overrides.age_max ?? bot.default_age_max ?? null,
-        gender: parsed.overrides.gender ?? bot.default_gender ?? "all",
-        objective: bot.default_objective ?? null,
-      };
-      const ageStr = (resolvedParams.age_min || resolvedParams.age_max)
-        ? `${resolvedParams.age_min ?? "—"}–${resolvedParams.age_max ?? "—"}`
-        : "—";
-      replyText =
-        `✅ Принято: <b>${parsed.destination}</b> → <b>${cab.ad_cabinets?.name ?? cab.alias}</b>\n` +
-        `• Бюджет/день: <b>${resolvedParams.budget_daily ?? "—"} ₸</b>\n` +
-        `• Гео: <b>${(geo as string[]).join(", ") || "—"}</b>\n` +
-        `• Возраст: <b>${ageStr}</b> · Пол: <b>${resolvedParams.gender}</b>\n` +
-        `Запрос сохранён, запусти кампанию на платформе одним кликом (раздел «Реклама»).`;
-      status = "received";
+
+      // ===== Полные настройки кабинета для launch-campaign =====
+      const { data: cabRow } = await admin
+        .from("ad_cabinets")
+        .select("id, name, external_id, page_id, page_name, instagram_id, access_token, whatsapp_number, fb_pixel_id, pixel_event, website_url, business_id, app_id, currency, lead_form_id")
+        .eq("id", cab.cabinet_id)
+        .maybeSingle();
+
+      // Meta token: с кабинета → automation_settings → env.
+      let metaToken = (cabRow?.access_token as string | null) ?? "";
+      if (!metaToken) {
+        const { data: aset } = await admin.from("automation_settings").select("meta_access_token").eq("id", true).maybeSingle();
+        metaToken = (aset?.meta_access_token as string | null) ?? "";
+      }
+      if (!cabRow || !cabRow.external_id || !cabRow.page_id) {
+        replyText = "⚠️ У кабинета не заполнены обязательные поля (ad_account_id / page_id). Открой карточку кабинета.";
+        status = "failed";
+      } else if (!metaToken) {
+        replyText = "⚠️ Не настроен Meta access token. Открой Настройки → Подключить Meta.";
+        status = "failed";
+      } else {
+        const geo = parsed.overrides.geo?.length
+          ? parsed.overrides.geo
+          : ((bot.default_geo as string[] | null)?.length
+              ? (bot.default_geo as string[])
+              : [bot.default_city, bot.default_country].filter(Boolean) as string[]);
+        const ageMin = parsed.overrides.age_min ?? (bot.default_age_min as number | null) ?? 18;
+        const ageMax = parsed.overrides.age_max ?? (bot.default_age_max as number | null) ?? 55;
+        const gender = parsed.overrides.gender ?? (bot.default_gender as string | null) ?? "all";
+        const budget = parsed.overrides.budget ?? (bot.default_daily_budget as number | null) ?? null;
+
+        resolvedParams = {
+          destination: parsed.destination,
+          cabinet_id: cab.cabinet_id,
+          budget_daily: budget,
+          geo, age_min: ageMin, age_max: ageMax, gender,
+          objective: bot.default_objective ?? null,
+          kind: "telegram_media_launch",
+        };
+
+        // destination → launch-campaign goal
+        const goalMap: Record<string, string> = {
+          whatsapp: "whatsapp",
+          messenger: "whatsapp",
+          site: "site-leads",
+          traffic: "traffic",
+          instagram: "traffic",
+        };
+        const goal = goalMap[parsed.destination] ?? "whatsapp";
+
+        // Подпись из ТГ (без команды) → primary text. Если пусто — мягкий дефолт.
+        const captionText = (text || "").replace(/^[\s\S]*?\b(?:launch|launch|запусти|старт|start)\b\s*\S*/i, "").trim();
+        const primaryText = captionText
+          || (goal === "whatsapp" ? "Напишите нам в WhatsApp - ответим быстро." : "Узнайте подробнее.");
+
+        // Скачиваем медиа из storage и собираем File для launch-campaign.
+        const { data: blob, error: dlErr } = await admin.storage
+          .from("ads-telegram-media").download(mediaPath);
+        if (dlErr || !blob) {
+          replyText = `⚠️ Не смог прочитать медиа из хранилища: ${dlErr?.message ?? "unknown"}.`;
+          status = "failed";
+        } else {
+          const ext = mediaPath.split(".").pop()?.toLowerCase() || "bin";
+          const ct = blob.type || (mediaKind === "video" ? "video/mp4" : "image/jpeg");
+          const arr = new Uint8Array(await blob.arrayBuffer());
+          const file = new File([arr], `tg-${crypto.randomUUID()}.${ext}`, { type: ct });
+
+          const launchId = crypto.randomUUID();
+          const dateTag = new Date().toISOString().slice(0, 10);
+          const payload: Record<string, unknown> = {
+            launchId,
+            goal,
+            campaignName: `TG · ${parsed.destination} · ${dateTag}`,
+            adsetName: `TG · ${ageMin}-${ageMax} · ${gender}`,
+            adName: `TG · ${parsed.destination} · ${cabRow.name ?? cab.alias}`,
+            creativeName: `TG · ${parsed.destination} · creative`,
+            primaryText,
+            headline: "",
+            description: "",
+            budget,
+            currency: cabRow.currency ?? "KZT",
+            scheduleMode: "now",
+            targeting: {
+              country: (geo[0]?.length === 2
+                ? geo[0].toUpperCase()
+                : ((bot.default_country as string | null) || "KZ")),
+              city: (() => {
+                const cityName = geo.find((g) => g && g.length > 2)
+                  ?? (bot.default_city as string | null) ?? null;
+                return cityName ? { name: cityName, key: null } : null;
+              })(),
+              age_min: ageMin,
+              age_max: ageMax,
+              gender,
+            },
+            clientConfig: {
+              client_name: cabRow.name,
+              ad_account_id: cabRow.external_id,
+              page_id: cabRow.page_id,
+              page_name: cabRow.page_name,
+              instagram_actor_id: cabRow.instagram_id,
+              fb_pixel_id: cabRow.fb_pixel_id,
+              pixel_event: (cabRow as any).pixel_event ?? "Lead",
+              website_url: cabRow.website_url,
+              whatsapp_number: cabRow.whatsapp_number,
+              business_id: cabRow.business_id,
+              app_id: cabRow.app_id,
+              currency: cabRow.currency,
+              lead_form_id: (cabRow as any).lead_form_id ?? null,
+              access_token: metaToken,
+              daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
+            },
+          };
+
+          // Заводим запись ad_campaigns ДО запуска (launch-campaign делает UPDATE WHERE launch_id=…).
+          await admin.from("ad_campaigns").insert({
+            cabinet_id: cab.cabinet_id,
+            project_id: bot.project_id,
+            goal,
+            budget: budget != null ? String(budget) : null,
+            text: primaryText,
+            campaign_name: String(payload.campaignName),
+            adset_name: String(payload.adsetName),
+            ad_name: String(payload.adName),
+            launch_id: launchId,
+            status: "queued",
+            status_step: "telegram_launch_queued",
+            status_message: "Запущено из Telegram-бота (media)",
+            created_by: null,
+          });
+
+          const fd = new FormData();
+          fd.append("payload", JSON.stringify(payload));
+          fd.append("creative_feed", file, file.name);
+
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          let launchOk = false;
+          let launchErr = "";
+          let launchMeta: { metaCampaignId?: string; metaAdId?: string } = {};
+          try {
+            const res = await fetch(`${supabaseUrl}/functions/v1/launch-campaign`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+              body: fd,
+              signal: AbortSignal.timeout(180_000),
+            });
+            const j = await res.json().catch(() => ({})) as any;
+            if (res.ok && j.ok) {
+              launchOk = true;
+              launchMeta = { metaCampaignId: j.metaCampaignId, metaAdId: j.metaAdId };
+            } else {
+              launchErr = j.error ?? j.step ?? `HTTP ${res.status}`;
+            }
+          } catch (e) {
+            launchErr = (e as Error).message;
+          }
+
+          status = launchOk ? "launched" : "failed";
+          (resolvedParams as Record<string, unknown>).launch_id = launchId;
+
+          const ageStr = `${ageMin}-${ageMax}`;
+          replyText = launchOk
+            ? `✅ Запущено в Meta!\n` +
+              `• Кабинет: <b>${cabRow.name ?? cab.alias}</b>\n` +
+              `• Цель: <b>${parsed.destination}</b>\n` +
+              `• Бюджет/день: <b>${budget ?? "-"} ${cabRow.currency ?? "KZT"}</b>\n` +
+              `• Гео: <b>${(geo as string[]).join(", ") || "-"}</b>\n` +
+              `• Возраст: <b>${ageStr}</b> · Пол: <b>${gender}</b>\n` +
+              `• Campaign: <code>${launchMeta.metaCampaignId ?? "?"}</code>\n` +
+              `• Ad: <code>${launchMeta.metaAdId ?? "?"}</code>`
+            : `❌ Запуск не удался: ${launchErr.slice(0, 400)}\n\nКабинет: <b>${cabRow.name ?? cab.alias}</b>, цель: <b>${parsed.destination}</b>.`;
+        }
+      }
     }
-  } else if (mediaKind) {
     replyText =
       "📎 Медиа сохранил. Добавь команду в подпись, например: <code>/launch whatsapp</code>.";
     status = "received";
