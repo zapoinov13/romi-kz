@@ -62,6 +62,7 @@ interface Params {
   pageId?: string;
   pixelId?: string;
   igId?: string;
+  cabinetId?: string;
   enabled?: boolean;
 }
 
@@ -76,6 +77,7 @@ export function useMetaPageAssets<K extends AssetKind>({
   pageId,
   pixelId,
   igId,
+  cabinetId,
   enabled = true,
 }: Params & { kind: K }) {
   const [data, setData] = useState<ItemMap[K][]>([]);
@@ -83,7 +85,7 @@ export function useMetaPageAssets<K extends AssetKind>({
   const [error, setError] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
-  const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}|${igId ?? ""}`;
+  const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}|${igId ?? ""}|${cabinetId ?? ""}`;
 
   const fetchData = useCallback(
     async (force = false) => {
@@ -110,6 +112,7 @@ export function useMetaPageAssets<K extends AssetKind>({
       if (pageId) params.set("pageId", pageId);
       if (pixelId) params.set("pixelId", pixelId);
       if (igId) params.set("igId", igId);
+      if (cabinetId) params.set("cabinetId", cabinetId);
 
       const { data: resp, error: invokeErr } = await supabase.functions.invoke(
         `meta-page-assets?${params.toString()}`,
@@ -138,7 +141,7 @@ export function useMetaPageAssets<K extends AssetKind>({
       setData(items);
       setLoading(false);
     },
-    [cacheKey, kind, actId, pageId, pixelId, igId, enabled],
+    [cacheKey, kind, actId, pageId, pixelId, igId, cabinetId, enabled],
   );
 
   useEffect(() => {

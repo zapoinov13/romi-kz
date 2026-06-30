@@ -26,7 +26,7 @@ const toCabinet = (r: any): AdCabinet => ({
   dailyBudget: r.daily_budget != null ? Number(r.daily_budget) : 0,
   currency: r.currency ?? "KZT",
   // Meta
-  adAccountId: r.ad_account_id ?? undefined,
+  adAccountId: String(r.ad_account_id ?? r.external_id ?? "").trim() || undefined,
   pageId: r.page_id ?? undefined,
   pageName: r.page_name ?? undefined,
   instagramId: r.instagram_id ?? undefined,

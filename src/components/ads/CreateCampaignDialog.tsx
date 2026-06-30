@@ -25,6 +25,7 @@ import type { AdCabinet } from "@/types/ads";
 import { saveCampaign } from "@/hooks/useCabinetsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
+import { enrichCabinetForMeta } from "@/lib/cabinetResolve";
 import { useMetaPageAssets } from "@/hooks/useMetaPageAssets";
 import GoalAssetsPicker from "./GoalAssetsPicker";
 import MessageTemplatesPanel from "./MessageTemplatesPanel";
@@ -652,15 +653,18 @@ const CreateCampaignDialog = ({
   // только от той, что прописана в настройках клиента.
   const pagesAssets = useMetaPageAssets({
     kind: "pages",
-    actId: selectedCabinet?.adAccountId,
-    enabled: !!selectedCabinet?.adAccountId,
+    actId: selectedCabinet?.adAccountId || selectedCabinet?.externalId,
+    enabled: !!(selectedCabinet?.adAccountId || selectedCabinet?.externalId),
   });
 
   // При смене кабинета сбрасываем выбранную страницу на дефолтную из настроек кабинета.
   useEffect(() => {
     setPageId(selectedCabinet?.pageId ?? "");
     setWebsiteUrl(selectedCabinet?.websiteUrl ?? "");
-  }, [cabinetId, selectedCabinet?.pageId, selectedCabinet?.websiteUrl]);
+    setWhatsappId(selectedCabinet?.whatsappNumber ? normalizeWhatsAppNumber(selectedCabinet.whatsappNumber) : "");
+    setPixelId(selectedCabinet?.pixelId ?? "");
+    setPixelEvent(selectedCabinet?.pixelEvent ?? "Lead");
+  }, [cabinetId, selectedCabinet?.pageId, selectedCabinet?.websiteUrl, selectedCabinet?.whatsappNumber, selectedCabinet?.pixelId, selectedCabinet?.pixelEvent]);
 
   // Если в списке доступных страниц нет текущей — но дефолт из настроек уже задан,
   // оставляем; иначе автоматически выбираем первую из списка.
@@ -1436,11 +1440,9 @@ const CreateCampaignDialog = ({
 
               <GoalAssetsPicker
                 goal={goal}
-                cabinet={
-                  selectedCabinet
-                    ? { ...selectedCabinet, pageId: effectivePageId || selectedCabinet.pageId }
-                    : selectedCabinet
-                }
+                cabinet={enrichCabinetForMeta(selectedCabinet, {
+                  pageId: effectivePageId || selectedCabinet?.pageId,
+                })}
                 whatsappId={whatsappId}
                 setWhatsappId={setWhatsappId}
                 pixelId={pixelId}

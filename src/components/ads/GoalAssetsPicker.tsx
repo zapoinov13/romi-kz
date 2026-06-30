@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from "react";
 import { RefreshCw, AlertCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
@@ -10,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useMetaPageAssets } from "@/hooks/useMetaPageAssets";
 import { normalizeWhatsAppNumber } from "@/lib/adsNaming";
+import { resolveCabinetActId } from "@/lib/cabinetResolve";
 import type { AdCabinet } from "@/types/ads";
 
 type Goal = "whatsapp" | "site-leads" | "meta-form" | "traffic";
@@ -79,35 +81,89 @@ const GoalAssetsPicker = ({
   leadFormId,
   setLeadFormId,
 }: Props) => {
-  const actId = cabinet?.adAccountId;
+  const actId = resolveCabinetActId(cabinet);
   const pageId = cabinet?.pageId;
 
-  // ===== WhatsApp =====
   const wa = useMetaPageAssets({
     kind: "whatsapp",
     pageId,
     actId,
+    cabinetId: cabinet?.id,
     enabled: goal === "whatsapp" && (!!pageId || !!actId),
   });
 
-  // ===== Pixels =====
   const pixels = useMetaPageAssets({
     kind: "pixels",
     actId,
+    cabinetId: cabinet?.id,
     enabled: goal === "site-leads" && !!actId,
   });
+
   const events = useMetaPageAssets({
     kind: "pixel_events",
     pixelId,
     enabled: goal === "site-leads" && !!pixelId,
   });
 
-  // ===== Lead Forms =====
   const forms = useMetaPageAssets({
     kind: "lead_forms",
     pageId,
     enabled: goal === "meta-form" && !!pageId,
   });
+
+  const waOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ id: string; display_phone_number: string; verified_name?: string }> = [];
+    const push = (raw: string, label?: string) => {
+      const phoneValue = normalizeWhatsAppNumber(raw);
+      if (!phoneValue || phoneValue.length < 10 || seen.has(phoneValue)) return;
+      seen.add(phoneValue);
+      out.push({
+        id: phoneValue,
+        display_phone_number: raw.trim() || phoneValue,
+        verified_name: label,
+      });
+    };
+    for (const p of wa.data) push(p.display_phone_number, p.verified_name);
+    if (cabinet?.whatsappNumber) push(cabinet.whatsappNumber, "из карточки кабинета");
+    return out;
+  }, [wa.data, cabinet?.whatsappNumber]);
+
+  const pixelOptions = useMemo(() => {
+    const seen = new Set(pixels.data.map((p) => p.id));
+    const out = [...pixels.data];
+    const saved = cabinet?.pixelId?.trim();
+    if (saved && !seen.has(saved)) {
+      out.unshift({ id: saved, name: `${saved} (из кабинета)`, last_fired_time: null });
+    }
+    return out;
+  }, [pixels.data, cabinet?.pixelId]);
+
+  useEffect(() => {
+    if (goal !== "whatsapp" || whatsappId) return;
+    const saved = cabinet?.whatsappNumber?.trim();
+    if (saved) {
+      setWhatsappId(normalizeWhatsAppNumber(saved));
+      return;
+    }
+    if (waOptions.length === 1) setWhatsappId(waOptions[0].id);
+  }, [goal, whatsappId, cabinet?.whatsappNumber, waOptions, setWhatsappId]);
+
+  useEffect(() => {
+    if (goal !== "site-leads" || pixelId) return;
+    const saved = cabinet?.pixelId?.trim();
+    if (saved) {
+      setPixelId(saved);
+      return;
+    }
+    if (pixelOptions.length === 1) setPixelId(pixelOptions[0].id);
+  }, [goal, pixelId, cabinet?.pixelId, pixelOptions, setPixelId]);
+
+  useEffect(() => {
+    if (goal === "site-leads" && cabinet?.pixelEvent && !pixelEvent) {
+      setPixelEvent(cabinet.pixelEvent);
+    }
+  }, [goal, cabinet?.pixelEvent, pixelEvent, setPixelEvent]);
 
   if (!cabinet) return null;
   if (goal === "traffic") return null;
@@ -116,7 +172,7 @@ const GoalAssetsPicker = ({
     if (!pageId && !actId) {
       return (
         <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">
-          Заполните Page ID или Ad Account ID в настройках кабинета - без них нельзя получить WhatsApp-номера.
+          Заполните Page ID или Ad Account ID в настройках кабинета — без них нельзя получить WhatsApp-номера.
         </div>
       );
     }
@@ -133,28 +189,29 @@ const GoalAssetsPicker = ({
               placeholder={
                 wa.isLoading
                   ? "Загрузка..."
-                  : wa.data.length === 0
+                  : waOptions.length === 0
                     ? "Нет привязанных номеров"
-                    : `Выберите номер (${wa.data.length})`
+                    : `Выберите номер (${waOptions.length})`
               }
             />
           </SelectTrigger>
           <SelectContent>
-            {wa.data.map((p) => {
-              const phoneValue = normalizeWhatsAppNumber(p.display_phone_number);
-              return (
-                <SelectItem key={p.id} value={phoneValue}>
-                  {p.display_phone_number}
-                  {p.verified_name ? ` - ${p.verified_name}` : ""}
-                </SelectItem>
-              );
-            })}
+            {waOptions.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.display_phone_number}
+                {p.verified_name ? ` — ${p.verified_name}` : ""}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
+        {waOptions.length === 0 && !wa.isLoading && (
+          <p className="text-[11px] text-muted-foreground">
+            Если реклама уже идёт на WhatsApp — сохраните номер в карточке кабинета или подключите WABA в Meta.
+          </p>
+        )}
       </FieldShell>
     );
   }
-
 
   if (goal === "site-leads") {
     if (!actId) {
@@ -178,14 +235,14 @@ const GoalAssetsPicker = ({
                 placeholder={
                   pixels.isLoading
                     ? "Загрузка..."
-                    : pixels.data.length === 0
+                    : pixelOptions.length === 0
                       ? "У кабинета нет пикселей"
                       : "Выберите пиксель"
                 }
               />
             </SelectTrigger>
             <SelectContent>
-              {pixels.data.map((p) => (
+              {pixelOptions.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
                   {p.last_fired_time ? " 🟢" : ""}
@@ -225,7 +282,6 @@ const GoalAssetsPicker = ({
     );
   }
 
-  // meta-form
   if (!pageId) {
     return (
       <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">

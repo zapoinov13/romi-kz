@@ -4,6 +4,7 @@ import {
   requireMetaAdAccountAccess,
   createUserClient,
 } from "../_lib/auth.ts";
+import { resolveMetaTokens } from "../_lib/meta_tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,32 +59,19 @@ Deno.serve(async (req) => {
     const auth = await requireUser(req);
     if (!auth.ok) return auth.response;
 
-    // Prefer the token saved in automation_settings (the one the user manages
-    // via "Подключить Meta" in UI). Fall back to the legacy env secret only if
-    // the DB row is empty — otherwise we'd silently use a stale token.
-    let META_ACCESS_TOKEN: string | undefined;
-    try {
-      const admin = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      );
-      const { data: row } = await admin
-        .from("automation_settings")
-        .select("meta_access_token")
-        .eq("id", true)
-        .maybeSingle();
-      const dbToken = (row?.meta_access_token ?? "").trim();
-      if (dbToken) META_ACCESS_TOKEN = dbToken;
-    } catch (_) { /* ignore, fall through to env */ }
-    if (!META_ACCESS_TOKEN) {
-      META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN") ?? undefined;
-    }
-    if (!META_ACCESS_TOKEN) {
+    const metaTokens = await resolveMetaTokens();
+    if (metaTokens.length === 0) {
       return jsonResponse(
         { error: "Meta access token не настроен (Настройки → Подключить Meta)." },
         500,
       );
     }
+    const META_ACCESS_TOKEN = metaTokens[0];
+
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
 
     const url = new URL(req.url);
     const kind = url.searchParams.get("kind");
@@ -91,18 +79,13 @@ Deno.serve(async (req) => {
     const pageId = url.searchParams.get("pageId");
     const pixelId = url.searchParams.get("pixelId");
     const igId = url.searchParams.get("igId");
+    const cabinetId = url.searchParams.get("cabinetId");
 
     if (!kind) return jsonResponse({ error: "kind is required" }, 400);
 
-
-    // Tenant authorization: caller must have RLS access to a cabinet that
-    // matches the requested ad account or page.
-    // Exception: 'pages' and 'pixels' are discovery endpoints used during
-    // the "Quick add from Meta" flow BEFORE a cabinet row exists. They
-    // only expose metadata for accounts the shared META token can already
-    // see, so authenticated users may call them without an existing cabinet.
     const isDiscovery =
-      kind === "pages" || kind === "pixels" || kind === "instagram" || kind === "ig_media";
+      kind === "pages" || kind === "pixels" || kind === "instagram" ||
+      kind === "ig_media" || kind === "whatsapp";
 
     if (actId && !isDiscovery) {
       const actAccess = await requireMetaAdAccountAccess(auth.authHeader, actId);
@@ -239,7 +222,28 @@ Deno.serve(async (req) => {
       if (actId) {
         const acct = normalizeActId(actId);
 
-        // 4a) Ad sets with WhatsApp destination — promoted_object.page_id + whatsapp_phone_number
+        // 4a) Business-owned WhatsApp accounts
+        const bizWa = await metaGet(
+          `/${acct}?fields=business{owned_whatsapp_business_accounts{phone_numbers{id,display_phone_number,verified_name}}}`,
+          META_ACCESS_TOKEN,
+        );
+        if (debug) sources.business_waba = bizWa.body;
+        const bizAccounts = bizWa.body?.business?.owned_whatsapp_business_accounts?.data;
+        if (Array.isArray(bizAccounts)) {
+          for (const acc of bizAccounts) {
+            const nums = acc?.phone_numbers?.data;
+            if (!Array.isArray(nums)) continue;
+            for (const p of nums) {
+              addPhone(
+                p.id ?? p.display_phone_number,
+                p.display_phone_number,
+                p.verified_name,
+              );
+            }
+          }
+        }
+
+        // 4b) Ad sets with WhatsApp destination — promoted_object.page_id + whatsapp_phone_number
         const adsets = await metaGet(
           `/${acct}/adsets?fields=name,destination_type,promoted_object&limit=200`,
           META_ACCESS_TOKEN,
@@ -261,7 +265,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // 4b) Ads -> creative{...} with destination_set / link_data
+        // 4c) Ads -> creative{...} with destination_set / link_data
         const ads = await metaGet(
           `/${acct}/ads?fields=name,creative{object_story_spec{link_data{link,call_to_action{value{link}}},video_data{call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url},call_to_action_types}}&limit=200`,
           META_ACCESS_TOKEN,
@@ -288,6 +292,58 @@ Deno.serve(async (req) => {
               const num = extractPhone(c);
               if (num) addPhone(num, num, ad?.name ?? "CTWA-объявление");
             }
+          }
+        }
+      }
+
+      // 5) Retry WABA discovery with alternate Meta tokens (other BM / OAuth accounts).
+      if (phones.length === 0 && pageId) {
+        for (const tok of metaTokens.slice(1)) {
+          const waba = await metaGet(
+            `/${pageId}?fields=connected_whatsapp_business_account{phone_numbers{id,display_phone_number,verified_name}}`,
+            tok,
+          );
+          const wabaPhones =
+            waba.body?.connected_whatsapp_business_account?.phone_numbers?.data;
+          if (Array.isArray(wabaPhones)) {
+            for (const p of wabaPhones) {
+              addPhone(
+                p.id ?? p.display_phone_number,
+                p.display_phone_number,
+                p.verified_name,
+              );
+            }
+          }
+          if (phones.length > 0) break;
+        }
+      }
+
+      // 6) Saved cabinet / Green API phone (UI fallback when Graph API returns empty).
+      if (cabinetId) {
+        const { data: cab } = await admin
+          .from("ad_cabinets")
+          .select("whatsapp_number, config, project_id")
+          .eq("id", cabinetId)
+          .maybeSingle();
+        const cfg = (cab?.config ?? {}) as Record<string, unknown>;
+        const fromCol = String(cab?.whatsapp_number ?? "").trim();
+        const fromCfg = String(
+          cfg.whatsappNumber ?? cfg.whatsapp_number ?? "",
+        ).trim();
+        for (const raw of [fromCol, fromCfg]) {
+          const num = extractPhone(raw) ?? (raw.replace(/\D/g, "").length >= 10 ? raw : null);
+          if (num) addPhone(num, num, "из кабинета");
+        }
+        if (cab?.project_id) {
+          const { data: waCfg } = await admin
+            .from("whatsapp_config")
+            .select("phone")
+            .eq("project_id", cab.project_id)
+            .maybeSingle();
+          const ph = String(waCfg?.phone ?? "").trim();
+          if (ph) {
+            const num = extractPhone(ph) ?? ph;
+            addPhone(num, num, "Green API проекта");
           }
         }
       }
@@ -409,6 +465,8 @@ Deno.serve(async (req) => {
       if (ig?.id) items.push({ id: String(ig.id), username: ig.username, name: ig.name });
       if (ig2?.id && ig2.id !== ig?.id) {
         items.push({ id: String(ig2.id), username: ig2.username, name: ig2.name });
+      }
+      return jsonResponse({ items });
     }
 
     // ============ INSTAGRAM MEDIA (existing posts to boost) ============
@@ -437,9 +495,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ items });
     }
 
-      return jsonResponse({ items });
-    }
-
     // ============ PIXELS ============
     if (kind === "pixels") {
       if (!actId) return jsonResponse({ error: "actId is required" }, 400);
@@ -457,6 +512,18 @@ Deno.serve(async (req) => {
         name: p.name,
         last_fired_time: p.last_fired_time ?? null,
       }));
+      if (cabinetId) {
+        const { data: cab } = await admin
+          .from("ad_cabinets")
+          .select("pixel_id, config")
+          .eq("id", cabinetId)
+          .maybeSingle();
+        const cfg = (cab?.config ?? {}) as Record<string, unknown>;
+        const saved = String(cab?.pixel_id ?? cfg.pixelId ?? cfg.pixel_id ?? "").trim();
+        if (saved && !items.some((p: { id: string }) => p.id === saved)) {
+          items.unshift({ id: saved, name: `${saved} (из кабинета)`, last_fired_time: null });
+        }
+      }
       return jsonResponse({ items });
     }
 
