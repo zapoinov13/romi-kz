@@ -923,6 +923,7 @@ Deno.serve(async (req) => {
         }
       }
     }
+  } else if (mediaKind) {
     replyText =
       "📎 Медиа сохранил. Добавь команду в подпись, например: <code>/launch whatsapp</code>.";
     status = "received";
