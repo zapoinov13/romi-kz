@@ -52,11 +52,7 @@ async function loadEnrichedCabinet(
   admin: ReturnType<typeof createClient>,
   cabinetId: string,
 ): Promise<{ cab: CabinetMetaRow | null; metaTokens: string[] }> {
-  const { data } = await admin
-    .from("ad_cabinets")
-    .select(CABINET_META_SELECT)
-    .eq("id", cabinetId)
-    .maybeSingle();
+  const { data } = await admin.from("ad_cabinets").select(CABINET_META_SELECT).eq("id", cabinetId).maybeSingle();
   const row = data as CabinetMetaRow | null;
   const metaTokens = await resolveMetaTokens(row?.access_token ?? null);
   const cab = await enrichCabinetMeta(admin, row, metaTokens);
@@ -78,17 +74,29 @@ interface Overrides {
 const LAUNCH_VERB_RE = /\b(?:\/launch|запусти|launch|старт|start)\b/i;
 
 const DEST_WORDS = new Set([
-  "whatsapp", "вотсап", "ватсап", "вацап", "wa",
-  "instagram", "инстаграм", "инст", "ig",
-  "messenger", "мессенджер", "messanger",
-  "site", "сайт", "website", "landing", "лендинг",
-  "traffic", "трафик",
+  "whatsapp",
+  "вотсап",
+  "ватсап",
+  "вацап",
+  "wa",
+  "instagram",
+  "инстаграм",
+  "инст",
+  "ig",
+  "messenger",
+  "мессенджер",
+  "messanger",
+  "site",
+  "сайт",
+  "website",
+  "landing",
+  "лендинг",
+  "traffic",
+  "трафик",
 ]);
 
 /** Служебные слова между глаголом и целью: «запусти на ватсап». */
-const FILLER_WORDS = new Set([
-  "на", "в", "во", "для", "по", "to", "on", "the", "a",
-]);
+const FILLER_WORDS = new Set(["на", "в", "во", "для", "по", "to", "on", "the", "a"]);
 
 function detectDestination(lower: string): Destination {
   if (/(whatsapp|вотсап|ватсап|вацап|\bwa\b)/.test(lower)) return "whatsapp";
@@ -119,10 +127,13 @@ function parseCommand(raw: string): {
   if (!original) return { action: null, destination: null, alias: null, overrides: {} };
   const lower = original.toLowerCase();
 
-  if (/^\/?(help|помощь|команды)\b/.test(lower)) return { action: "help", destination: null, alias: null, overrides: {} };
+  if (/^\/?(help|помощь|команды)\b/.test(lower))
+    return { action: "help", destination: null, alias: null, overrides: {} };
   if (/^\/?(status|статус)\b/.test(lower)) return { action: "status", destination: null, alias: null, overrides: {} };
-  if (/^\/?(cabinets|кабинеты)\b/.test(lower)) return { action: "cabinets", destination: null, alias: null, overrides: {} };
-  if (/^\/?(defaults|дефолты|настройки)\b/.test(lower)) return { action: "defaults", destination: null, alias: null, overrides: {} };
+  if (/^\/?(cabinets|кабинеты)\b/.test(lower))
+    return { action: "cabinets", destination: null, alias: null, overrides: {} };
+  if (/^\/?(defaults|дефолты|настройки)\b/.test(lower))
+    return { action: "defaults", destination: null, alias: null, overrides: {} };
 
   // «запусти на ватсап», «/launch whatsapp», или в подписи к фото: «текст … запусти на сайт»
   if (!LAUNCH_VERB_RE.test(lower)) {
@@ -145,10 +156,17 @@ function parseCommand(raw: string): {
       const v = vRaw?.trim();
       if (!v) continue;
       if (key === "budget" || key === "бюджет") overrides.budget = Number(v.replace(/[^\d.]/g, "")) || undefined;
-      else if (key === "geo" || key === "гео") overrides.geo = v.split(",").map((s) => s.trim()).filter(Boolean);
+      else if (key === "geo" || key === "гео")
+        overrides.geo = v
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
       else if (key === "age" || key === "возраст") {
         const m = v.match(/(\d+)\s*[-–]\s*(\d+)/);
-        if (m) { overrides.age_min = Number(m[1]); overrides.age_max = Number(m[2]); }
+        if (m) {
+          overrides.age_min = Number(m[1]);
+          overrides.age_max = Number(m[2]);
+        }
       } else if (key === "gender" || key === "пол") {
         const g = v.toLowerCase();
         if (g.startsWith("м") || g === "male" || g === "m") overrides.gender = "male";
@@ -192,9 +210,12 @@ async function downloadAndStoreMedia(
   projectId: string,
 ): Promise<{ path: string; contentType: string } | null> {
   try {
-    const metaRes = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`, {
-      signal: AbortSignal.timeout(10_000),
-    });
+    const metaRes = await fetch(
+      `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`,
+      {
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
     const meta = await metaRes.json();
     if (!metaRes.ok || !meta.ok) return null;
     const filePath = meta.result?.file_path as string | undefined;
@@ -206,12 +227,17 @@ async function downloadAndStoreMedia(
     const bytes = new Uint8Array(await fileRes.arrayBuffer());
     const ext = filePath.split(".").pop()?.toLowerCase() ?? "bin";
     const contentType =
-      ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
-      ext === "png" ? "image/png" :
-      ext === "webp" ? "image/webp" :
-      ext === "mp4" ? "video/mp4" :
-      ext === "mov" ? "video/quicktime" :
-      "application/octet-stream";
+      ext === "jpg" || ext === "jpeg"
+        ? "image/jpeg"
+        : ext === "png"
+          ? "image/png"
+          : ext === "webp"
+            ? "image/webp"
+            : ext === "mp4"
+              ? "video/mp4"
+              : ext === "mov"
+                ? "video/quicktime"
+                : "application/octet-stream";
     const key = `${projectId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await admin.storage.from("ads-telegram-media").upload(key, bytes, {
       contentType,
@@ -259,7 +285,7 @@ async function resolveIgMedia(
   for (let page = 0; page < 5 && url; page++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-      const j = await res.json().catch(() => ({})) as {
+      const j = (await res.json().catch(() => ({}))) as {
         data?: Array<{ id: string; shortcode?: string; caption?: string; media_type?: string; permalink?: string }>;
         paging?: { next?: string };
         error?: { message?: string };
@@ -308,7 +334,9 @@ async function sendMessageWithKeyboard(
     });
     const j = await res.json();
     return j?.result?.message_id ?? null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function answerCallbackQuery(token: string, callbackId: string, text?: string) {
@@ -319,7 +347,9 @@ async function answerCallbackQuery(token: string, callbackId: string, text?: str
       body: JSON.stringify({ callback_query_id: callbackId, text: text ?? "" }),
       signal: AbortSignal.timeout(5_000),
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 async function editMessageText(token: string, chatId: string, messageId: number, text: string) {
@@ -330,13 +360,17 @@ async function editMessageText(token: string, chatId: string, messageId: number,
       body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: "HTML" }),
       signal: AbortSignal.timeout(5_000),
     });
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 function shortToken(len = 10): string {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => (b % 36).toString(36)).join("");
+  return Array.from(bytes)
+    .map((b) => (b % 36).toString(36))
+    .join("");
 }
 
 Deno.serve(async (req) => {
@@ -344,7 +378,11 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   let update: any;
-  try { update = await req.json(); } catch { return json({ ok: true, ignored: "bad_json" }); }
+  try {
+    update = await req.json();
+  } catch {
+    return json({ ok: true, ignored: "bad_json" });
+  }
 
   const callbackQuery = update.callback_query;
   const message = update.message ?? update.edited_message ?? callbackQuery?.message;
@@ -355,16 +393,15 @@ Deno.serve(async (req) => {
   // Для callback_query берём текст из изначального триггера (data), а не из reply-сообщения.
   const text: string = callbackQuery ? "" : (message.text ?? message.caption ?? "");
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Найти бота по chat_id (быстрый путь). Поскольку chat_id уникален в пределах одного бота
   // и у нас 1 бот = 1 проект, идём по allowed_chat_ids.
   const { data: bots, error: botsErr } = await admin
     .from("project_ads_telegram_bots")
-    .select("id, project_id, bot_token, chat_id, allowed_chat_ids, default_cabinet_id, default_destination, default_daily_budget, default_country, default_city, default_geo, default_age_min, default_age_max, default_gender, default_objective, is_active")
+    .select(
+      "id, project_id, bot_token, chat_id, allowed_chat_ids, default_cabinet_id, default_destination, default_daily_budget, default_country, default_city, default_geo, default_age_min, default_age_max, default_gender, default_objective, is_active",
+    )
     .contains("allowed_chat_ids", [chatId]);
   if (botsErr) {
     console.error("[ads-telegram-webhook] bots query:", botsErr.message);
@@ -377,7 +414,7 @@ Deno.serve(async (req) => {
 
   // Если нашлось несколько — выбираем тот, чей secret_token совпадает.
   const secretHeader = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-  let bot: typeof bots[number] | null = null;
+  let bot: (typeof bots)[number] | null = null;
   for (const b of bots) {
     if (!b.bot_token) continue;
     const expected = await sha256Base64Url(`ads-telegram-webhook:${b.bot_token}`);
@@ -439,9 +476,13 @@ Deno.serve(async (req) => {
     }
 
     if (action === "cancel") {
-      await admin.from("ads_telegram_commands").update({
-        status: "cancelled", cancelled_at: new Date().toISOString(),
-      }).eq("id", pending.id);
+      await admin
+        .from("ads_telegram_commands")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", pending.id);
       await answerCallbackQuery(bot.bot_token as string, callbackQuery.id, "Отменено");
       if (callbackQuery.message?.message_id) {
         await editMessageText(bot.bot_token as string, chatId, callbackQuery.message.message_id, "❌ Запуск отменён.");
@@ -452,7 +493,12 @@ Deno.serve(async (req) => {
     // confirm → запускаем launch-campaign
     await answerCallbackQuery(bot.bot_token as string, callbackQuery.id, "Запускаем…");
     if (callbackQuery.message?.message_id) {
-      await editMessageText(bot.bot_token as string, chatId, callbackQuery.message.message_id, "🚀 Запускаю кампанию в Meta…");
+      await editMessageText(
+        bot.bot_token as string,
+        chatId,
+        callbackQuery.message.message_id,
+        "🚀 Запускаю кампанию в Meta…",
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -491,7 +537,7 @@ Deno.serve(async (req) => {
         body: fd,
         signal: AbortSignal.timeout(180_000),
       });
-      const j = await res.json().catch(() => ({})) as any;
+      const j = (await res.json().catch(() => ({}))) as any;
       if (res.ok && j.ok) {
         launchOk = true;
         launchMeta = { metaCampaignId: j.metaCampaignId, metaAdId: j.metaAdId };
@@ -502,13 +548,16 @@ Deno.serve(async (req) => {
       launchErr = (e as Error).message;
     }
 
-    await admin.from("ads_telegram_commands").update({
-      status: launchOk ? "launched" : "failed",
-      confirmed_at: new Date().toISOString(),
-      launched_at: launchOk ? new Date().toISOString() : null,
-      launch_id: launchId,
-      error: launchOk ? null : launchErr.slice(0, 500),
-    }).eq("id", pending.id);
+    await admin
+      .from("ads_telegram_commands")
+      .update({
+        status: launchOk ? "launched" : "failed",
+        confirmed_at: new Date().toISOString(),
+        launched_at: launchOk ? new Date().toISOString() : null,
+        launch_id: launchId,
+        error: launchOk ? null : launchErr.slice(0, 500),
+      })
+      .eq("id", pending.id);
 
     const resultText = launchOk
       ? `✅ Запущено!\n• Campaign: <code>${launchMeta.metaCampaignId ?? "?"}</code>\n• Ad: <code>${launchMeta.metaAdId ?? "?"}</code>`
@@ -567,23 +616,31 @@ Deno.serve(async (req) => {
   const igHit = extractIgShortcode(text);
   if (igHit) {
     // Цель: из текста; если не указана — берём дефолт бота; если и его нет — whatsapp.
-    const destination = parsed.destination
-      ?? ((bot.default_destination as string | null)?.toLowerCase() as any)
-      ?? "whatsapp";
+    const destination =
+      parsed.destination ?? ((bot.default_destination as string | null)?.toLowerCase() as any) ?? "whatsapp";
     const cab = findCabinetByAlias(parsed.alias);
     if (!cab) {
       const msg = parsed.alias
         ? `⚠️ Кабинет <code>${parsed.alias}</code> не найден. Список: <code>/cabinets</code>.`
         : "⚠️ Боту не выдан доступ ни к одному кабинету. Открой Настройки → Telegram для рекламы.";
       await sendMessage(bot.bot_token as string, chatId, msg, message.message_id);
-      await admin.from("ads_telegram_commands").upsert({
-        project_id: bot.project_id, bot_id: bot.id, chat_id: chatId,
-        from_user: fromUser, message_id: message.message_id ?? null,
-        update_id: update.update_id, command_text: text,
-        parsed_destination: destination, status: "failed",
-        ig_shortcode: igHit.shortcode, ig_permalink: igHit.permalink,
-        error: "no_cabinet",
-      }, { onConflict: "update_id" });
+      await admin.from("ads_telegram_commands").upsert(
+        {
+          project_id: bot.project_id,
+          bot_id: bot.id,
+          chat_id: chatId,
+          from_user: fromUser,
+          message_id: message.message_id ?? null,
+          update_id: update.update_id,
+          command_text: text,
+          parsed_destination: destination,
+          status: "failed",
+          ig_shortcode: igHit.shortcode,
+          ig_permalink: igHit.permalink,
+          error: "no_cabinet",
+        },
+        { onConflict: "update_id" },
+      );
       return json({ ok: true });
     }
 
@@ -600,44 +657,64 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (!cabMeta?.instagram_id) {
-      await sendMessage(bot.bot_token as string, chatId,
+      await sendMessage(
+        bot.bot_token as string,
+        chatId,
         `⚠️ К кабинету <b>${cab.ad_cabinets?.name ?? cab.alias}</b> не привязан Instagram Business аккаунт. Заполни поле в карточке кабинета.`,
-        message.message_id);
+        message.message_id,
+      );
       return json({ ok: true });
     }
 
     // Берём Meta access_token: сначала с кабинета, иначе глобальный.
     let metaToken = metaTokens[0] ?? "";
     if (!metaToken) {
-      await sendMessage(bot.bot_token as string, chatId,
+      await sendMessage(
+        bot.bot_token as string,
+        chatId,
         "⚠️ Не настроен Meta access token. Открой Настройки → Подключить Meta.",
-        message.message_id);
+        message.message_id,
+      );
       return json({ ok: true });
     }
 
     // Поиск IG-поста
     const igMedia = await resolveIgMedia(cabMeta.instagram_id as string, igHit.shortcode, metaToken);
     if (!igMedia) {
-      await sendMessage(bot.bot_token as string, chatId,
+      await sendMessage(
+        bot.bot_token as string,
+        chatId,
         `❌ Не нашёл пост <code>${igHit.shortcode}</code> в IG-аккаунте кабинета <b>${cab.ad_cabinets?.name ?? cab.alias}</b>. Проверь, что пост опубликован с того же IG-Business аккаунта.`,
-        message.message_id);
-      await admin.from("ads_telegram_commands").upsert({
-        project_id: bot.project_id, bot_id: bot.id, chat_id: chatId, cabinet_id: cab.cabinet_id, alias_used: cab.alias,
-        from_user: fromUser, message_id: message.message_id ?? null,
-        update_id: update.update_id, command_text: text,
-        parsed_destination: destination, status: "failed",
-        ig_shortcode: igHit.shortcode, ig_permalink: igHit.permalink,
-        error: "ig_post_not_found",
-      }, { onConflict: "update_id" });
+        message.message_id,
+      );
+      await admin.from("ads_telegram_commands").upsert(
+        {
+          project_id: bot.project_id,
+          bot_id: bot.id,
+          chat_id: chatId,
+          cabinet_id: cab.cabinet_id,
+          alias_used: cab.alias,
+          from_user: fromUser,
+          message_id: message.message_id ?? null,
+          update_id: update.update_id,
+          command_text: text,
+          parsed_destination: destination,
+          status: "failed",
+          ig_shortcode: igHit.shortcode,
+          ig_permalink: igHit.permalink,
+          error: "ig_post_not_found",
+        },
+        { onConflict: "update_id" },
+      );
       return json({ ok: true });
     }
 
     // Резолвим параметры таргетинга (override > bot defaults)
     const geo = parsed.overrides.geo?.length
       ? parsed.overrides.geo
-      : ((bot.default_geo as string[] | null)?.length
-          ? (bot.default_geo as string[])
-          : [bot.default_city, bot.default_country].filter(Boolean) as string[]);
+      : (bot.default_geo as string[] | null)?.length
+        ? (bot.default_geo as string[])
+        : ([bot.default_city, bot.default_country].filter(Boolean) as string[]);
     const ageMin = parsed.overrides.age_min ?? (bot.default_age_min as number | null) ?? 18;
     const ageMax = parsed.overrides.age_max ?? (bot.default_age_max as number | null) ?? 55;
     const gender = parsed.overrides.gender ?? (bot.default_gender as string | null) ?? "all";
@@ -645,7 +722,11 @@ Deno.serve(async (req) => {
 
     // Маппим destination → goal для launch-campaign
     const goalMap: Record<string, string> = {
-      whatsapp: "whatsapp", site: "site-leads", traffic: "traffic", instagram: "traffic", messenger: "whatsapp",
+      whatsapp: "whatsapp",
+      site: "site-leads",
+      traffic: "traffic",
+      instagram: "traffic",
+      messenger: "whatsapp",
     };
     const goal = goalMap[destination] ?? "whatsapp";
 
@@ -665,15 +746,11 @@ Deno.serve(async (req) => {
       scheduleMode: "now",
       targeting: {
         // Страна: если первый элемент гео — 2-буквенный ISO-код, иначе страна из дефолтов или KZ.
-        country: (geo[0]?.length === 2
-          ? geo[0].toUpperCase()
-          : ((bot.default_country as string | null) || "KZ")),
+        country: geo[0]?.length === 2 ? geo[0].toUpperCase() : (bot.default_country as string | null) || "KZ",
         // Город: первый элемент гео, который НЕ выглядит как ISO-код (берём название).
         // launch-campaign сам резолвит city.key через Meta targetingsearch.
         city: (() => {
-          const cityName = geo.find((g) => g && g.length > 2)
-            ?? (bot.default_city as string | null)
-            ?? null;
+          const cityName = geo.find((g) => g && g.length > 2) ?? (bot.default_city as string | null) ?? null;
           return cityName ? { name: cityName, key: null } : null;
         })(),
         age_min: ageMin,
@@ -695,28 +772,55 @@ Deno.serve(async (req) => {
       `Возраст: <b>${ageMin}–${ageMax}</b> · Пол: <b>${gender}</b>`,
       "",
       "Подтвердить запуск?",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const sentMsgId = await sendMessageWithKeyboard(
-      bot.bot_token as string, chatId, previewLines,
-      [[
-        { text: "✅ Запустить", callback_data: `confirm:${token}` },
-        { text: "❌ Отмена",    callback_data: `cancel:${token}` },
-      ]],
+      bot.bot_token as string,
+      chatId,
+      previewLines,
+      [
+        [
+          { text: "✅ Запустить", callback_data: `confirm:${token}` },
+          { text: "❌ Отмена", callback_data: `cancel:${token}` },
+        ],
+      ],
       message.message_id,
     );
 
-    await admin.from("ads_telegram_commands").upsert({
-      project_id: bot.project_id, bot_id: bot.id, chat_id: chatId,
-      cabinet_id: cab.cabinet_id, alias_used: cab.alias,
-      from_user: fromUser, message_id: message.message_id ?? null,
-      update_id: update.update_id, command_text: text,
-      parsed_destination: destination, status: "pending_confirmation",
-      ig_shortcode: igHit.shortcode, ig_media_id: igMedia.id, ig_permalink: igHit.permalink,
-      confirmation_token: token, boost_payload: boostPayload,
-      resolved_params: { destination, cabinet_id: cab.cabinet_id, budget_daily: budget, geo, age_min: ageMin, age_max: ageMax, gender, kind: "boost_existing" },
-      reply_message_id: sentMsgId,
-    }, { onConflict: "update_id" });
+    await admin.from("ads_telegram_commands").upsert(
+      {
+        project_id: bot.project_id,
+        bot_id: bot.id,
+        chat_id: chatId,
+        cabinet_id: cab.cabinet_id,
+        alias_used: cab.alias,
+        from_user: fromUser,
+        message_id: message.message_id ?? null,
+        update_id: update.update_id,
+        command_text: text,
+        parsed_destination: destination,
+        status: "pending_confirmation",
+        ig_shortcode: igHit.shortcode,
+        ig_media_id: igMedia.id,
+        ig_permalink: igHit.permalink,
+        confirmation_token: token,
+        boost_payload: boostPayload,
+        resolved_params: {
+          destination,
+          cabinet_id: cab.cabinet_id,
+          budget_daily: budget,
+          geo,
+          age_min: ageMin,
+          age_max: ageMax,
+          gender,
+          kind: "boost_existing",
+        },
+        reply_message_id: sentMsgId,
+      },
+      { onConflict: "update_id" },
+    );
 
     return json({ ok: true });
   }
@@ -735,13 +839,17 @@ Deno.serve(async (req) => {
     if (!cabs.length) {
       replyText = "Боту не выдан доступ ни к одному кабинету. Открой Настройки → Telegram для рекламы.";
     } else {
-      const lines = cabs.map((c) => `• <code>${c.alias}</code> — ${c.ad_cabinets?.name ?? "—"}${c.is_default ? " (по умолчанию)" : ""}`);
+      const lines = cabs.map(
+        (c) => `• <code>${c.alias}</code> — ${c.ad_cabinets?.name ?? "—"}${c.is_default ? " (по умолчанию)" : ""}`,
+      );
       replyText = `<b>Доступные кабинеты:</b>\n${lines.join("\n")}`;
     }
     status = "cabinets";
   } else if (parsed.action === "defaults") {
     const geoArr = (bot.default_geo as string[] | null) ?? [];
-    const geoStr = geoArr.length ? geoArr.join(", ") : [bot.default_city, bot.default_country].filter(Boolean).join(", ") || "—";
+    const geoStr = geoArr.length
+      ? geoArr.join(", ")
+      : [bot.default_city, bot.default_country].filter(Boolean).join(", ") || "—";
     const lines = [
       `Куда: <b>${bot.default_destination ?? "—"}</b>`,
       `Бюджет/день: <b>${bot.default_daily_budget ?? "—"} ₸</b>`,
@@ -771,7 +879,8 @@ Deno.serve(async (req) => {
       replyText = "⚠️ Нужно прислать фото или видео вместе с командой запуска.";
       status = "failed";
     } else if (!parsed.destination) {
-      replyText = "⚠️ Не понял куда запускать. Пример: <code>запусти на ватсап</code> или <code>запусти на сайт</code>.";
+      replyText =
+        "⚠️ Не понял куда запускать. Пример: <code>запусти на ватсап</code> или <code>запусти на сайт</code>.";
       status = "failed";
     } else if (!cab) {
       replyText = parsed.alias
@@ -795,9 +904,9 @@ Deno.serve(async (req) => {
       } else {
         const geo = parsed.overrides.geo?.length
           ? parsed.overrides.geo
-          : ((bot.default_geo as string[] | null)?.length
-              ? (bot.default_geo as string[])
-              : [bot.default_city, bot.default_country].filter(Boolean) as string[]);
+          : (bot.default_geo as string[] | null)?.length
+            ? (bot.default_geo as string[])
+            : ([bot.default_city, bot.default_country].filter(Boolean) as string[]);
         const ageMin = parsed.overrides.age_min ?? (bot.default_age_min as number | null) ?? 18;
         const ageMax = parsed.overrides.age_max ?? (bot.default_age_max as number | null) ?? 55;
         const gender = parsed.overrides.gender ?? (bot.default_gender as string | null) ?? "all";
@@ -807,7 +916,10 @@ Deno.serve(async (req) => {
           destination: parsed.destination,
           cabinet_id: cab.cabinet_id,
           budget_daily: budget,
-          geo, age_min: ageMin, age_max: ageMax, gender,
+          geo,
+          age_min: ageMin,
+          age_max: ageMax,
+          gender,
           objective: bot.default_objective ?? null,
           kind: "telegram_media_launch",
         };
@@ -824,12 +936,11 @@ Deno.serve(async (req) => {
 
         // Подпись из ТГ (без команды) → primary text. Если пусто — мягкий дефолт.
         const captionText = stripLaunchCommand(text || "");
-        const primaryText = captionText
-          || (goal === "whatsapp" ? "Напишите нам в WhatsApp - ответим быстро." : "Узнайте подробнее.");
+        const primaryText =
+          captionText || (goal === "whatsapp" ? "Напишите нам в WhatsApp - ответим быстро." : "Узнайте подробнее.");
 
         // Скачиваем медиа из storage и собираем File для launch-campaign.
-        const { data: blob, error: dlErr } = await admin.storage
-          .from("ads-telegram-media").download(mediaPath);
+        const { data: blob, error: dlErr } = await admin.storage.from("ads-telegram-media").download(mediaPath);
         if (dlErr || !blob) {
           replyText = `⚠️ Не смог прочитать медиа из хранилища: ${dlErr?.message ?? "unknown"}.`;
           status = "failed";
@@ -855,12 +966,9 @@ Deno.serve(async (req) => {
             currency: cabMeta!.currency ?? "KZT",
             scheduleMode: "now",
             targeting: {
-              country: (geo[0]?.length === 2
-                ? geo[0].toUpperCase()
-                : ((bot.default_country as string | null) || "KZ")),
+              country: geo[0]?.length === 2 ? geo[0].toUpperCase() : (bot.default_country as string | null) || "KZ",
               city: (() => {
-                const cityName = geo.find((g) => g && g.length > 2)
-                  ?? (bot.default_city as string | null) ?? null;
+                const cityName = geo.find((g) => g && g.length > 2) ?? (bot.default_city as string | null) ?? null;
                 return cityName ? { name: cityName, key: null } : null;
               })(),
               age_min: ageMin,
@@ -903,7 +1011,7 @@ Deno.serve(async (req) => {
               body: fd,
               signal: AbortSignal.timeout(180_000),
             });
-            const j = await res.json().catch(() => ({})) as any;
+            const j = (await res.json().catch(() => ({}))) as any;
             if (res.ok && j.ok) {
               launchOk = true;
               launchMeta = { metaCampaignId: j.metaCampaignId, metaAdId: j.metaAdId };
@@ -942,23 +1050,26 @@ Deno.serve(async (req) => {
 
   const replyMsgId = await sendMessage(bot.bot_token as string, chatId, replyText, message.message_id);
 
-  await admin.from("ads_telegram_commands").upsert({
-    project_id: bot.project_id,
-    bot_id: bot.id,
-    cabinet_id: resolvedCabinetId,
-    alias_used: resolvedAlias,
-    resolved_params: resolvedParams,
-    chat_id: chatId,
-    from_user: fromUser,
-    message_id: message.message_id ?? null,
-    update_id: update.update_id,
-    command_text: text || null,
-    parsed_destination: parsed.destination,
-    media_kind: mediaKind,
-    media_url: mediaPath,
-    status,
-    reply_message_id: replyMsgId,
-  }, { onConflict: "update_id" });
+  await admin.from("ads_telegram_commands").upsert(
+    {
+      project_id: bot.project_id,
+      bot_id: bot.id,
+      cabinet_id: resolvedCabinetId,
+      alias_used: resolvedAlias,
+      resolved_params: resolvedParams,
+      chat_id: chatId,
+      from_user: fromUser,
+      message_id: message.message_id ?? null,
+      update_id: update.update_id,
+      command_text: text || null,
+      parsed_destination: parsed.destination,
+      media_kind: mediaKind,
+      media_url: mediaPath,
+      status,
+      reply_message_id: replyMsgId,
+    },
+    { onConflict: "update_id" },
+  );
 
   return json({ ok: true });
 });
