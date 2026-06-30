@@ -1,7 +1,7 @@
 {
-  "git_sha": "7537494",
-  "git_sha_full": "75374942dc3cf1a44a41e14d998628be91322de3",
-  "updated_at": "2026-06-30T09:54:46+05:00",
-  "label": "feat: natural Russian launch phrases for Telegram ads bot",
+  "git_sha": "b0e183a",
+  "git_sha_full": "b0e183a3dd70d8b4984b1b1cf1d441a7a7aa0d3a",
+  "updated_at": "2026-06-30T10:06:44+05:00",
+  "label": "fix: sync ad_cabinets meta columns for Telegram bot launch",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
