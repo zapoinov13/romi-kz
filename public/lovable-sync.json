@@ -1,7 +1,7 @@
 {
-  "git_sha": "3a6788d",
-  "git_sha_full": "3a6788d1a56255b3f822451e2a1122a4ad00519e",
-  "updated_at": "2026-06-30T09:32:21+05:00",
-  "label": "fix: Telegram ad launch reads ad_account_id and pixel_id from cabinet",
+  "git_sha": "5d25434",
+  "git_sha_full": "5d25434047b43af5ec5103f95b8c2cf3d6fb8906",
+  "updated_at": "2026-06-30T09:50:55+05:00",
+  "label": "fix: auto-resolve cabinet Meta fields for Telegram ad launch",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
