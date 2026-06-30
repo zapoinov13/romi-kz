@@ -1,7 +1,7 @@
 {
-  "git_sha": "3362307",
-  "git_sha_full": "336230700f9d99fc88380bec8747cd5b6027eb26",
-  "updated_at": "2026-06-30T10:11:26+05:00",
-  "label": "fix: Lovable security scan — hide tokens, storage policies, search_path",
+  "git_sha": "79be533",
+  "git_sha_full": "79be533b31f8f70947753f8f0028d49203e734b8",
+  "updated_at": "2026-06-30T10:14:01+05:00",
+  "label": "fix: Telegram bot launch — sync cabinet fields on bot save",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
