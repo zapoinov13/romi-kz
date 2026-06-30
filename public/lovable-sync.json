@@ -1,7 +1,7 @@
 {
-  "git_sha": "21b7f1e",
-  "git_sha_full": "21b7f1ec64e0b779e3eab6a782526309228f910a",
-  "updated_at": "2026-06-29T20:41:31+05:00",
-  "label": "fix: idempotent Meta OAuth migration for Lovable Supabase",
+  "git_sha": "3ed08dc",
+  "git_sha_full": "3ed08dcc0a2fa36f8117594044a22893c15344b9",
+  "updated_at": "2026-06-30T04:18:49Z",
+  "label": "Автоматизировал запуск в TG",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
