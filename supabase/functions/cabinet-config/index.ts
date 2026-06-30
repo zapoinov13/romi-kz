@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       project_id: row.project_id || row.id,
       client_name: row.name,
       city: row.city || "",
-      ad_account_id: row.ad_account_id || "",
+      ad_account_id: row.ad_account_id || row.external_id || "",
       page_id: row.page_id || "",
       instagram_actor_id: row.instagram_id || null,
       instagram_user_id: row.instagram_id || null,

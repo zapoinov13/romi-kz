@@ -15,6 +15,7 @@ on:
       - "supabase/functions/ads-telegram-webhook/**"
       - "supabase/functions/_lib/meta_list_ad_accounts.ts"
       - "supabase/functions/_lib/meta_connect_helpers.ts"
+      - "supabase/functions/_lib/cabinet_meta_resolve.ts"
       - "supabase/functions/_lib/auth.ts"
       - "supabase/config.toml"
       - ".github/workflows/deploy-meta-edge-functions.yml"
@@ -54,4 +55,7 @@ jobs:
           done
           echo "::group::Deploy meta-oauth-callback (no JWT)"
           supabase functions deploy meta-oauth-callback --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+          echo "::endgroup::"
+          echo "::group::Deploy ads-telegram-webhook (no JWT)"
+          supabase functions deploy ads-telegram-webhook --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
           echo "::endgroup::"

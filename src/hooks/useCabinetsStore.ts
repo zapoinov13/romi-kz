@@ -123,6 +123,13 @@ const toDbPatch = (patch: Partial<AdCabinet>): Record<string, unknown> => {
   for (const [k, dbKey] of map) {
     if (patch[k] !== undefined) out[dbKey] = patch[k] as unknown;
   }
+  const ext = String(out.external_id ?? "").trim();
+  const act = String(out.ad_account_id ?? "").trim();
+  const resolvedAct = act || ext;
+  if (resolvedAct) {
+    out.external_id = resolvedAct;
+    out.ad_account_id = resolvedAct;
+  }
   return out;
 };
 

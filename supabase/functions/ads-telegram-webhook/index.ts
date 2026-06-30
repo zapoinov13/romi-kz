@@ -11,6 +11,15 @@
 // Когда подтвердим UX — добавим прямой вызов launch-campaign со стандартным набором.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import {
+  CABINET_META_SELECT,
+  enrichCabinetMeta,
+  cabinetLaunchMissingFields,
+  cabinetFieldsErrorText,
+  clientConfigFromCabinet,
+  type CabinetMetaRow,
+} from "../_lib/cabinet_meta_resolve.ts";
+import { resolveMetaTokens } from "../_lib/meta_tokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,79 +48,19 @@ function safeEqual(a: string | null, b: string): boolean {
   return diff === 0;
 }
 
-const CABINET_META_SELECT =
-  "id, name, external_id, ad_account_id, page_id, page_name, instagram_id, access_token, whatsapp_number, pixel_id, pixel_event, website_url, business_id, app_id, currency, lead_form_id";
-
-type CabinetMetaRow = {
-  id: string;
-  name: string | null;
-  external_id: string | null;
-  ad_account_id: string | null;
-  page_id: string | null;
-  page_name: string | null;
-  instagram_id: string | null;
-  access_token: string | null;
-  whatsapp_number: string | null;
-  pixel_id: string | null;
-  pixel_event: string | null;
-  website_url: string | null;
-  business_id: string | null;
-  app_id: string | null;
-  currency: string | null;
-  lead_form_id: string | null;
-};
-
-function resolveAdAccountId(cab: CabinetMetaRow | null | undefined): string {
-  const fromCol = String(cab?.ad_account_id ?? "").trim();
-  const fromExt = String(cab?.external_id ?? "").trim();
-  return fromCol || fromExt;
-}
-
-function cabinetLaunchMissingFields(
-  cab: CabinetMetaRow | null | undefined,
-  destination: string,
-): string[] {
-  const missing: string[] = [];
-  if (!cab) return ["кабинет не найден"];
-  if (!resolveAdAccountId(cab)) missing.push("ad_account_id (ID рекламного аккаунта act_…)");
-  if (!String(cab.page_id ?? "").trim()) missing.push("page_id (Facebook-страница)");
-  if (destination === "whatsapp") {
-    const digits = String(cab.whatsapp_number ?? "").replace(/\D/g, "");
-    if (digits.length < 10) missing.push("whatsapp_number");
-  }
-  if (destination === "site" && !String(cab.pixel_id ?? "").trim()) {
-    missing.push("pixel_id");
-  }
-  return missing;
-}
-
-function cabinetFieldsErrorText(cabName: string, missing: string[]): string {
-  return (
-    `⚠️ У кабинета <b>${cabName}</b> не заполнены обязательные поля:\n` +
-    missing.map((f) => `• ${f}`).join("\n") +
-    "\n\nОткрой <b>Реклама → карточка кабинета</b> и заполни настройки Meta."
-  );
-}
-
-function clientConfigFromCabinet(cab: CabinetMetaRow, metaToken: string, budget: number | null) {
-  const adAccountId = resolveAdAccountId(cab);
-  return {
-    client_name: cab.name,
-    ad_account_id: adAccountId,
-    page_id: cab.page_id,
-    page_name: cab.page_name,
-    instagram_actor_id: cab.instagram_id,
-    fb_pixel_id: cab.pixel_id,
-    pixel_event: cab.pixel_event ?? "Lead",
-    website_url: cab.website_url,
-    whatsapp_number: cab.whatsapp_number,
-    business_id: cab.business_id,
-    app_id: cab.app_id,
-    currency: cab.currency,
-    lead_form_id: cab.lead_form_id ?? null,
-    access_token: metaToken,
-    daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
-  };
+async function loadEnrichedCabinet(
+  admin: ReturnType<typeof createClient>,
+  cabinetId: string,
+): Promise<{ cab: CabinetMetaRow | null; metaTokens: string[] }> {
+  const { data } = await admin
+    .from("ad_cabinets")
+    .select(CABINET_META_SELECT)
+    .eq("id", cabinetId)
+    .maybeSingle();
+  const row = data as CabinetMetaRow | null;
+  const metaTokens = await resolveMetaTokens(row?.access_token ?? null);
+  const cab = await enrichCabinetMeta(admin, row, metaTokens);
+  return { cab, metaTokens };
 }
 
 type Destination = "whatsapp" | "instagram" | "messenger" | "site" | "traffic" | null;
@@ -618,12 +567,7 @@ Deno.serve(async (req) => {
     }
 
     // Загружаем кабинет с IG/Page/token
-    const { data: cabRow } = await admin
-      .from("ad_cabinets")
-      .select(CABINET_META_SELECT)
-      .eq("id", cab.cabinet_id)
-      .maybeSingle();
-    const cabMeta = cabRow as CabinetMetaRow | null;
+    const { cab: cabMeta, metaTokens } = await loadEnrichedCabinet(admin, cab.cabinet_id);
     const missingIg = cabinetLaunchMissingFields(cabMeta, destination);
     if (missingIg.length > 0) {
       await sendMessage(
@@ -642,11 +586,7 @@ Deno.serve(async (req) => {
     }
 
     // Берём Meta access_token: сначала с кабинета, иначе глобальный.
-    let metaToken = (cabMeta.access_token as string | null) ?? "";
-    if (!metaToken) {
-      const { data: aset } = await admin.from("automation_settings").select("meta_access_token").eq("id", true).maybeSingle();
-      metaToken = (aset?.meta_access_token as string | null) ?? "";
-    }
+    let metaToken = metaTokens[0] ?? "";
     if (!metaToken) {
       await sendMessage(bot.bot_token as string, chatId,
         "⚠️ Не настроен Meta access token. Открой Настройки → Подключить Meta.",
@@ -822,19 +762,8 @@ Deno.serve(async (req) => {
       resolvedAlias = cab.alias;
 
       // ===== Полные настройки кабинета для launch-campaign =====
-      const { data: cabRow } = await admin
-        .from("ad_cabinets")
-        .select(CABINET_META_SELECT)
-        .eq("id", cab.cabinet_id)
-        .maybeSingle();
-      const cabMeta = cabRow as CabinetMetaRow | null;
-
-      // Meta token: с кабинета → automation_settings → env.
-      let metaToken = (cabMeta?.access_token as string | null) ?? "";
-      if (!metaToken) {
-        const { data: aset } = await admin.from("automation_settings").select("meta_access_token").eq("id", true).maybeSingle();
-        metaToken = (aset?.meta_access_token as string | null) ?? "";
-      }
+      const { cab: cabMeta, metaTokens } = await loadEnrichedCabinet(admin, cab.cabinet_id);
+      const metaToken = metaTokens[0] ?? "";
       const missingFields = cabinetLaunchMissingFields(cabMeta, parsed.destination);
       if (missingFields.length > 0) {
         replyText = cabinetFieldsErrorText(cab.ad_cabinets?.name ?? cab.alias, missingFields);
