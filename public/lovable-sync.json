@@ -1,7 +1,7 @@
 {
-  "git_sha": "79be533",
-  "git_sha_full": "79be533b31f8f70947753f8f0028d49203e734b8",
-  "updated_at": "2026-06-30T10:14:01+05:00",
-  "label": "fix: Telegram bot launch — sync cabinet fields on bot save",
+  "git_sha": "73e6f95",
+  "git_sha_full": "73e6f95946bb9109de9fb078dabfe95642f833cb",
+  "updated_at": "2026-06-30T05:22:36Z",
+  "label": "Code edited in Lovable Code Editor",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
