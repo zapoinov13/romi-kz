@@ -1,7 +1,7 @@
 {
-  "git_sha": "5d25434",
-  "git_sha_full": "5d25434047b43af5ec5103f95b8c2cf3d6fb8906",
-  "updated_at": "2026-06-30T09:50:55+05:00",
-  "label": "fix: auto-resolve cabinet Meta fields for Telegram ad launch",
+  "git_sha": "7537494",
+  "git_sha_full": "75374942dc3cf1a44a41e14d998628be91322de3",
+  "updated_at": "2026-06-30T09:54:46+05:00",
+  "label": "feat: natural Russian launch phrases for Telegram ads bot",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
