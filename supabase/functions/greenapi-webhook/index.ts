@@ -148,7 +148,8 @@ async function projectFromInstance(
   presentedToken: string | null,
 ): Promise<InstanceConfig> {
   if (!idInstance) {
-    return { projectId: null, ok: true, adsOnly: false, botWebhookUrl: null };
+    // Fail-closed: without instance ID we cannot validate the webhook token
+    return { projectId: null, ok: false, adsOnly: false, botWebhookUrl: null };
   }
   const { data } = await admin
     .from("whatsapp_config")
