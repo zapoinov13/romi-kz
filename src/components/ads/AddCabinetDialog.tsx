@@ -4,12 +4,9 @@ import {
   CheckCircle2,
   Crosshair,
   Facebook,
-  Globe,
-  Info,
   Link2,
   Loader2,
   MessageSquare,
-  Send,
   Shield,
   XCircle,
 } from "lucide-react";
@@ -25,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -45,7 +41,6 @@ interface AddCabinetDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreate: (cabinet: AdCabinet) => void;
   existingActIds?: string[];
-  /** pick = список Meta; configure = ручной ввод */
   initialStep?: Step;
 }
 
@@ -65,21 +60,6 @@ const FieldLabel = ({
   </Label>
 );
 
-const SectionTitle = ({
-  accent,
-  children,
-}: {
-  accent: string;
-  children: React.ReactNode;
-}) => (
-  <div className="mb-3 flex items-center gap-2">
-    <span className={cn("h-2 w-2 rounded-full", accent)} />
-    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </span>
-  </div>
-);
-
 const AddCabinetDialog = ({
   open,
   onOpenChange,
@@ -92,39 +72,13 @@ const AddCabinetDialog = ({
   const [currency, setCurrency] = useState("USD");
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<"Личный" | "Агентский">("Личный");
-  const [dailyBudget, setDailyBudget] = useState("50");
-  const [city, setCity] = useState("");
-  const [cityInput, setCityInput] = useState("");
-  const cities = city
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const addCity = (raw: string) => {
-    const val = raw.trim().replace(/,$/, "").trim();
-    if (!val) return;
-    if (cities.some((c) => c.toLowerCase() === val.toLowerCase())) {
-      setCityInput("");
-      return;
-    }
-    setCity([...cities, val].join(", "));
-    setCityInput("");
-  };
-  const removeCity = (name: string) => {
-    setCity(cities.filter((c) => c !== name).join(", "));
-  };
   const [adAccountId, setAdAccountId] = useState("");
   const [pageId, setPageId] = useState("");
   const [pageName, setPageName] = useState("");
   const [instagramId, setInstagramId] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [telegramGroupId, setTelegramGroupId] = useState("");
-  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [pixelId, setPixelId] = useState("");
-  const [pixelEvent, setPixelEvent] = useState("Lead");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [utmTemplate, setUtmTemplate] = useState(DEFAULT_META_UTM_TEMPLATE);
-  const [brief, setBrief] = useState("");
   const [validating, setValidating] = useState(false);
   const [checks, setChecks] = useState<CheckItem[] | null>(null);
 
@@ -148,21 +102,13 @@ const AddCabinetDialog = ({
     setSelectedMeta(null);
     setCurrency("USD");
     setName("");
-    setType("Личный");
-    setDailyBudget("50");
-    setCity("");
     setAdAccountId("");
     setPageId("");
     setPageName("");
     setInstagramId("");
     setAccessToken("");
-    setTelegramGroupId("");
-    setWhatsappNumber("");
     setPixelId("");
-    setPixelEvent("Lead");
     setWebsiteUrl("");
-    setUtmTemplate(DEFAULT_META_UTM_TEMPLATE);
-    setBrief("");
     setChecks(null);
     setValidating(false);
   }, []);
@@ -204,7 +150,6 @@ const AddCabinetDialog = ({
     if (p.instagram_id) setInstagramId((prev) => prev || p.instagram_id!);
   }, [pageId, pagesAssets.data]);
 
-  // Auto-pick first Instagram from explicit IG list (if page didn't expose one)
   useEffect(() => {
     if (step !== "configure" || instagramId) return;
     if (igAssets.data.length > 0) {
@@ -212,7 +157,6 @@ const AddCabinetDialog = ({
     }
   }, [step, igAssets.data, instagramId]);
 
-  // Auto-pick first pixel
   useEffect(() => {
     if (step !== "configure" || pixelId) return;
     if (pixelsAssets.data.length > 0) {
@@ -262,26 +206,22 @@ const AddCabinetDialog = ({
       name: name.toUpperCase(),
       externalId: adAccountId,
       online: true,
-      type,
+      type: "Личный",
       spend: 0,
       leads: 0,
       leadCost: 0,
       sales: 0,
       revenue: 0,
-      city: city || undefined,
-      dailyBudget: Number(dailyBudget) || 0,
+      dailyBudget: 0,
       currency: currency || "USD",
       adAccountId,
       pageId: pageId || undefined,
       pageName: pageName || undefined,
       instagramId: instagramId || undefined,
-      telegramGroupId: telegramGroupId || undefined,
-      whatsappNumber: whatsappNumber || undefined,
       pixelId: pixelId || undefined,
-      pixelEvent: pixelEvent || "Lead",
+      pixelEvent: "Lead",
       websiteUrl: websiteUrl || undefined,
-      utmTemplate: utmTemplate.trim() || DEFAULT_META_UTM_TEMPLATE,
-      brief: brief || undefined,
+      utmTemplate: DEFAULT_META_UTM_TEMPLATE,
       accessToken: accessToken || undefined,
     });
     onOpenChange(false);
@@ -298,17 +238,17 @@ const AddCabinetDialog = ({
         if (!v) reset();
       }}
     >
-      <DialogContent className="max-h-[92vh] w-[96vw] max-w-5xl overflow-hidden border-border/60 bg-card p-0">
+      <DialogContent className="max-h-[92vh] w-[96vw] max-w-xl overflow-hidden border-border/60 bg-card p-0">
         <div className="flex max-h-[92vh] flex-col">
           <DialogHeader className="border-b border-border/60 px-6 py-4">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Crosshair className="h-5 w-5 text-success" />
-              {step === "pick" ? "Быстрое подключение Meta" : "Настройка кабинета"}
+              {step === "pick" ? "Быстрое подключение Meta" : "Кабинет Meta"}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {step === "pick"
-                ? "Выберите рекламный кабинет из списка — данные подтянутся и синхронизируются автоматически"
-                : "Страницу и Instagram можно выбрать сейчас или при запуске рекламы"}
+                ? "Выберите рекламный кабинет - остальное подтянется автоматически"
+                : "Бюджет, гео и креативы задаются при запуске кампании"}
             </DialogDescription>
           </DialogHeader>
 
@@ -337,209 +277,147 @@ const AddCabinetDialog = ({
             </>
           ) : (
             <>
-              <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-2">
-                <div className="space-y-5 overflow-y-auto border-border/60 px-6 py-5 lg:border-r">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="-ml-2 gap-1"
-                    onClick={() => setStep("pick")}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Выбрать другой кабинет
-                  </Button>
+              <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 gap-1"
+                  onClick={() => setStep("pick")}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Выбрать другой кабинет
+                </Button>
 
-                  <section>
-                    <SectionTitle accent="bg-success">Основное</SectionTitle>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <FieldLabel>Название *</FieldLabel>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Бюджет в день</FieldLabel>
-                          <div className="relative">
-                            <Input value={dailyBudget} onChange={(e) => setDailyBudget(e.target.value)} className={inputCls + " pr-10"} />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Город</FieldLabel>
-                          <div className={cn(inputCls, "flex h-auto min-h-11 flex-wrap items-center gap-1.5 py-1.5")}>
-                            {cities.map((c) => (
-                              <span
-                                key={c}
-                                className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px]"
-                              >
-                                {c}
-                                <button
-                                  type="button"
-                                  onClick={() => removeCity(c)}
-                                  className="opacity-60 hover:opacity-100"
-                                  aria-label={`Удалить ${c}`}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                            <input
-                              value={cityInput}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                if (v.endsWith(",")) {
-                                  addCity(v);
-                                } else {
-                                  setCityInput(v);
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === ",") {
-                                  e.preventDefault();
-                                  addCity(cityInput);
-                                } else if (e.key === "Backspace" && !cityInput && cities.length) {
-                                  removeCity(cities[cities.length - 1]);
-                                }
-                              }}
-                              onBlur={() => addCity(cityInput)}
-                              placeholder={cities.length ? "" : "Алматы, Астана..."}
-                              className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section>
-                    <SectionTitle accent="bg-primary">
-                      <span className="flex items-center gap-1.5">
-                        <Facebook className="h-3.5 w-3.5" /> Meta
-                      </span>
-                    </SectionTitle>
-                    <div className="space-y-3">
-                      <div className="space-y-1.5">
-                        <FieldLabel icon={Shield}>Ad Account</FieldLabel>
-                        <Input
-                          value={adAccountId}
-                          onChange={(e) => setAdAccountId(e.target.value)}
-                          className={inputCls}
-                          readOnly={!!selectedMeta}
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <FieldLabel icon={Link2}>Страница</FieldLabel>
-                        <Select
-                          value={pageId || "__none__"}
-                          onValueChange={(v) => {
-                            if (v === "__none__") {
-                              setPageId("");
-                              setPageName("");
-                              setInstagramId("");
-                              return;
-                            }
-                            setPageId(v);
-                            setInstagramId("");
-                          }}
-                        >
-                          <SelectTrigger className={inputCls}>
-                            <SelectValue placeholder={pagesAssets.isLoading ? "Загрузка…" : "Не выбрано"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Не выбирать сейчас</SelectItem>
-                            {pagesAssets.data.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {pageId && (
-                        <div className="space-y-1.5">
-                          <FieldLabel icon={MessageSquare}>Instagram</FieldLabel>
-                          {igAssets.data.length > 0 ? (
-                            <Select
-                              value={instagramId || "__none__"}
-                              onValueChange={(v) => setInstagramId(v === "__none__" ? "" : v)}
-                            >
-                              <SelectTrigger className={inputCls}>
-                                <SelectValue placeholder="Не выбрано" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">Не выбирать</SelectItem>
-                                {igAssets.data.map((ig) => (
-                                  <SelectItem key={(ig as { id: string }).id} value={(ig as { id: string }).id}>
-                                    @{(ig as { username?: string; id: string }).username ?? (ig as { id: string }).id}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : null}
-                          <Input
-                            value={instagramId}
-                            onChange={(e) => setInstagramId(e.target.value)}
-                            placeholder="ID вручную"
-                            className={inputCls}
-                          />
-                        </div>
-                      )}
-                      <div className="space-y-1.5">
-                        <FieldLabel icon={Crosshair}>Pixel</FieldLabel>
-                        <Select
-                          value={pixelId || "__none__"}
-                          onValueChange={(v) => setPixelId(v === "__none__" ? "" : v)}
-                        >
-                          <SelectTrigger className={inputCls}>
-                            <SelectValue placeholder="Не выбрано" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Не выбирать</SelectItem>
-                            {pixelsAssets.data.map((px) => (
-                              <SelectItem key={px.id} value={px.id}>{px.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full rounded-xl"
-                        onClick={runValidation}
-                        disabled={validating || !adAccountId}
-                      >
-                        {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        Проверить
-                      </Button>
-                      {checks?.map((c, i) => (
-                        <div key={i} className="flex gap-2 text-xs">
-                          {c.ok ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <XCircle className="h-3.5 w-3.5 text-destructive" />}
-                          <span>{c.label}{c.detail ? ` — ${c.detail}` : ""}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
+                <div className="space-y-1.5">
+                  <FieldLabel>Название</FieldLabel>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Например: TAREDA BM2"
+                    className={inputCls}
+                  />
                 </div>
 
-                <div className="space-y-5 overflow-y-auto px-6 py-5">
-                  <section>
-                    <SectionTitle accent="bg-warning">Трекинг</SectionTitle>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input value={telegramGroupId} onChange={(e) => setTelegramGroupId(e.target.value)} placeholder="Telegram" className={inputCls} />
-                      <Input value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} placeholder="WhatsApp" className={inputCls} />
-                      <Input value={pixelEvent} onChange={(e) => setPixelEvent(e.target.value)} placeholder="Событие" className={inputCls} />
-                      <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="URL" className={inputCls} />
-                    </div>
-                    <Textarea value={utmTemplate} onChange={(e) => setUtmTemplate(e.target.value)} rows={2} className="mt-3 rounded-xl font-mono text-xs" />
-                  </section>
-                  <Textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={5} placeholder="Заметки" className="rounded-xl" />
-                  <div className="flex gap-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-xs text-primary">
-                    <Info className="h-3.5 w-3.5 shrink-0" />
-                    При запуске кампании страницу можно сменить в мастере — как сейчас.
+                <div className="space-y-1.5">
+                  <FieldLabel icon={Shield}>
+                    <span className="flex items-center gap-1.5">
+                      <Facebook className="h-3.5 w-3.5" /> Ad Account
+                    </span>
+                  </FieldLabel>
+                  <Input
+                    value={adAccountId}
+                    onChange={(e) => setAdAccountId(e.target.value)}
+                    placeholder="act_..."
+                    className={cn(inputCls, "font-mono text-sm")}
+                    readOnly={!!selectedMeta}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <FieldLabel icon={Link2}>Страница</FieldLabel>
+                    <Select
+                      value={pageId || "__none__"}
+                      onValueChange={(v) => {
+                        if (v === "__none__") {
+                          setPageId("");
+                          setPageName("");
+                          setInstagramId("");
+                          return;
+                        }
+                        setPageId(v);
+                        setInstagramId("");
+                      }}
+                    >
+                      <SelectTrigger className={inputCls}>
+                        <SelectValue placeholder={pagesAssets.isLoading ? "Загрузка…" : "Позже"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Позже</SelectItem>
+                        {pagesAssets.data.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <FieldLabel icon={MessageSquare}>Instagram</FieldLabel>
+                    {igAssets.data.length > 0 ? (
+                      <Select
+                        value={instagramId || "__none__"}
+                        onValueChange={(v) => setInstagramId(v === "__none__" ? "" : v)}
+                      >
+                        <SelectTrigger className={inputCls}>
+                          <SelectValue placeholder="Позже" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Позже</SelectItem>
+                          {igAssets.data.map((ig) => (
+                            <SelectItem key={(ig as { id: string }).id} value={(ig as { id: string }).id}>
+                              @{(ig as { username?: string; id: string }).username ?? (ig as { id: string }).id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={instagramId}
+                        onChange={(e) => setInstagramId(e.target.value)}
+                        placeholder={pageId ? "ID вручную" : "Сначала страница"}
+                        className={inputCls}
+                        disabled={!pageId}
+                      />
+                    )}
                   </div>
                 </div>
+
+                <div className="space-y-1.5">
+                  <FieldLabel icon={Crosshair}>Pixel</FieldLabel>
+                  <Select
+                    value={pixelId || "__none__"}
+                    onValueChange={(v) => setPixelId(v === "__none__" ? "" : v)}
+                  >
+                    <SelectTrigger className={inputCls}>
+                      <SelectValue placeholder="Позже" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Позже</SelectItem>
+                      {pixelsAssets.data.map((px) => (
+                        <SelectItem key={px.id} value={px.id}>{px.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full rounded-xl"
+                  onClick={runValidation}
+                  disabled={validating || !adAccountId}
+                >
+                  {validating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Проверить доступ
+                </Button>
+                {checks && checks.length > 0 && (
+                  <div className="space-y-1 rounded-xl border border-border/50 bg-muted/30 p-3">
+                    {checks.map((c, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        {c.ok ? (
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                        ) : (
+                          <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                        )}
+                        <span>{c.label}{c.detail ? ` - ${c.detail}` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="border-t border-border/60 px-6 py-4">
-                <Button onClick={handleSubmit} className="h-12 w-full rounded-xl bg-success text-success-foreground">
+                <Button onClick={handleSubmit} className="h-12 w-full rounded-xl bg-success text-success-foreground hover:bg-success/90">
                   <Crosshair className="h-4 w-4" />
                   Подключить кабинет
                 </Button>
