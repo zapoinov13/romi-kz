@@ -1,12 +1,11 @@
 import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   STATUS_TONE_CLASS,
   type MetaAccountStatusInfo,
 } from "@/lib/metaAccountStatus";
-import { useMetaAccountPay, useMetaAccountStatus } from "@/hooks/useMetaAccountStatus";
+import { useMetaAccountStatus } from "@/hooks/useMetaAccountStatus";
 
 interface Props {
   status: MetaAccountStatusInfo;
@@ -15,41 +14,25 @@ interface Props {
   className?: string;
 }
 
+function buildBillingUrl(status: MetaAccountStatusInfo): string {
+  if (status.billing_url) return status.billing_url;
+  const assetId = status.id.replace(/^act_/, "");
+  return `https://business.facebook.com/billing_hub/accounts/details?asset_id=${assetId}`;
+}
+
 export function MetaAccountStatusBlock({
   status,
   compact = false,
-  onStatusChange,
   className,
 }: Props) {
-  const { pay, paying } = useMetaAccountPay();
+  const tone = STATUS_TONE_CLASS[status.status_tone] ?? STATUS_TONE_CLASS.muted;
+  const billingUrl = buildBillingUrl(status);
 
-  const handlePay = async (e: React.MouseEvent) => {
+  const openBilling = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      const result = await pay(status.id);
-      if (result.status && onStatusChange) onStatusChange(result.status);
-      if (result.paid) {
-        toast.success(result.message || "Оплата прошла");
-        return;
-      }
-      if (result.billing_url) {
-        window.open(result.billing_url, "_blank", "noopener,noreferrer");
-      }
-      toast.message("Оплата через Meta", {
-        description:
-          result.message ||
-          "Откройте биллинг Meta и нажмите «Оплатить сейчас» на привязанной карте.",
-      });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Не удалось оплатить");
-      if (status.billing_url) {
-        window.open(status.billing_url, "_blank", "noopener,noreferrer");
-      }
-    }
+    window.open(billingUrl, "_blank", "noopener,noreferrer");
   };
-
-  const tone = STATUS_TONE_CLASS[status.status_tone] ?? STATUS_TONE_CLASS.muted;
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
@@ -77,28 +60,13 @@ export function MetaAccountStatusBlock({
               "h-7 gap-1 border-warning/50 bg-warning/5 px-2 text-[10px] text-warning hover:bg-warning/15",
               compact && "h-6 px-1.5",
             )}
-            disabled={paying}
-            onClick={handlePay}
+            onClick={openBilling}
+            title="Открыть биллинг Meta для оплаты"
           >
-            {paying ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <CreditCard className="h-3 w-3" />
-            )}
-            Оплатить
-          </Button>
-        )}
-        {status.needs_payment && status.billing_url && (
-          <a
-            href={status.billing_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Биллинг Meta
+            <CreditCard className="h-3 w-3" />
+            Оплатить в Meta
             <ExternalLink className="h-2.5 w-2.5" />
-          </a>
+          </Button>
         )}
       </div>
       {!compact && status.status_detail && (
