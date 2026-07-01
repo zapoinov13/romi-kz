@@ -1,7 +1,7 @@
 {
-  "git_sha": "f5f3220",
-  "git_sha_full": "f5f32206dc709e3a0d5e87d9d839292b91c9350a",
-  "updated_at": "2026-07-01T14:22:27Z",
-  "label": "Changes",
+  "git_sha": "d1aa63a",
+  "git_sha_full": "d1aa63a188b1d2c393bce806757b1b8dde6ff491",
+  "updated_at": "2026-07-01T14:28:17Z",
+  "label": "Blocked missing instance IDs",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
