@@ -1,7 +1,7 @@
 {
-  "git_sha": "79e65e5",
-  "git_sha_full": "79e65e58d22e343839577d141afa3d95abf62b2f",
-  "updated_at": "2026-06-30T14:53:11+05:00",
-  "label": "fix: подтягивать WhatsApp, пиксель и act_id кабинета в UI",
+  "git_sha": "f5f3220",
+  "git_sha_full": "f5f32206dc709e3a0d5e87d9d839292b91c9350a",
+  "updated_at": "2026-07-01T14:22:27Z",
+  "label": "Changes",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
