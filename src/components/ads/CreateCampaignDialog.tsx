@@ -1366,9 +1366,13 @@ const CreateCampaignDialog = ({
                 {adMode === "boost" && (
                   <div className="space-y-2 rounded-xl border border-border/60 bg-background/40 p-3">
                     {!effectiveInstagramId ? (
-                      <div className="text-[11px] text-muted-foreground">
-                        У выбранной страницы не привязан Instagram-аккаунт.
-                      </div>
+                      igLookup.isLoading ? (
+                        <div className="text-[11px] text-muted-foreground">Ищем Instagram-аккаунт страницы…</div>
+                      ) : (
+                        <div className="text-[11px] text-muted-foreground">
+                          У выбранной страницы не привязан Instagram-аккаунт. Привяжите Instagram Business к Facebook-странице в настройках Meta.
+                        </div>
+                      )
                     ) : igMediaAssets.isLoading ? (
                       <div className="text-[11px] text-muted-foreground">Загружаем публикации…</div>
                     ) : igMediaAssets.error ? (
