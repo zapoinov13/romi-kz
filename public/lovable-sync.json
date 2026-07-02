@@ -1,7 +1,7 @@
 {
-  "git_sha": "fcd426c",
-  "git_sha_full": "fcd426c87bef9abb2b28e492c9d8d4886befe7b6",
-  "updated_at": "2026-07-02T07:38:44Z",
-  "label": "Marked all security issues fixed",
+  "git_sha": "ef42242",
+  "git_sha_full": "ef42242feb438f5c1a37d723e9530673723b8b83",
+  "updated_at": "2026-07-02T07:59:12Z",
+  "label": "Добавил фоллбэк к IG-аккаунту",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
