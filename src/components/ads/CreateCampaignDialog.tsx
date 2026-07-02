@@ -680,9 +680,23 @@ const CreateCampaignDialog = ({
     selectedCabinet?.pageName ?? "";
 
   // IG-аккаунт привязанный к выбранной странице.
+  const igFromPageList =
+    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ?? "";
+
+  // Фолбэк: если в списке страниц IG не вернулся (частая ситуация - Meta
+  // отдаёт instagram_business_account/connected_instagram_account только при
+  // отдельном запросе к странице), запрашиваем IG-аккаунт напрямую по pageId.
+  const igLookup = useMetaPageAssets({
+    kind: "instagram",
+    pageId: effectivePageId,
+    enabled: adMode === "boost" && !!effectivePageId && !igFromPageList,
+  });
+
   const effectiveInstagramId =
-    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ??
-    selectedCabinet?.instagramId ?? "";
+    igFromPageList ||
+    igLookup.data[0]?.id ||
+    selectedCabinet?.instagramId ||
+    "";
 
   // Список существующих публикаций IG — нужен только для режима «продвигать».
   const igMediaAssets = useMetaPageAssets({
