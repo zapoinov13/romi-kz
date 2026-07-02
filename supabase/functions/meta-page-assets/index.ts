@@ -372,18 +372,20 @@ Deno.serve(async (req) => {
         const id = String(p?.id ?? "");
         if (!id || seen.has(id)) return;
         seen.add(id);
+        const igBiz = p?.instagram_business_account;
+        const igConn = p?.connected_instagram_account;
         items.push({
           id,
           name: p?.name ?? id,
           category: p?.category ?? undefined,
           picture: p?.picture?.data?.url ?? undefined,
           website: p?.website ?? undefined,
-          instagram_id: p?.instagram_business_account?.id ?? undefined,
-          instagram_username: p?.instagram_business_account?.username ?? undefined,
+          instagram_id: igBiz?.id ?? igConn?.id ?? undefined,
+          instagram_username: igBiz?.username ?? igConn?.username ?? undefined,
         });
       };
       const pageFields =
-        "id,name,category,picture{url},website,instagram_business_account{id,username}";
+        "id,name,category,picture{url},website,instagram_business_account{id,username},connected_instagram_account{id,username}";
       const debug = url.searchParams.get("debug") === "1";
       const dbg: Record<string, unknown> = {};
       const acct = normalizeActId(actId);
