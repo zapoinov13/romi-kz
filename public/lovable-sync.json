@@ -1,7 +1,7 @@
 {
-  "git_sha": "224ec0b",
-  "git_sha_full": "224ec0bea5d17224f3f7d839cba1a4089ba54522",
-  "updated_at": "2026-07-01T14:38:33Z",
-  "label": "Упростил диалог кабинета",
+  "git_sha": "fcd426c",
+  "git_sha_full": "fcd426c87bef9abb2b28e492c9d8d4886befe7b6",
+  "updated_at": "2026-07-02T07:38:44Z",
+  "label": "Marked all security issues fixed",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
