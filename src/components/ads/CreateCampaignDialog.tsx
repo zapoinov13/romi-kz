@@ -680,9 +680,23 @@ const CreateCampaignDialog = ({
     selectedCabinet?.pageName ?? "";
 
   // IG-аккаунт привязанный к выбранной странице.
+  const igFromPageList =
+    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ?? "";
+
+  // Фолбэк: если в списке страниц IG не вернулся (частая ситуация - Meta
+  // отдаёт instagram_business_account/connected_instagram_account только при
+  // отдельном запросе к странице), запрашиваем IG-аккаунт напрямую по pageId.
+  const igLookup = useMetaPageAssets({
+    kind: "instagram",
+    pageId: effectivePageId,
+    enabled: adMode === "boost" && !!effectivePageId && !igFromPageList,
+  });
+
   const effectiveInstagramId =
-    pagesAssets.data.find((p) => p.id === effectivePageId)?.instagram_id ??
-    selectedCabinet?.instagramId ?? "";
+    igFromPageList ||
+    igLookup.data[0]?.id ||
+    selectedCabinet?.instagramId ||
+    "";
 
   // Список существующих публикаций IG — нужен только для режима «продвигать».
   const igMediaAssets = useMetaPageAssets({
@@ -1352,9 +1366,13 @@ const CreateCampaignDialog = ({
                 {adMode === "boost" && (
                   <div className="space-y-2 rounded-xl border border-border/60 bg-background/40 p-3">
                     {!effectiveInstagramId ? (
-                      <div className="text-[11px] text-muted-foreground">
-                        У выбранной страницы не привязан Instagram-аккаунт.
-                      </div>
+                      igLookup.isLoading ? (
+                        <div className="text-[11px] text-muted-foreground">Ищем Instagram-аккаунт страницы…</div>
+                      ) : (
+                        <div className="text-[11px] text-muted-foreground">
+                          У выбранной страницы не привязан Instagram-аккаунт. Привяжите Instagram Business к Facebook-странице в настройках Meta.
+                        </div>
+                      )
                     ) : igMediaAssets.isLoading ? (
                       <div className="text-[11px] text-muted-foreground">Загружаем публикации…</div>
                     ) : igMediaAssets.error ? (
