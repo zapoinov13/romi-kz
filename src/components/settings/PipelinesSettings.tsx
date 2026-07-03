@@ -10,7 +10,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { GitBranch, Plus, Stethoscope, Trash2, ChevronUp, ChevronDown, EyeOff } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { GitBranch, Plus, Stethoscope, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 
 type Pipeline = { id: string; name: string; is_default: boolean };
 type Stage = {
@@ -25,7 +26,45 @@ type Stage = {
   color: string;
 };
 
-const COLORS = ["primary", "warning", "success", "destructive", "muted"] as const;
+const STAGE_COLORS: { id: string; label: string; dot: string }[] = [
+  { id: "primary", label: "Синий", dot: "bg-primary" },
+  { id: "warning", label: "Оранжевый", dot: "bg-warning" },
+  { id: "success", label: "Зелёный", dot: "bg-success" },
+  { id: "destructive", label: "Красный", dot: "bg-destructive" },
+  { id: "muted", label: "Серый", dot: "bg-muted-foreground" },
+];
+
+function StageColorSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const current = STAGE_COLORS.find((c) => c.id === value) ?? STAGE_COLORS[0];
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="h-8 w-[130px] text-xs" title="Цвет колонки на Kanban-доске">
+        <span className="flex items-center gap-2">
+          <span className={cn("h-3 w-3 shrink-0 rounded-full", current.dot)} />
+          <SelectValue>{current.label}</SelectValue>
+        </span>
+      </SelectTrigger>
+      <SelectContent>
+        {STAGE_COLORS.map((c) => (
+          <SelectItem key={c.id} value={c.id}>
+            <span className="flex items-center gap-2">
+              <span className={cn("h-3 w-3 shrink-0 rounded-full", c.dot)} />
+              {c.label}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export function PipelinesSettings() {
   const { isAdmin } = useAuth();
@@ -119,7 +158,9 @@ export function PipelinesSettings() {
         </span>
         <div>
           <h2 className="text-base font-semibold">Воронки и стадии</h2>
-          <p className="text-xs text-muted-foreground">Этапы Kanban: название, цвет, порядок, скрытие</p>
+          <p className="text-xs text-muted-foreground">
+            Цвет колонки на доске CRM, порядок этапов и скрытие с Kanban
+          </p>
         </div>
       </div>
 
@@ -184,18 +225,13 @@ export function PipelinesSettings() {
                   />
                   <div className="truncate text-[10px] text-muted-foreground">{s.key}</div>
                 </div>
-                <Select
+                <StageColorSelect
                   value={s.color}
-                  onValueChange={(v) => void updateStage(s.id, { color: v })}
+                  onChange={(v) => void updateStage(s.id, { color: v })}
                   disabled={!isAdmin}
-                >
-                  <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {COLORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-1" title="Скрыть на Kanban">
-                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                />
+                <div className="flex flex-col items-center gap-0.5" title="Скрыть колонку на Kanban (этап останется в CRM)">
+                  <span className="text-[9px] text-muted-foreground">Скрыть</span>
                   <Switch
                     checked={s.is_hidden}
                     onCheckedChange={(v) => void updateStage(s.id, { is_hidden: v })}
@@ -210,7 +246,7 @@ export function PipelinesSettings() {
                       ? "border-amber-400/60 bg-amber-400/10 text-amber-400"
                       : "border-border/60 text-muted-foreground hover:bg-secondary"
                   }`}
-                  title="Считать переход в эту стадию диагностикой"
+                  title="Переход в этот этап считается записью на диагностику"
                 >
                   <Stethoscope className="h-3 w-3" />
                   Диагн.
