@@ -1,7 +1,7 @@
 {
-  "git_sha": "f50a71b",
-  "git_sha_full": "f50a71bbd4cd376c7ba8a54ce0a2ab246bd14a4b",
-  "updated_at": "2026-07-03T10:10:12Z",
-  "label": "Fixed security vulnerabilities",
+  "git_sha": "94319f1",
+  "git_sha_full": "94319f103d55d5b2fcf2dc654dc1d753e99e3c37",
+  "updated_at": "2026-07-03T15:16:44+05:00",
+  "label": "fix: убран раздел «Автоматизации» из CRM",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
