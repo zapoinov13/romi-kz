@@ -117,7 +117,7 @@ const AddCabinetDialog = ({
     setSelectedMeta(acc);
     setAdAccountId(acc.id);
     setName(acc.name);
-    setCurrency(acc.currency || "KZT");
+    setCurrency(acc.currency || "USD");
     setPageId("");
     setPageName("");
     setInstagramId("");

@@ -34,7 +34,7 @@ export function buildAlerts(totals: ReportTotals, prev?: ReportTotals): DashAler
       out.push({
         level: d >= 40 ? "critical" : "warning",
         title: `Стоимость заявки выросла на ${Math.round(d)}%`,
-        message: `Сейчас ${Math.round(totals.cpl).toLocaleString("ru-RU")} ₸ за заявку против ${Math.round(prev.cpl).toLocaleString("ru-RU")} ₸ ранее.`,
+        message: `Сейчас $${Math.round(totals.cpl).toLocaleString("en-US")} за заявку против $${Math.round(prev.cpl).toLocaleString("en-US")} ранее.`,
         recommendation: "Проверьте рекламу и качество обращений: цена растет, значит нужно быстро найти слабый источник.",
       });
     }

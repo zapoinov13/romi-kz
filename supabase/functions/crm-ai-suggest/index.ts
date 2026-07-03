@@ -48,7 +48,7 @@ serve(async (req) => {
       `Бизнес: ${businessHint}.`,
       `Имя клиента: ${leadName}.`,
       service ? `Услуга: ${service}.` : "",
-      amount > 0 ? `Сумма сделки: ${amount} ₸.` : "",
+      amount > 0 ? `Сумма сделки: ${amount} $.` : "",
       `Этап воронки: ${stage || "не указан"}.`,
       `Канал: ${channel}.`,
     ].filter(Boolean).join("\n");

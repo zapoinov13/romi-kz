@@ -742,7 +742,7 @@ Deno.serve(async (req) => {
       headline: "",
       description: "",
       budget: budget,
-      currency: cabMeta.currency ?? "KZT",
+      currency: cabMeta.currency ?? "USD",
       scheduleMode: "now",
       targeting: {
         // Страна: если первый элемент гео — 2-буквенный ISO-код, иначе страна из дефолтов или KZ.
@@ -767,7 +767,7 @@ Deno.serve(async (req) => {
       igMedia.caption ? `Подпись: <i>${(igMedia.caption ?? "").slice(0, 120).replace(/[<>&]/g, "")}…</i>` : "",
       `Кабинет: <b>${cabMeta.name ?? cab.alias}</b>`,
       `Цель: <b>${destination}</b>`,
-      `Бюджет/день: <b>${budget ?? "—"} ${cabMeta.currency ?? "KZT"}</b>`,
+      `Бюджет/день: <b>${budget ?? "—"} ${cabMeta.currency ?? "USD"}</b>`,
       `Гео: <b>${geo.join(", ") || "—"}</b>`,
       `Возраст: <b>${ageMin}–${ageMax}</b> · Пол: <b>${gender}</b>`,
       "",
@@ -852,7 +852,7 @@ Deno.serve(async (req) => {
       : [bot.default_city, bot.default_country].filter(Boolean).join(", ") || "—";
     const lines = [
       `Куда: <b>${bot.default_destination ?? "—"}</b>`,
-      `Бюджет/день: <b>${bot.default_daily_budget ?? "—"} ₸</b>`,
+      `Бюджет/день: <b>${bot.default_daily_budget ?? "—"} $</b>`,
       `Гео: <b>${geoStr}</b>`,
       `Возраст: <b>${bot.default_age_min ?? "—"}–${bot.default_age_max ?? "—"}</b>`,
       `Пол: <b>${bot.default_gender ?? "all"}</b>`,
@@ -963,7 +963,7 @@ Deno.serve(async (req) => {
             headline: "",
             description: "",
             budget,
-            currency: cabMeta!.currency ?? "KZT",
+            currency: cabMeta!.currency ?? "USD",
             scheduleMode: "now",
             targeting: {
               country: geo[0]?.length === 2 ? geo[0].toUpperCase() : (bot.default_country as string | null) || "KZ",
@@ -1030,7 +1030,7 @@ Deno.serve(async (req) => {
             ? `✅ Запущено в Meta!\n` +
               `• Кабинет: <b>${cabMeta!.name ?? cab.alias}</b>\n` +
               `• Цель: <b>${parsed.destination}</b>\n` +
-              `• Бюджет/день: <b>${budget ?? "-"} ${cabMeta!.currency ?? "KZT"}</b>\n` +
+              `• Бюджет/день: <b>${budget ?? "-"} ${cabMeta!.currency ?? "USD"}</b>\n` +
               `• Гео: <b>${(geo as string[]).join(", ") || "-"}</b>\n` +
               `• Возраст: <b>${ageStr}</b> · Пол: <b>${gender}</b>\n` +
               `• Campaign: <code>${launchMeta.metaCampaignId ?? "?"}</code>\n` +

@@ -1,4 +1,5 @@
 import type { DailyInsightRow } from "@/hooks/useMetaInsights";
+import { fmtMoney, fmtNum as fmtNumCore } from "@/lib/format";
 
 export type RnpColumnGroup = "ads" | "crm" | "funnel" | "money";
 
@@ -44,8 +45,8 @@ export interface RnpDaySums {
   revenue: number;
 }
 
-const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-export const fmtTenge = (n: number) => `${fmtNum(n)} ₸`;
+const fmtNum = fmtNumCore;
+export const fmtTenge = fmtMoney;
 const fmtPct = (n: number) =>
   `${n.toLocaleString("ru-RU", { maximumFractionDigits: 1, minimumFractionDigits: 0 })}%`;
 
@@ -89,7 +90,7 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "ads",
     label: "Потрачено на маркетинг",
     short: "Затраты",
-    help: "Расход за день в ₸. Подтягивается из Meta, можно скорректировать вручную.",
+    help: "Расход за день в $. Подтягивается из Meta, можно скорректировать вручную.",
     kind: "direct",
     directField: "spend",
     format: fmtTenge,

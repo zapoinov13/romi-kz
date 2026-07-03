@@ -1,6 +1,6 @@
 import type { Lead } from "@/types/crm";
 
-/** Format an amount in KZT for templates. */
+/** Format an amount in USD for templates. */
 function fmtAmount(n?: number) {
   if (!n || n <= 0) return "";
   return new Intl.NumberFormat("ru-RU").format(n) + " $";

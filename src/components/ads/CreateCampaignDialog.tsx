@@ -1201,7 +1201,7 @@ const CreateCampaignDialog = ({
           : currency === "RUB"
             ? "₽"
             : currency === "KZT"
-              ? "₸"
+              ? "$"
               : currency;
     const rows: { label: string; value: string }[] = [];
     rows.push({ label: "Цель", value: goalLabel });

@@ -20,7 +20,7 @@ export interface DailyInsightRow {
   manualDiagnostics: number;
   /** NULL = авто из CRM; число (включая 0) = ручная корректировка. */
   manualDiagnosticsRaw: number | null;
-  /** Override: оплаты за диагностику ₸. */
+  /** Override: оплаты за диагностику ($). */
   diagnosticRevenue: number;
   crmDiagnosticRevenue: number;
   manualDiagnosticRevenue: number;

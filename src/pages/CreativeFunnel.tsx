@@ -15,9 +15,9 @@ import { isLeadPaid, isLeadVisit } from "@/lib/leadStageFlags";
 import { supabase } from "@/integrations/supabase/client";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { cn } from "@/lib/utils";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")}\u00a0₸`;
 
 
 type SortKey = "crmRevenue" | "crmRomi" | "crmSales" | "crmLeads" | "leads" | "spend" | "ctr" | "cpl" | "name";
@@ -512,9 +512,9 @@ const CreativeFunnel = () => {
                     <td className={cn("px-4 py-3 text-right tabular-nums", row.crmSales > 0 ? "font-semibold text-success" : "text-muted-foreground")}>
                       {fmtNum(row.crmSales)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{row.spend > 0 ? fmtTenge(row.spend) : <span className="text-muted-foreground">0 ₸</span>}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{row.spend > 0 ? fmtTenge(row.spend) : <span className="text-muted-foreground">$0</span>}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{cplValue > 0 ? fmtTenge(cplValue) : <span className="text-muted-foreground">—</span>}</td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.crmRevenue > 0 ? fmtTenge(row.crmRevenue) : <span className="font-normal text-muted-foreground">0 ₸</span>}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.crmRevenue > 0 ? fmtTenge(row.crmRevenue) : <span className="font-normal text-muted-foreground">$0</span>}</td>
                     <td className="px-4 py-3 text-right">
                       {row.spend > 0 ? (
                         <span className={cn(

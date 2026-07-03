@@ -92,13 +92,13 @@ function evaluate(metrics: {
   let red = 0, yellow = 0;
 
   if (kpi.max_cpl_kzt && cpl > kpi.max_cpl_kzt) {
-    red++; reasons.push(`CPL ${Math.round(cpl)}₸ > max ${kpi.max_cpl_kzt}₸`);
+    red++; reasons.push(`CPL ${Math.round(cpl)}$ > max ${kpi.max_cpl_kzt}$`);
   } else if (kpi.target_cpl_kzt && cpl > kpi.target_cpl_kzt) {
-    yellow++; reasons.push(`CPL ${Math.round(cpl)}₸ > target ${kpi.target_cpl_kzt}₸`);
+    yellow++; reasons.push(`CPL ${Math.round(cpl)}$ > target ${kpi.target_cpl_kzt}$`);
   }
 
   if (leads === 0 && spend > 0) {
-    red++; reasons.push(`0 лидов за ${days}д при тратах ${Math.round(spend)}₸`);
+    red++; reasons.push(`0 лидов за ${days}д при тратах ${Math.round(spend)}$`);
   } else if (kpi.min_daily_leads && dailyLeads < kpi.min_daily_leads) {
     yellow++; reasons.push(`${dailyLeads.toFixed(1)} лид/день < min ${kpi.min_daily_leads}`);
   }
@@ -112,7 +112,7 @@ function evaluate(metrics: {
   }
 
   if (kpi.max_daily_spend_kzt && dailySpend > kpi.max_daily_spend_kzt) {
-    red++; reasons.push(`Дневная трата ${Math.round(dailySpend)}₸ > лимита ${kpi.max_daily_spend_kzt}₸`);
+    red++; reasons.push(`Дневная трата ${Math.round(dailySpend)}$ > лимита ${kpi.max_daily_spend_kzt}$`);
   }
 
   if (kpi.target_roas && roas > 0 && roas < (kpi.min_roas ?? kpi.target_roas * 0.7)) {
@@ -120,7 +120,7 @@ function evaluate(metrics: {
   }
 
   const status = red > 0 ? "red" : yellow > 0 ? "yellow" : "green";
-  if (status === "green") reasons.push(`✓ CPL ${Math.round(cpl)}₸, ${dailyLeads.toFixed(1)} лид/день`);
+  if (status === "green") reasons.push(`✓ CPL ${Math.round(cpl)}$, ${dailyLeads.toFixed(1)} лид/день`);
   return { status, reasons };
 }
 
@@ -287,8 +287,8 @@ async function run(opts: { cabinet_id?: string; project_id?: string }) {
               `${title}\n` +
               `<i>${(c.objective || "").toUpperCase()} • ${agg.days}д</i>\n\n` +
               result.reasons.map((r) => `• ${r}`).join("\n") +
-              (cpl ? `\n\n<b>CPL:</b> ${Math.round(cpl)}₸` : "") +
-              `\n<b>Spend:</b> ${Math.round(agg.spend).toLocaleString("ru-RU")}₸ • <b>Leads:</b> ${agg.leads}`;
+              (cpl ? `\n\n<b>CPL:</b> ${Math.round(cpl)}$` : "") +
+              `\n<b>Spend:</b> ${Math.round(agg.spend).toLocaleString("ru-RU")}$ • <b>Leads:</b> ${agg.leads}`;
             const tgResp = await fetch(`https://api.telegram.org/bot${bot.bot_token}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -597,8 +597,8 @@ async function maybeAutoAction(
     if (cplOverMax > 1.5 || zeroLeadsHigh) {
       actionType = "pause";
       reason = cplOverMax > 1.5
-        ? `CPL ${Math.round(cpl!)}₸ выше max (${kpi.max_cpl_kzt}₸) в ${cplOverMax.toFixed(1)}×`
-        : `0 лидов при тратах ${Math.round(agg.spend)}₸`;
+        ? `CPL ${Math.round(cpl!)}$ выше max (${kpi.max_cpl_kzt}$) в ${cplOverMax.toFixed(1)}×`
+        : `0 лидов при тратах ${Math.round(agg.spend)}$`;
     }
   }
   // Warning (yellow): cut budget if CPL > target by 20-50%
@@ -610,7 +610,7 @@ async function maybeAutoAction(
       if (newBudget < dailyBudget) {
         actionType = "budget_cut";
         afterValue = { daily_budget: newBudget };
-        reason = `CPL ${Math.round(cpl)}₸ выше target (${kpi.target_cpl_kzt}₸) на ${Math.round((cplOverTarget - 1) * 100)}%, режем бюджет на ${cutPct}%`;
+        reason = `CPL ${Math.round(cpl)}$ выше target (${kpi.target_cpl_kzt}$) на ${Math.round((cplOverTarget - 1) * 100)}%, режем бюджет на ${cutPct}%`;
       }
     }
   }

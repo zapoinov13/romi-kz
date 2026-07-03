@@ -128,7 +128,7 @@ export default function AutoActionsLog({ cabinetId }: { cabinetId: string }) {
         const meta = TYPE_LABEL[a.action_type];
         const before = (a.before_value as any)?.daily_budget;
         const after = (a.after_value as any)?.daily_budget;
-        const budgetText = before && after ? ` (${Math.round(Number(before)).toLocaleString("ru-RU")}→${Math.round(Number(after)).toLocaleString("ru-RU")}₸)` : "";
+        const budgetText = before && after ? ` ($${Math.round(Number(before)).toLocaleString("en-US")}→$${Math.round(Number(after)).toLocaleString("en-US")})` : "";
         return (
           <div key={a.id} className="rounded-lg border border-border/60 bg-card/40 p-3 text-sm">
             <div className="flex items-start justify-between gap-3">

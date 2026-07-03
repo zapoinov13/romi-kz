@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import type { SalesKpi } from "@/types/salesAnalytics";
 import { cn } from "@/lib/utils";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${fmt(n)} ₸`;
 const fmtPct = (n: number) => `${n.toFixed(1)}%`;
 
 type Card = {

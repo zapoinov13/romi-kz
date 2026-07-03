@@ -3,7 +3,9 @@ import {
   appendMetaGapRows,
   computeSalesKpi,
   computeTopCreatives,
+  filterDisplayableSalesLeads,
   filterSalesLeads,
+  hasLeadContact,
 } from "@/lib/salesAnalyticsMetrics";
 import { EMPTY_SALES_FILTERS, type SalesAnalyticsLead } from "@/types/salesAnalytics";
 
@@ -59,10 +61,22 @@ describe("salesAnalyticsMetrics", () => {
     expect(kpi.cpl).toBeCloseTo(100_000 / 15);
   });
 
-  it("appends meta gap rows", () => {
+  it("appends meta gap rows (legacy helper)", () => {
     const rows = [lead({ id: "1", leadId: "1" })];
     const out = appendMetaGapRows(rows, 5, "cab", "2026-07");
     expect(out).toHaveLength(5);
     expect(out.filter((r) => r.isSynthetic)).toHaveLength(4);
+  });
+
+  it("hides synthetic and incomplete leads from table", () => {
+    const rows = [
+      lead({ id: "1", leadId: "1", name: "Айгуль", phone: "+77001234567" }),
+      lead({ id: "2", leadId: "2", name: "Лид Meta (1)", phone: "—", isSynthetic: true }),
+      lead({ id: "3", leadId: "3", name: "—", phone: "+77009998877" }),
+    ];
+    expect(hasLeadContact(rows[0])).toBe(true);
+    expect(hasLeadContact(rows[1])).toBe(false);
+    expect(hasLeadContact(rows[2])).toBe(false);
+    expect(filterDisplayableSalesLeads(rows)).toHaveLength(1);
   });
 });

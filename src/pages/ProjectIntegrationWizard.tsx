@@ -33,7 +33,7 @@ const STEPS = [
   { id: 8, title: "Тест-прогон", icon: FlaskConical },
 ];
 
-const CURRENCIES = ["KZT", "USD", "RUB", "EUR"] as const;
+const CURRENCIES = ["USD", "KZT", "RUB", "EUR"] as const;
 const TIMEZONES = ["Asia/Almaty", "Europe/Moscow", "Europe/Kiev", "Asia/Tashkent", "Asia/Bishkek"] as const;
 const PIXEL_EVENTS = ["Lead", "CompleteRegistration", "Contact", "SubmitApplication"] as const;
 const CAPI_EVENTS = ["", "Schedule", "Diagnostic", "Purchase"] as const;
@@ -69,7 +69,7 @@ export default function ProjectIntegrationWizard() {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [city, setCity] = useState("");
-  const [currency, setCurrency] = useState<typeof CURRENCIES[number]>("KZT");
+  const [currency, setCurrency] = useState<typeof CURRENCIES[number]>("USD");
   const [timezone, setTimezone] = useState<typeof TIMEZONES[number]>("Asia/Almaty");
 
   // Step 2

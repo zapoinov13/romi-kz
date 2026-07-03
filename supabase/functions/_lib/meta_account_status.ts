@@ -62,7 +62,7 @@ type RawAccount = {
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
   EUR: "€",
-  KZT: "₸",
+  KZT: "$",
   RUB: "₽",
   UAH: "₴",
   GBP: "£",

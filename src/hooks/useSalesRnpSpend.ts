@@ -18,7 +18,7 @@ export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | n
   return {
     spend: data?.totals.spend ?? 0,
     rnpLeads: data?.totals.leads ?? 0,
-    currency: data?.currency ?? "KZT",
+    currency: data?.currency ?? "USD",
     cabinetName: cabinet?.name ?? null,
     actId,
     loading,

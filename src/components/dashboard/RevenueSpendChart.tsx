@@ -3,6 +3,7 @@ import {
   Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 type Mode = "money" | "leads" | "cpl";
 
@@ -22,7 +23,6 @@ const fmtShort = (d: string) => {
   const [, m, day] = d.split("-");
   return `${day}.${m}`;
 };
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 
 export function RevenueSpendChart({ data }: Props) {
   const [mode, setMode] = useState<Mode>("money");

@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 import { pickCreativeTitle } from "@/lib/creativeDisplay";
 import { CreativePreview } from "@/components/creatives/CreativePreview";
 import type { MetaCreativeRow } from "@/hooks/useMetaStructure";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
 
 interface Props {

@@ -353,8 +353,8 @@ Deno.serve(async (req) => {
         const dates = Array.from(new Set(
           rawRows.map((r) => String(r?.date_start ?? "")).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
         ));
-        const needConvert = accountCurrency !== "KZT";
-        const ratesMap = needConvert ? await getRatesForDates(admin, dates) : new Map<string, number>();
+        const needConvert = false;
+        const ratesMap = new Map<string, number>();
 
         const rows: Array<Record<string, unknown>> = [];
         let totalSpend = 0, totalLeads = 0, totalClicks = 0, totalRevenue = 0;

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ChannelMeta } from "@/lib/channelAttribution";
+import { fmtMoney } from "@/lib/format";
 
 export interface ChannelStat {
   meta: ChannelMeta;
@@ -9,8 +10,7 @@ export interface ChannelStat {
   revenue: number;
 }
 
-const fmtMoney = (n: number) => `${Math.round(n).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`;
-const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
+const fmtNum = (n: number) => Math.round(n).toLocaleString("en-US");
 
 export const ChannelCard = ({ stat }: { stat: ChannelStat }) => {
   const { meta, spend, leads, sales, revenue } = stat;

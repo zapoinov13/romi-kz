@@ -1,8 +1,8 @@
 import { AlertTriangle, Camera, Globe, MessageCircle, Music2, Search, TrendingDown, TrendingUp, Wallet, Users, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 
 export type ChannelProvider = "whatsapp" | "site" | "instagram" | "google" | "tiktok";
 

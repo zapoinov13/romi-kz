@@ -325,7 +325,7 @@ export function ProjectAdsTelegramSettings() {
           </Select>
         </div>
         <div>
-          <Label className="text-xs">Дневной бюджет, ₸</Label>
+          <Label className="text-xs">Дневной бюджет, $</Label>
           <Input type="number" placeholder="5000" value={dailyBudget} onChange={(e) => setDailyBudget(e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">

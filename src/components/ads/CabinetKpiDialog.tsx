@@ -113,7 +113,7 @@ function MoneyField({
           }}
           className="h-10 pr-10 text-base tabular-nums"
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">₸</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">$</span>
       </div>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
@@ -470,7 +470,7 @@ export default function CabinetKpiDialog({ open, onOpenChange, cabinetId, cabine
                 >
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <MoneyField
-                      label="Потолок бюджета при росте, ₸/день"
+                      label="Потолок бюджета при росте, $/день"
                       value={row.bump_max_daily_kzt}
                       onChange={(v) => updateField("bump_max_daily_kzt", v)}
                       placeholder="без ограничения"

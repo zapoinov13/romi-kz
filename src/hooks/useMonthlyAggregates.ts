@@ -4,8 +4,8 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 
 export type MonthAgg = {
-  revenue: number; // KZT, from paid agency clients (pay_date month)
-  spend: number;   // KZT, total ad spend across cabinets (in KZT, USD converted)
+  revenue: number; // USD, from paid agency clients (pay_date month)
+  spend: number;   // USD, total ad spend across cabinets
 };
 
 type Store = Record<number, MonthAgg>; // monthIdx 0..11
@@ -13,8 +13,7 @@ type Store = Record<number, MonthAgg>; // monthIdx 0..11
 /**
  * Единая агрегация финансов за год:
  *  - Выручка = paid агентские клиенты, у которых pay_date в этом месяце.
- *  - Расходы = сумма spend из cabinet_daily_insights за этот месяц
- *    (USD автоматически конвертируется в KZT по последнему курсу).
+ *  - Расходы = сумма spend из cabinet_daily_insights за этот месяц (USD).
  */
 export function useMonthlyAggregates(year: number) {
   const { active } = useProjectsStore();
@@ -23,16 +22,6 @@ export function useMonthlyAggregates(year: number) {
   const refetch = useCallback(async () => {
     const next = emptyStore();
 
-    // 1) Курс USD→KZT
-    const { data: fx } = await supabase
-      .from("fx_rates")
-      .select("usd_kzt")
-      .order("date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const usdKzt = Number(fx?.usd_kzt ?? 470);
-
-    // 2) Расходы из cabinet_daily_insights
     const start = `${year}-01-01`;
     const end = `${year + 1}-01-01`;
     let q = supabase
@@ -44,12 +33,9 @@ export function useMonthlyAggregates(year: number) {
     const { data: cdi } = await q;
     (cdi ?? []).forEach((r: any) => {
       const m = new Date(r.date).getMonth();
-      const raw = Number(r.spend ?? 0);
-      const kzt = (r.currency ?? "KZT") === "USD" ? raw * usdKzt : raw;
-      next[m].spend += kzt;
+      next[m].spend += Number(r.spend ?? 0);
     });
 
-    // 3) Выручка из агентских клиентов (paid, pay_date в этом году)
     const { data: clients } = await supabase
       .from("agency_clients")
       .select("id, status, pay_date, agency_client_services(price)")

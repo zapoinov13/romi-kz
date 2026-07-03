@@ -228,27 +228,6 @@ Deno.serve(async (req) => {
     }));
 
     let displayCurrency = accountCurrency;
-    if (accountCurrency !== "KZT" && rows.length > 0) {
-      try {
-        const admin = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        );
-        const dates = Array.from(new Set(rows.map((r) => r.date)));
-        const { data: cached } = await admin.from("fx_rates").select("date, usd_kzt").in("date", dates);
-        const map = new Map<string, number>();
-        for (const c of (cached ?? []) as Array<{ date: string; usd_kzt: number | string }>) {
-          map.set(c.date, Number(c.usd_kzt));
-        }
-        rows = rows.map((r) => {
-          const rate = map.get(r.date);
-          if (!rate) return r;
-          return { ...r, spend: r.spend * rate, revenue: r.revenue * rate };
-        });
-        if (rows.every((r) => map.has(r.date))) displayCurrency = "KZT";
-        else if (rows.some((r) => map.has(r.date))) displayCurrency = "KZT";
-      } catch (_) { /* fall back to original currency */ }
-    }
 
     const totals = rows.reduce(
       (acc, r) => {

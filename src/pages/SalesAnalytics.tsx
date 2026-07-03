@@ -25,10 +25,10 @@ import { useSalesRnpSpend } from "@/hooks/useSalesRnpSpend";
 import { useSalesServices } from "@/hooks/useSalesServices";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import {
-  appendMetaGapRows,
   computeSalesKpi,
   computeTopCreatives,
   computeTopServices,
+  filterDisplayableSalesLeads,
   filterSalesLeads,
   monthBounds,
   monthKeyFromDate,
@@ -70,14 +70,16 @@ export default function SalesAnalytics() {
     remove: removeService,
   } = useSalesServices();
 
-  const rowsWithMeta = useMemo(() => {
-    if (!cabinetId || rnpLeads <= 0) return rows;
-    return appendMetaGapRows(rows, rnpLeads, cabinetId, monthKey);
-  }, [rows, rnpLeads, cabinetId, monthKey]);
-
-  const filtered = useMemo(() => filterSalesLeads(rowsWithMeta, filters), [rowsWithMeta, filters]);
-  const crmLeadCount = rows.length;
-  const kpi = useMemo(() => computeSalesKpi(filtered, spend, rnpLeads), [filtered, spend, rnpLeads]);
+  const displayableRows = useMemo(() => filterDisplayableSalesLeads(rows), [rows]);
+  const filtered = useMemo(
+    () => filterSalesLeads(displayableRows, filters),
+    [displayableRows, filters],
+  );
+  const crmLeadCount = displayableRows.length;
+  const kpi = useMemo(
+    () => computeSalesKpi(displayableRows, spend, rnpLeads),
+    [displayableRows, spend, rnpLeads],
+  );
   const topCreatives = useMemo(() => computeTopCreatives(filtered), [filtered]);
   const topServices = useMemo(() => computeTopServices(filtered, services), [filtered, services]);
 
@@ -152,16 +154,18 @@ export default function SalesAnalytics() {
 
       {overlayMissing && (
         <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          Справочник аналитики не создан — лиды показываются из CRM. Для сохранения квала и оплат
-          выполните SQL: <code className="text-xs">scripts/lovable-sales-analytics.sql</code>
+          <strong>Редактирование недоступно</strong> — таблица{" "}
+          <code className="text-xs">sales_analytics_leads</code> не создана. Выполните SQL в Supabase:{" "}
+          <code className="text-xs">scripts/lovable-sales-analytics.sql</code>
+          , затем обновите страницу. Лиды из CRM показываются, но квал / оплата / услуга не сохранятся.
         </div>
       )}
 
       {rnpLeads > crmLeadCount && (
         <div className="mb-4 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
-          В РНП за месяц: <strong>{rnpLeads}</strong> лидов Meta. В CRM привязано:{" "}
-          <strong>{crmLeadCount}</strong>. Разница показана как «Лид Meta» — это заявки из рекламы,
-          которые ещё не попали в CRM (WhatsApp / форма).
+          В РНП за месяц: <strong>{rnpLeads}</strong> лидов Meta. В CRM с именем и телефоном:{" "}
+          <strong>{crmLeadCount}</strong>. Остальные появятся в таблице, когда придут из WhatsApp
+          или формы с контактами.
         </div>
       )}
 
@@ -191,6 +195,7 @@ export default function SalesAnalytics() {
         rows={filtered}
         services={activeServices}
         loading={loading}
+        editable={!overlayMissing}
         onUpdate={handleUpdate}
       />
 

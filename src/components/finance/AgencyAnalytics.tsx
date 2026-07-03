@@ -20,9 +20,10 @@ import {
   type AgencyService,
   type AgencyClientStatus,
 } from "@/hooks/useAgencyClients";
+import { fmtMoney } from "@/lib/format";
 
-const fmt = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtT = (n: number) => `${fmt(n)} ₸`;
+const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+const fmtT = fmtMoney;
 
 const STATUS: Record<AgencyClientStatus, {
   label: string;

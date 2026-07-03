@@ -17,13 +17,14 @@ type Props = {
   rows: SalesAnalyticsLead[];
   services: SalesService[];
   loading?: boolean;
+  editable?: boolean;
   onUpdate: (
     leadId: string,
     patch: Partial<Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">>,
   ) => Promise<void>;
 };
 
-export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
+export function SalesLeadsTable({ rows, services, loading, editable = true, onUpdate }: Props) {
   if (loading && rows.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-muted-foreground">
@@ -36,7 +37,8 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center text-sm text-muted-foreground">
-        Нет заявок за выбранный период. Новые лиды из WhatsApp и сайта появятся автоматически.
+        Нет заявок с именем и телефоном за выбранный период. Новые лиды из WhatsApp и сайта
+        появятся здесь автоматически.
       </div>
     );
   }
@@ -58,13 +60,7 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr
-              key={r.leadId}
-              className={cn(
-                "border-b border-border/40 hover:bg-muted/20",
-                r.isSynthetic && "bg-muted/30",
-              )}
-            >
+            <tr key={r.leadId} className="border-b border-border/40 hover:bg-muted/20">
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
                 {format(new Date(r.createdAt), "dd.MM.yyyy", { locale: ru })}
               </td>
@@ -74,89 +70,67 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                 {r.sourceLabel ?? "—"}
               </td>
               <td className="px-3 py-2">
-                {r.isSynthetic ? (
-                  <span className="text-xs text-muted-foreground">—</span>
+                {editable ? (
+                  <YesNoToggle
+                    value={r.isQualified}
+                    onChange={(val) => void onUpdate(r.leadId, { isQualified: val })}
+                  />
                 ) : (
-                <Select
-                  value={r.isQualified === true ? "yes" : r.isQualified === false ? "no" : "unset"}
-                  onValueChange={(v) => {
-                    const val = v === "yes" ? true : v === "no" ? false : null;
-                    void onUpdate(r.leadId, { isQualified: val });
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[100px]">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unset">—</SelectItem>
-                    <SelectItem value="yes">Да</SelectItem>
-                    <SelectItem value="no">Нет</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <ReadonlyQual value={r.isQualified} />
                 )}
               </td>
               <td className="px-3 py-2">
-                {r.isSynthetic ? (
-                  <span className="text-xs text-muted-foreground">—</span>
+                {editable ? (
+                  <PaymentToggle
+                    value={r.paymentStatus}
+                    onChange={(val) => void onUpdate(r.leadId, { paymentStatus: val })}
+                  />
                 ) : (
-                <Select
-                  value={r.paymentStatus ?? "unset"}
-                  onValueChange={(v) => {
-                    const val = v === "paid" ? "paid" : v === "unpaid" ? "unpaid" : null;
-                    void onUpdate(r.leadId, { paymentStatus: val });
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[130px]">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unset">—</SelectItem>
-                    <SelectItem value="paid">Оплатил</SelectItem>
-                    <SelectItem value="unpaid">Не оплатил</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <ReadonlyPayment value={r.paymentStatus} />
                 )}
               </td>
               <td className="px-3 py-2">
-                {r.isSynthetic ? (
-                  <span className="text-xs text-muted-foreground">—</span>
+                {editable ? (
+                  <Select
+                    value={r.serviceId ?? "unset"}
+                    onValueChange={(v) => {
+                      if (v === "unset") {
+                        void onUpdate(r.leadId, { serviceId: null });
+                        return;
+                      }
+                      const svc = services.find((s) => s.id === v);
+                      void onUpdate(r.leadId, {
+                        serviceId: v,
+                        amount: svc && r.amount == null ? svc.defaultPrice : r.amount,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[min(160px,100%)]">
+                      <SelectValue placeholder="Выберите" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" className="z-[200]">
+                      <SelectItem value="unset">—</SelectItem>
+                      {services.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                <Select
-                  value={r.serviceId ?? "unset"}
-                  onValueChange={(v) => {
-                    if (v === "unset") {
-                      void onUpdate(r.leadId, { serviceId: null });
-                      return;
-                    }
-                    const svc = services.find((s) => s.id === v);
-                    void onUpdate(r.leadId, {
-                      serviceId: v,
-                      amount: svc && r.amount == null ? svc.defaultPrice : r.amount,
-                    });
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[160px]">
-                    <SelectValue placeholder="—" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unset">—</SelectItem>
-                    {services.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <span className="text-muted-foreground">
+                    {services.find((s) => s.id === r.serviceId)?.name ?? "—"}
+                  </span>
                 )}
               </td>
               <td className="px-3 py-2">
-                {r.isSynthetic ? (
-                  <span className="text-xs text-muted-foreground">—</span>
+                {editable ? (
+                  <AmountCell
+                    value={r.amount}
+                    onSave={(amount) => void onUpdate(r.leadId, { amount })}
+                  />
                 ) : (
-                <AmountCell
-                  value={r.amount}
-                  onSave={(amount) => void onUpdate(r.leadId, { amount })}
-                />
+                  <span className="tabular-nums">{r.amount != null ? `$${r.amount}` : "—"}</span>
                 )}
               </td>
             </tr>
@@ -165,6 +139,90 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
       </table>
     </div>
   );
+}
+
+function toggleBtn(active: boolean, side: "left" | "right") {
+  return cn(
+    "px-2.5 py-1 text-xs font-medium transition-colors",
+    side === "left" ? "rounded-l-md" : "rounded-r-md",
+    active
+      ? "bg-primary text-primary-foreground shadow-sm"
+      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  );
+}
+
+function YesNoToggle({
+  value,
+  onChange,
+}: {
+  value: boolean | null;
+  onChange: (v: boolean | null) => void;
+}) {
+  return (
+    <div
+      className="inline-flex shrink-0 rounded-md border border-border/60 bg-background p-0.5"
+      role="group"
+      aria-label="Квалификация"
+    >
+      <button
+        type="button"
+        className={toggleBtn(value === true, "left")}
+        onClick={() => onChange(value === true ? null : true)}
+      >
+        Да
+      </button>
+      <button
+        type="button"
+        className={toggleBtn(value === false, "right")}
+        onClick={() => onChange(value === false ? null : false)}
+      >
+        Нет
+      </button>
+    </div>
+  );
+}
+
+function PaymentToggle({
+  value,
+  onChange,
+}: {
+  value: "paid" | "unpaid" | null;
+  onChange: (v: "paid" | "unpaid" | null) => void;
+}) {
+  return (
+    <div
+      className="inline-flex shrink-0 rounded-md border border-border/60 bg-background p-0.5"
+      role="group"
+      aria-label="Статус оплаты"
+    >
+      <button
+        type="button"
+        className={toggleBtn(value === "paid", "left")}
+        onClick={() => onChange(value === "paid" ? null : "paid")}
+      >
+        Оплатил
+      </button>
+      <button
+        type="button"
+        className={toggleBtn(value === "unpaid", "right")}
+        onClick={() => onChange(value === "unpaid" ? null : "unpaid")}
+      >
+        Нет
+      </button>
+    </div>
+  );
+}
+
+function ReadonlyQual({ value }: { value: boolean | null }) {
+  if (value === true) return <span className="text-xs font-medium text-emerald-600">Да</span>;
+  if (value === false) return <span className="text-xs font-medium text-muted-foreground">Нет</span>;
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+function ReadonlyPayment({ value }: { value: "paid" | "unpaid" | null }) {
+  if (value === "paid") return <span className="text-xs font-medium text-emerald-600">Оплатил</span>;
+  if (value === "unpaid") return <span className="text-xs text-muted-foreground">Не оплатил</span>;
+  return <span className="text-xs text-muted-foreground">—</span>;
 }
 
 function AmountCell({
@@ -178,17 +236,30 @@ function AmountCell({
   useEffect(() => {
     setDraft(value != null ? String(value) : "");
   }, [value]);
+
+  const commit = () => {
+    const num = draft === "" ? null : Number(draft);
+    if (draft !== "" && !Number.isFinite(num)) return;
+    if (num !== value) onSave(num);
+  };
+
   return (
-    <Input
-      type="number"
-      className="h-8 w-[120px] tabular-nums"
-      placeholder="0"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        const num = draft === "" ? null : Number(draft);
-        if (num !== value) onSave(num);
-      }}
-    />
+    <div className="relative flex items-center">
+      <span className="pointer-events-none absolute left-2.5 text-xs text-muted-foreground">$</span>
+      <Input
+        type="number"
+        className="h-8 w-[110px] pl-6 tabular-nums"
+        placeholder="0"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur();
+            commit();
+          }
+        }}
+      />
+    </div>
   );
 }

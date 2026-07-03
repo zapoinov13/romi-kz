@@ -56,7 +56,7 @@ function MoneyInput({
   currency: string;
   step?: number;
 }) {
-  const sym = currency.toUpperCase() === "USD" ? "$" : currency.toUpperCase() === "KZT" ? "₸" : currency;
+  const sym = "$";
   const isPrefix = sym === "$";
   return (
     <div className="space-y-1.5">
@@ -298,7 +298,7 @@ export default function CabinetAutomationDialog({
             >
               <MoneyInput
                 label="Макс. CPL за окно"
-                hint={`Напр. ${cur === "USD" ? "$2" : "900 ₸"} — дешевле = хороший результат`}
+                hint="Напр. $2 — дешевле = хороший результат"
                 value={rules.auto_duplicate_max_cpl}
                 onChange={(v) => patch("auto_duplicate_max_cpl", v)}
                 currency={cur}
@@ -341,7 +341,7 @@ export default function CabinetAutomationDialog({
             >
               <MoneyInput
                 label="Порог трат без заявок"
-                hint={`Напр. ${cur === "USD" ? "$5" : "2 250 ₸"} на группу/объявление`}
+                hint="Напр. $5 на группу/объявление"
                 value={rules.auto_pause_spend_threshold}
                 onChange={(v) => patch("auto_pause_spend_threshold", v)}
                 currency={cur}

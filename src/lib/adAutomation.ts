@@ -8,7 +8,7 @@ export type AdAutomationRules = {
   auto_mode: AutoMode;
   auto_duplicate_adset_enabled: boolean;
   auto_duplicate_stable_days: number;
-  /** Потолок CPL за окно (в валюте кабинета: $ или ₸) */
+  /** Потолок CPL за окно (USD) */
   auto_duplicate_max_cpl: number | null;
   auto_duplicate_min_leads: number;
   auto_smart_pause_enabled: boolean;
@@ -46,12 +46,9 @@ export function currencyIsUsd(code: string | undefined): boolean {
   return (code ?? "USD").toUpperCase() === "USD";
 }
 
-export function formatAutomationMoney(n: number | null, currency: string): string {
+export function formatAutomationMoney(n: number | null, _currency?: string): string {
   if (n == null) return "—";
-  const c = currency.toUpperCase();
-  if (c === "USD") return `$${n}`;
-  if (c === "KZT") return `${Math.round(n).toLocaleString("ru-RU")} ₸`;
-  return `${n} ${c}`;
+  return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
 /** Краткое описание активных правил для подсказки в меню. */

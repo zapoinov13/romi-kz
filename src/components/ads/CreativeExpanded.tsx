@@ -7,8 +7,8 @@ import type { MetaCreativeRow } from "@/hooks/useMetaStructure";
 import { useCreativeFunnel } from "@/hooks/useCreativeFunnel";
 import { bestCreativeImage } from "@/lib/metaThumb";
 import { refreshMetaCreative } from "@/lib/metaCreativeRefresh";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
 
 interface Props {

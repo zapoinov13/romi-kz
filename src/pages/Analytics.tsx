@@ -35,13 +35,13 @@ import { useReportData, type ReportPeriodRange } from "@/hooks/useReportData";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { fmtMoney } from "@/lib/format";
 
 const MONTHS_RU = [
   "Янв", "Фев", "Мар", "Апр", "Май", "Июн",
   "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек",
 ];
 
-const fmtMoney = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 const fmtNumber = (n: number) => Math.round(n).toLocaleString("ru-RU");
 const fmtPct = (n: number) => `${n.toFixed(n >= 10 ? 0 : 1)}%`;
 

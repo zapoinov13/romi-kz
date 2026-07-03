@@ -94,7 +94,7 @@ export function ServicesCatalogDialog({
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Настройка рекламы" />
             </div>
             <div>
-              <Label className="text-xs">Стоимость ₸</Label>
+              <Label className="text-xs">Стоимость $</Label>
               <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="120000" />
             </div>
             <div className="flex items-end">
@@ -139,7 +139,7 @@ export function ServicesCatalogDialog({
                             className="h-8 w-28"
                           />
                         ) : (
-                          `${Math.round(s.defaultPrice).toLocaleString("ru-RU")} ₸`
+                          `$${Math.round(s.defaultPrice).toLocaleString("en-US")}`
                         )}
                       </td>
                       <td className="px-3 py-2">

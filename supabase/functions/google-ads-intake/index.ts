@@ -46,7 +46,7 @@ const RowSchema = z.object({
   clicks: z.number().nonnegative().default(0),
   leads: z.number().nonnegative().default(0),
   revenue: z.number().nonnegative().default(0),
-  currency: z.string().trim().max(8).default("KZT"),
+  currency: z.string().trim().max(8).default("USD"),
 });
 
 const BodySchema = z.object({
@@ -105,7 +105,7 @@ async function ensureCabinet(
       external_id: externalId,
       name: `Google Ads — ${externalId}`,
       type: "Личный",
-      currency: "KZT",
+      currency: "USD",
     })
     .select("id, external_id")
     .single();

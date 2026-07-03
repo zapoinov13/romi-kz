@@ -21,9 +21,9 @@ import { CreativePreview } from "./CreativePreview";
 import { useCreativeFunnel, type FunnelLead } from "@/hooks/useCreativeFunnel";
 import { classifyGoal, type MetaCreativeRow } from "@/hooks/useMetaStructure";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 const fmtPct = (n: number) =>
   `${n >= 10 ? Math.round(n) : Math.round(n * 10) / 10}%`;
 

@@ -26,8 +26,8 @@ import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { LayoutGrid } from "lucide-react";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`;
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
 
 const SectionTitle = ({ children, accent }: { children: React.ReactNode; accent?: string }) => (

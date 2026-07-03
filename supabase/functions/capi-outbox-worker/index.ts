@@ -120,7 +120,7 @@ async function sendToMeta(creds: PixelCreds, row: OutboxRow): Promise<{ ok: bool
   const customData: Record<string, unknown> = {};
   if (row.value != null && row.value > 0) {
     customData.value = Number(row.value);
-    customData.currency = row.currency || "KZT";
+    customData.currency = row.currency || "USD";
   }
   if (row.meta_ad_id) customData.content_ids = [row.meta_ad_id];
 

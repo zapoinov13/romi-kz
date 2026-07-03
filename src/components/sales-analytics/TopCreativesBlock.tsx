@@ -1,7 +1,7 @@
 import type { TopCreativeRow } from "@/types/salesAnalytics";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${fmt(n)} ₸`;
 
 type Props = { items: TopCreativeRow[] };
 

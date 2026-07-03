@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
         await postCampaign(token, action.campaign_id, { daily_budget: String(cents) });
         afterSnap = { ...beforeSnap, daily_budget: Number(target) };
         notifyEmoji = action.action_type === "budget_cut" ? "⬇️" : "⬆️";
-        notifyVerb = `бюджет ${action.action_type === "budget_cut" ? "уменьшен" : "увеличен"} до ${Math.round(Number(target)).toLocaleString("ru-RU")}₸/день`;
+        notifyVerb = `бюджет ${action.action_type === "budget_cut" ? "уменьшен" : "увеличен"} до ${Math.round(Number(target)).toLocaleString("ru-RU")}$/день`;
       }
 
       if (action.action_type === "pause") {

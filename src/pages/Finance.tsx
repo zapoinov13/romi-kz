@@ -31,13 +31,15 @@ const MONTHS_RU = [
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
+import { fmtMoney } from "@/lib/format";
+
 const fmt = (n: number) => {
   if (!isFinite(n) || isNaN(n)) return "—";
-  return Math.round(n).toLocaleString("ru-RU");
+  return Math.round(n).toLocaleString("en-US");
 };
 const fmtT = (n: number) => {
   if (!isFinite(n) || isNaN(n)) return "—";
-  return `${fmt(n)}\u00A0₸`;
+  return fmtMoney(n);
 };
 
 type Tab = "decomp" | "agency" | "dynamics";
@@ -279,19 +281,19 @@ const Finance = () => {
               <SmartInput
                 icon={Wallet} label="Бюджет на месяц"
                 hint="Сколько готовы вложить в рекламу"
-                value={budget} onChange={setBudget} suffix="₸"
+                value={budget} onChange={setBudget} suffix="$"
               />
             ) : (
               <SmartInput
                 icon={Target} label="Целевая выручка"
                 hint="Сколько хотим заработать за месяц"
-                value={revenue} onChange={setRevenue} suffix="₸"
+                value={revenue} onChange={setRevenue} suffix="$"
               />
             )}
             <SmartInput
               icon={DollarSign} label="Стоимость лида (CPL)"
               hint="Цена одной заявки"
-              value={cpl} onChange={setCpl} suffix="₸"
+              value={cpl} onChange={setCpl} suffix="$"
             />
             <SmartInput
               icon={Percent} label="CR лид → диагностика"
@@ -308,7 +310,7 @@ const Finance = () => {
             <SmartInput
               icon={Receipt} label="Средний чек"
               hint="Сколько платит один клиент"
-              value={avgCheck} onChange={setAvgCheck} suffix="₸"
+              value={avgCheck} onChange={setAvgCheck} suffix="$"
             />
           </div>
 

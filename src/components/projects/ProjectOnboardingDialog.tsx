@@ -201,7 +201,7 @@ export function ProjectOnboardingDialog({ open, onOpenChange }: Props) {
             spend: 0, leads: 0, leadCost: 0, sales: 0, revenue: 0,
             city: (cabRow.city as string) ?? undefined,
             dailyBudget: 0,
-            currency: "KZT",
+            currency: "USD",
             adAccountId: (cabRow.ad_account_id as string) ?? undefined,
             pageId: (cabRow.page_id as string) ?? undefined,
             pageName: undefined,
@@ -369,7 +369,7 @@ export function ProjectOnboardingDialog({ open, onOpenChange }: Props) {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label>Бюджет / мес (₸)</Label>
+                <Label>Бюджет / мес ($)</Label>
                 <Input type="number" value={monthlyBudget} onChange={(e) => setMonthlyBudget(e.target.value)} placeholder="500000" />
               </div>
               <div className="space-y-1.5">

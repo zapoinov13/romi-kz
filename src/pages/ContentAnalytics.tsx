@@ -27,9 +27,9 @@ import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { ContentTrendChart } from "@/pages/content-analytics/ContentTrendChart";
 import { cn } from "@/lib/utils";
 import { igOrganicBotLink } from "@/lib/igOrganicLinks";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 
 export default function ContentAnalytics() {
   const [searchParams, setSearchParams] = useSearchParams();

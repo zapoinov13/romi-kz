@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
           date,
           spend, impressions, clicks, leads, revenue,
           cpl, cpm, cpc, ctr,
-          currency: "KZT",
+          currency: "USD",
           provider: "google",
           synced_at: new Date().toISOString(),
         });

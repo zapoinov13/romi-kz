@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useMonthlyAggregates } from "@/hooks/useMonthlyAggregates";
 import { useFinancePlans, monthKey } from "@/hooks/useFinancePlan";
+import { fmtMoney } from "@/lib/format";
 
 const MONTHS_RU_FULL = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -20,8 +21,8 @@ const MONTHS_RU_SHORT = [
   "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек",
 ];
 
-const fmt = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtT = (n: number) => `${fmt(n)}\u00A0₸`;
+const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
+const fmtT = fmtMoney;
 const fmtMln = (n: number) => {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}М`;
   if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}K`;

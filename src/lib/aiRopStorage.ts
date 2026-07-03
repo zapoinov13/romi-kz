@@ -400,7 +400,7 @@ export const DEFAULT_CONTENT_IDEAS: ContentIdea[] = [
   },
   {
     id: "ci-2",
-    title: "Что входит в диагностику за 5000 ₸",
+    title: "Что входит в диагностику за $50",
     format: "post",
     hook: "Пациенты часто думают, что диагностика — это только осмотр.",
     body:

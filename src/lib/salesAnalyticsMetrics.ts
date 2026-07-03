@@ -142,12 +142,27 @@ export function filterByCabinet(rows: SalesAnalyticsLead[], cabinetId: string | 
   return rows.filter((r) => !r.cabinetId || r.cabinetId === cabinetId);
 }
 
+/** Лид показываем в таблице только с реальным именем и телефоном (из CRM). */
+export function hasLeadContact(row: SalesAnalyticsLead): boolean {
+  if (row.isSynthetic) return false;
+  const name = row.name?.trim() ?? "";
+  const phone = row.phone?.trim() ?? "";
+  if (!name || name === "—" || /^лид meta/i.test(name)) return false;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10) return false;
+  return true;
+}
+
+export function filterDisplayableSalesLeads(rows: SalesAnalyticsLead[]): SalesAnalyticsLead[] {
+  return rows.filter(hasLeadContact);
+}
+
 export function inSalesMonth(iso: string, since: string, until: string): boolean {
   const day = iso.slice(0, 10);
   return day >= since && day <= until;
 }
 
-/** Добавляет строки-заглушки для лидов Meta из РНП, которых нет в CRM */
+/** @deprecated Синтетические строки больше не показываются в таблице — только KPI из РНП. */
 export function appendMetaGapRows(
   rows: SalesAnalyticsLead[],
   rnpLeads: number,

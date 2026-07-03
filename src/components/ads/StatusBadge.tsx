@@ -27,7 +27,7 @@ export const StatusBadge = ({ health, compact = false }: { health: CampaignHealt
       <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
       {compact ? null : <span>{m.label}</span>}
       {health.metrics?.cpl && health.status !== "cold_start" && (
-        <span className="font-normal opacity-80">CPL {Math.round(health.metrics.cpl)}₸</span>
+        <span className="font-normal opacity-80">CPL ${Math.round(health.metrics.cpl)}</span>
       )}
     </span>
   );

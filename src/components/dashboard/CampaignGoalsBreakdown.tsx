@@ -2,16 +2,16 @@ import { useMemo, useState } from "react";
 import { ChevronDown, Coins, FileText, Globe, Heart, Megaphone, MessageCircle, ShoppingBag, Target, TrendingDown, TrendingUp, Users, Video, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classifyGoal, type GoalKey, type MetaCampaignRow } from "@/hooks/useMetaStructure";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
-const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU")} ₸`;
+const fmtNum = (n: number) => Math.round(n).toLocaleString("en-US");
 const fmtTengeCompact = (n: number) => {
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M ₸`;
-  if (abs >= 10_000) return `${Math.round(n / 1000)}k ₸`;
+  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 10_000) return `$${Math.round(n / 1000)}k`;
   return fmtTenge(n);
 };
-const splitTenge = (n: number) => ({ amount: Math.round(n).toLocaleString("ru-RU"), unit: "₸" });
+const splitMoney = (n: number) => ({ amount: Math.round(n).toLocaleString("en-US"), unit: "$" });
 
 interface GoalBucket {
   key: GoalKey;
@@ -144,8 +144,8 @@ function GoalCard({ goal: g }: { goal: GoalBucket }) {
   const activeCount = sorted.filter((c) => c.effectiveStatus === "ACTIVE").length;
   const isInactive = activeCount === 0 && g.spend === 0;
 
-  const spendParts = g.spend > 0 ? splitTenge(g.spend) : null;
-  const costParts = costPerResult > 0 ? splitTenge(costPerResult) : null;
+  const spendParts = g.spend > 0 ? splitMoney(g.spend) : null;
+  const costParts = costPerResult > 0 ? splitMoney(costPerResult) : null;
 
   return (
     <div

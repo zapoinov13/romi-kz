@@ -11,9 +11,9 @@ import { useCodewordStats } from "@/hooks/useInstagramOrganic";
 import { InstagramAccountConnect } from "@/components/settings/InstagramAccountConnect";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { cn } from "@/lib/utils";
+import { fmtMoney as fmtTenge } from "@/lib/format";
 
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
-const fmtTenge = (n: number) => `${Math.round(n).toLocaleString("ru-RU").replace(/\s/g, "\u00A0")}\u00A0₸`;
 
 const KpiCard = ({ icon: Icon, label, value, accent }: { icon: any; label: string; value: string; accent?: string }) => (
   <div className="rounded-2xl border border-border/60 bg-card/60 p-4">

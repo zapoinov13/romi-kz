@@ -106,7 +106,7 @@ export function BriefForm({ value, onChange, onSubmit, busy, submitLabel }: Prop
 
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1.5">
-          <Label>Бюджет / мес (₸)</Label>
+          <Label>Бюджет / мес ($)</Label>
           <Input type="number" value={value.monthlyBudget}
             onChange={(e) => set("monthlyBudget", e.target.value)} placeholder="500000" />
         </div>

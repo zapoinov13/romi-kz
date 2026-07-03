@@ -265,14 +265,6 @@ function processInsightRow(
   const purchases = maxAction(actions, PURCHASE_ACTIONS);
   let revenue = sumActions(actionValues, PURCHASE_ACTIONS);
   let currency = accountCurrency;
-  if (accountCurrency !== "KZT") {
-    const rate = rates.get(date);
-    if (rate) {
-      spend = spend * rate;
-      revenue = revenue * rate;
-      currency = "KZT";
-    }
-  }
   return {
     date,
     spend,
@@ -503,8 +495,8 @@ Deno.serve(async (req) => {
         const d = String(r?.date_start ?? "");
         if (/^\d{4}-\d{2}-\d{2}$/.test(d)) allDates.add(d);
       }
-      const needConvert = accountCurrency !== "KZT";
-      const ratesMap = needConvert ? await getRatesForDates(admin, Array.from(allDates)) : new Map<string, number>();
+      const needConvert = false;
+      const ratesMap = new Map<string, number>();
 
       const campDailyRows = campInsights
         .map((r) => {
