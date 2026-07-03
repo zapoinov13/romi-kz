@@ -1,7 +1,7 @@
 {
-  "git_sha": "dccad3c",
-  "git_sha_full": "dccad3cf9743a95e4cb0f4c730ea9987c1628af1",
-  "updated_at": "2026-07-03T10:03:21Z",
-  "label": "Исправил предзагрузку Green API",
+  "git_sha": "0a69600",
+  "git_sha_full": "0a69600a39c605dd5f5bf948b217402a782c5c31",
+  "updated_at": "2026-07-03T15:03:52+05:00",
+  "label": "fix: порядок разделов в сайдбаре — маркетинг, продажи, аналитика",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
