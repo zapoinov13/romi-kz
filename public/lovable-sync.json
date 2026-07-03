@@ -1,7 +1,7 @@
 {
-  "git_sha": "94319f1",
-  "git_sha_full": "94319f103d55d5b2fcf2dc654dc1d753e99e3c37",
-  "updated_at": "2026-07-03T15:16:44+05:00",
-  "label": "fix: убран раздел «Автоматизации» из CRM",
+  "git_sha": "85cf883",
+  "git_sha_full": "85cf883b32c942f731e16584a1b0abc26eecd57f",
+  "updated_at": "2026-07-03T15:41:51+05:00",
+  "label": "feat: демо-проект «Юрий» с тестовыми данными и бейджем",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
