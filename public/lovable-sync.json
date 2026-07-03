@@ -1,7 +1,7 @@
 {
-  "git_sha": "e73d9a6",
-  "git_sha_full": "e73d9a6d4790fd3fd3a1f842745f4121fb0a8a78",
-  "updated_at": "2026-07-03T14:43:09+05:00",
-  "label": "fix: CRM в сайдбаре и обновлённый дизайн навигации",
+  "git_sha": "23659ae",
+  "git_sha_full": "23659ae5f588a4b464ae8cfe7599a22abff45a27",
+  "updated_at": "2026-07-03T14:44:40+05:00",
+  "label": "fix: понятные названия цветов этапов воронки в настройках CRM",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
