@@ -78,8 +78,8 @@ const system: NavItem[] = [
 ];
 
 const GROUPS = [
-  { label: "Продажи", items: sales },
   { label: "Маркетинг", items: marketing },
+  { label: "Продажи", items: sales },
   { label: "Аналитика", items: analytics },
 ];
 
