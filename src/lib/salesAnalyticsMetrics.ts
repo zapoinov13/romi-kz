@@ -1,20 +1,35 @@
-import type {
-  SalesAnalyticsLead,
-  SalesKpi,
-  SalesLeadFilters,
-  SalesService,
-  TopCreativeRow,
-  TopServiceRow,
-} from "@/types/salesAnalytics";
+import type { SalesAnalyticsLead, SalesKpi, SalesLeadFilters, TopCreativeRow, TopServiceRow } from "@/types/salesAnalytics";
+
+type UtmLike = {
+  utm_content?: string | null;
+  utm_source?: string | null;
+  content?: string | null;
+} | null;
+
+export function buildSalesSourceLabel(input: {
+  metaAdId?: string | null;
+  utm?: UtmLike;
+  campaign?: string | null;
+  source?: string | null;
+  channel?: string | null;
+}): string {
+  const utm = input.utm;
+  return (
+    input.metaAdId?.trim() ||
+    utm?.utm_content?.trim() ||
+    utm?.content?.trim() ||
+    input.campaign?.trim() ||
+    input.source?.trim() ||
+    input.channel?.trim() ||
+    "—"
+  );
+}
 
 function digits(s: string) {
   return s.replace(/\D/g, "");
 }
 
-export function filterSalesLeads(
-  rows: SalesAnalyticsLead[],
-  filters: SalesLeadFilters,
-): SalesAnalyticsLead[] {
+export function filterSalesLeads(rows: SalesAnalyticsLead[], filters: SalesLeadFilters): SalesAnalyticsLead[] {
   return rows.filter((r) => {
     const day = r.createdAt.slice(0, 10);
     if (filters.dateFrom && day < filters.dateFrom) return false;
@@ -84,7 +99,7 @@ export function computeTopCreatives(rows: SalesAnalyticsLead[], limit = 3): TopC
 
 export function computeTopServices(
   rows: SalesAnalyticsLead[],
-  services: SalesService[],
+  services: { id: string; name: string }[],
   limit = 3,
 ): TopServiceRow[] {
   const nameById = new Map(services.map((s) => [s.id, s.name]));
@@ -92,13 +107,7 @@ export function computeTopServices(
   for (const r of rows) {
     if (r.paymentStatus !== "paid" || !r.serviceId) continue;
     const name = nameById.get(r.serviceId) ?? "—";
-    const cur = map.get(r.serviceId) ?? {
-      serviceId: r.serviceId,
-      name,
-      sales: 0,
-      revenue: 0,
-      avgCheck: 0,
-    };
+    const cur = map.get(r.serviceId) ?? { serviceId: r.serviceId, name, sales: 0, revenue: 0, avgCheck: 0 };
     cur.sales += 1;
     cur.revenue += Number(r.amount) || 0;
     map.set(r.serviceId, cur);
@@ -120,4 +129,9 @@ export function monthBounds(monthKey: string): { since: string; until: string } 
   const last = new Date(y, m, 0).getDate();
   const mm = String(m).padStart(2, "0");
   return { since: `${y}-${mm}-01`, until: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+}
+
+export function filterByCabinet(rows: SalesAnalyticsLead[], cabinetId: string | null): SalesAnalyticsLead[] {
+  if (!cabinetId) return rows;
+  return rows.filter((r) => !r.cabinetId || r.cabinetId === cabinetId);
 }

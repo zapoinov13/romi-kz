@@ -12,7 +12,8 @@ export type SalesService = {
 export type SalesAnalyticsLead = {
   id: string;
   projectId: string;
-  leadId: string | null;
+  leadId: string;
+  cabinetId: string | null;
   name: string;
   phone: string;
   sourceLabel: string | null;

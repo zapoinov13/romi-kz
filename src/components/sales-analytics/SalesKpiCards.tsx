@@ -22,10 +22,11 @@ type Card = {
   icon: typeof Users;
 };
 
-function buildCards(kpi: SalesKpi): Card[] {
+function buildCards(kpi: SalesKpi, cabinetName?: string | null): Card[] {
+  const spendHint = cabinetName ? `РНП · ${cabinetName}` : "из РНП";
   return [
     { key: "leads", label: "Всего лидов", value: fmt(kpi.totalLeads), icon: Users },
-    { key: "spend", label: "Расходы", value: fmtTenge(kpi.spend), hint: "из РНП", icon: Wallet },
+    { key: "spend", label: "Расходы", value: fmtTenge(kpi.spend), hint: spendHint, icon: Wallet },
     { key: "cpl", label: "Стоимость лида", value: fmtTenge(kpi.cpl), icon: Target },
     { key: "cac", label: "Стоимость клиента (CAC)", value: fmtTenge(kpi.cac), icon: DollarSign },
     {
@@ -48,15 +49,16 @@ function buildCards(kpi: SalesKpi): Card[] {
 
 type Props = {
   kpi: SalesKpi;
+  cabinetName?: string | null;
   loading?: boolean;
 };
 
-export function SalesKpiCards({ kpi, loading }: Props) {
-  const cards = buildCards(kpi);
+export function SalesKpiCards({ kpi, cabinetName, loading }: Props) {
+  const cards = buildCards(kpi, cabinetName);
   return (
     <div
       className={cn(
-        "mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+        "mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3",
         loading && "opacity-60",
       )}
     >

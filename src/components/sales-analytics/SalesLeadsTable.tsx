@@ -17,7 +17,7 @@ type Props = {
   services: SalesService[];
   loading?: boolean;
   onUpdate: (
-    id: string,
+    leadId: string,
     patch: Partial<Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">>,
   ) => Promise<void>;
 };
@@ -57,7 +57,7 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b border-border/40 hover:bg-muted/20">
+            <tr key={r.leadId} className="border-b border-border/40 hover:bg-muted/20">
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
                 {format(new Date(r.createdAt), "dd.MM.yyyy", { locale: ru })}
               </td>
@@ -71,7 +71,7 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                   value={r.isQualified === true ? "yes" : r.isQualified === false ? "no" : "unset"}
                   onValueChange={(v) => {
                     const val = v === "yes" ? true : v === "no" ? false : null;
-                    void onUpdate(r.id, { isQualified: val });
+                    void onUpdate(r.leadId, { isQualified: val });
                   }}
                 >
                   <SelectTrigger className="h-8 w-[100px]">
@@ -89,7 +89,7 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                   value={r.paymentStatus ?? "unset"}
                   onValueChange={(v) => {
                     const val = v === "paid" ? "paid" : v === "unpaid" ? "unpaid" : null;
-                    void onUpdate(r.id, { paymentStatus: val });
+                    void onUpdate(r.leadId, { paymentStatus: val });
                   }}
                 >
                   <SelectTrigger className="h-8 w-[130px]">
@@ -107,11 +107,11 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                   value={r.serviceId ?? "unset"}
                   onValueChange={(v) => {
                     if (v === "unset") {
-                      void onUpdate(r.id, { serviceId: null });
+                      void onUpdate(r.leadId, { serviceId: null });
                       return;
                     }
                     const svc = services.find((s) => s.id === v);
-                    void onUpdate(r.id, {
+                    void onUpdate(r.leadId, {
                       serviceId: v,
                       amount: svc && r.amount == null ? svc.defaultPrice : r.amount,
                     });
@@ -133,7 +133,7 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
               <td className="px-3 py-2">
                 <AmountCell
                   value={r.amount}
-                  onSave={(amount) => void onUpdate(r.id, { amount })}
+                  onSave={(amount) => void onUpdate(r.leadId, { amount })}
                 />
               </td>
             </tr>

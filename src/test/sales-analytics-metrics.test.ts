@@ -9,7 +9,8 @@ import { EMPTY_SALES_FILTERS, type SalesAnalyticsLead } from "@/types/salesAnaly
 const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
   id: "1",
   projectId: "p",
-  leadId: null,
+  leadId: "lead-1",
+  cabinetId: "cab-1",
   name: "Test",
   phone: "+77001234567",
   sourceLabel: "ad_123",
@@ -27,8 +28,8 @@ const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
 describe("salesAnalyticsMetrics", () => {
   it("computes KPI with ROAS and avg check", () => {
     const rows = [
-      lead({ id: "1", isQualified: true, paymentStatus: "paid", amount: 100_000 }),
-      lead({ id: "2", isQualified: false, paymentStatus: "unpaid" }),
+      lead({ id: "1", leadId: "1", isQualified: true, paymentStatus: "paid", amount: 100_000 }),
+      lead({ id: "2", leadId: "2", isQualified: false, paymentStatus: "unpaid" }),
     ];
     const kpi = computeSalesKpi(rows, 50_000);
     expect(kpi.totalLeads).toBe(2);
@@ -43,8 +44,8 @@ describe("salesAnalyticsMetrics", () => {
 
   it("filters by qualified and payment", () => {
     const rows = [
-      lead({ id: "1", isQualified: true }),
-      lead({ id: "2", isQualified: false }),
+      lead({ id: "1", leadId: "1", isQualified: true }),
+      lead({ id: "2", leadId: "2", isQualified: false }),
     ];
     const f = filterSalesLeads(rows, { ...EMPTY_SALES_FILTERS, qualified: "yes" });
     expect(f).toHaveLength(1);
@@ -52,9 +53,9 @@ describe("salesAnalyticsMetrics", () => {
 
   it("groups top creatives by revenue", () => {
     const rows = [
-      lead({ id: "1", metaAdId: "A", paymentStatus: "paid", amount: 200 }),
-      lead({ id: "2", metaAdId: "B", paymentStatus: "paid", amount: 500 }),
-      lead({ id: "3", metaAdId: "A" }),
+      lead({ id: "1", leadId: "1", metaAdId: "A", paymentStatus: "paid", amount: 200 }),
+      lead({ id: "2", leadId: "2", metaAdId: "B", paymentStatus: "paid", amount: 500 }),
+      lead({ id: "3", leadId: "3", metaAdId: "A" }),
     ];
     const top = computeTopCreatives(rows, 2);
     expect(top[0].key).toBe("B");

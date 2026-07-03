@@ -1,24 +1,25 @@
 import { useMemo } from "react";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
-import { useMultiMetaInsights } from "@/hooks/useMetaInsights";
+import { useMetaInsights } from "@/hooks/useMetaInsights";
+import { resolveCabinetActId } from "@/lib/cabinetResolve";
 import { monthKeyFromDate } from "@/lib/salesAnalyticsMetrics";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 
-export function useSalesRnpSpend(range: ReportPeriodRange) {
+export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | null) {
   const { cabinets } = usePersonalCabinets();
-  const actIds = useMemo(
-    () =>
-      cabinets
-        .map((c) => c.adAccountId || c.externalId)
-        .filter((id): id is string => !!id),
-    [cabinets],
+  const cabinet = useMemo(
+    () => cabinets.find((c) => c.id === cabinetId) ?? cabinets[0] ?? null,
+    [cabinets, cabinetId],
   );
+  const actId = cabinet ? resolveCabinetActId(cabinet) : null;
   const monthKey = monthKeyFromDate(range.from);
-  const { data, loading, error } = useMultiMetaInsights(actIds, monthKey, actIds.length > 0);
+  const { data, loading, error } = useMetaInsights(actId, monthKey, !!actId);
 
   return {
     spend: data?.totals.spend ?? 0,
-    currency: data?.totals ? data.currency : "KZT",
+    currency: data?.currency ?? "KZT",
+    cabinetName: cabinet?.name ?? null,
+    actId,
     loading,
     error,
   };
