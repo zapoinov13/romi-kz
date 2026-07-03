@@ -3026,6 +3026,7 @@ export type Database = {
           first_touch_at: string | null
           id: string
           is_personal: boolean
+          is_qualified: boolean | null
           landing_url: string | null
           last_activity_at: string
           last_contact_at: string | null
@@ -3049,6 +3050,7 @@ export type Database = {
           reject_reason: string | null
           rejected_at: string | null
           service: string | null
+          service_id: string | null
           source: string
           stage_id: string
           updated_at: string
@@ -3072,6 +3074,7 @@ export type Database = {
           first_touch_at?: string | null
           id?: string
           is_personal?: boolean
+          is_qualified?: boolean | null
           landing_url?: string | null
           last_activity_at?: string
           last_contact_at?: string | null
@@ -3095,6 +3098,7 @@ export type Database = {
           reject_reason?: string | null
           rejected_at?: string | null
           service?: string | null
+          service_id?: string | null
           source?: string
           stage_id: string
           updated_at?: string
@@ -3118,6 +3122,7 @@ export type Database = {
           first_touch_at?: string | null
           id?: string
           is_personal?: boolean
+          is_qualified?: boolean | null
           landing_url?: string | null
           last_activity_at?: string
           last_contact_at?: string | null
@@ -3141,6 +3146,7 @@ export type Database = {
           reject_reason?: string | null
           rejected_at?: string | null
           service?: string | null
+          service_id?: string | null
           source?: string
           stage_id?: string
           updated_at?: string
@@ -3152,6 +3158,13 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "sales_service_catalog"
             referencedColumns: ["id"]
           },
           {
@@ -3757,6 +3770,7 @@ export type Database = {
           icon: string
           id: string
           is_diagnostic: boolean
+          is_hidden: boolean
           is_terminal: boolean
           key: string
           order_index: number
@@ -3770,6 +3784,7 @@ export type Database = {
           icon?: string
           id?: string
           is_diagnostic?: boolean
+          is_hidden?: boolean
           is_terminal?: boolean
           key: string
           order_index: number
@@ -3783,6 +3798,7 @@ export type Database = {
           icon?: string
           id?: string
           is_diagnostic?: boolean
+          is_hidden?: boolean
           is_terminal?: boolean
           key?: string
           order_index?: number
@@ -4377,6 +4393,7 @@ export type Database = {
       sales_analytics_leads: {
         Row: {
           amount: number | null
+          cabinet_id: string | null
           channel: string | null
           created_at: string
           id: string
@@ -4397,6 +4414,7 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          cabinet_id?: string | null
           channel?: string | null
           created_at?: string
           id?: string
@@ -4417,6 +4435,7 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          cabinet_id?: string | null
           channel?: string | null
           created_at?: string
           id?: string
@@ -4436,6 +4455,20 @@ export type Database = {
           utm_source?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_analytics_leads_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_analytics_leads_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_analytics_leads_lead_id_fkey"
             columns: ["lead_id"]
@@ -5606,6 +5639,10 @@ export type Database = {
       }
       ensure_project_pipeline: {
         Args: { p_project_id: string }
+        Returns: string
+      }
+      find_lead_id_by_phone: {
+        Args: { p_phone: string; p_project_id: string }
         Returns: string
       }
       gen_intake_token: { Args: never; Returns: string }
