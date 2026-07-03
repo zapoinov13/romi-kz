@@ -1,7 +1,7 @@
 {
-  "git_sha": "ef42242",
-  "git_sha_full": "ef42242feb438f5c1a37d723e9530673723b8b83",
-  "updated_at": "2026-07-02T07:59:12Z",
-  "label": "Добавил фоллбэк к IG-аккаунту",
+  "git_sha": "75854eb",
+  "git_sha_full": "75854eb73730f1cbcd81c566f1c4525a3c0b17aa",
+  "updated_at": "2026-07-03T12:55:26+05:00",
+  "label": "feat: раздел «Аналитика продаж» — сквозная воронка до выручки",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
