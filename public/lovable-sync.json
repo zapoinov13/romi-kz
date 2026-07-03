@@ -1,7 +1,7 @@
 {
-  "git_sha": "75854eb",
-  "git_sha_full": "75854eb73730f1cbcd81c566f1c4525a3c0b17aa",
-  "updated_at": "2026-07-03T12:55:26+05:00",
-  "label": "feat: раздел «Аналитика продаж» — сквозная воронка до выручки",
+  "git_sha": "6dd266c",
+  "git_sha_full": "6dd266c1835b1e2705e3c88e1a55c9bfae4a3a8a",
+  "updated_at": "2026-07-03T13:06:31+05:00",
+  "label": "fix: аналитика продаж — кабинет, лиды из CRM, расходы по РНП",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
