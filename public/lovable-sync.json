@@ -1,7 +1,7 @@
 {
-  "git_sha": "23659ae",
-  "git_sha_full": "23659ae5f588a4b464ae8cfe7599a22abff45a27",
-  "updated_at": "2026-07-03T14:44:40+05:00",
-  "label": "fix: понятные названия цветов этапов воронки в настройках CRM",
+  "git_sha": "dccad3c",
+  "git_sha_full": "dccad3cf9743a95e4cb0f4c730ea9987c1628af1",
+  "updated_at": "2026-07-03T10:03:21Z",
+  "label": "Исправил предзагрузку Green API",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
