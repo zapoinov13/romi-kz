@@ -1,7 +1,7 @@
 {
-  "git_sha": "85cf883",
-  "git_sha_full": "85cf883b32c942f731e16584a1b0abc26eecd57f",
-  "updated_at": "2026-07-03T15:41:51+05:00",
-  "label": "feat: демо-проект «Юрий» с тестовыми данными и бейджем",
+  "git_sha": "f5bcba6",
+  "git_sha_full": "f5bcba6ae734c179ca2c63fdcbdcce02872c7c96",
+  "updated_at": "2026-07-03T15:53:08+05:00",
+  "label": "fix: восстановить список проектов без колонки is_demo в БД",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
