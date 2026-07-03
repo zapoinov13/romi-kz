@@ -1,7 +1,7 @@
 {
-  "git_sha": "6bc4b64",
-  "git_sha_full": "6bc4b64c34a4e9bcd3bc0944da5c136a54c9ad21",
-  "updated_at": "2026-07-03T21:42:15+05:00",
-  "label": "fix: фильтрация данных по выбранному периоду (сегодня, вчера, неделя)",
+  "git_sha": "6524f34",
+  "git_sha_full": "6524f346818aff70bf0c5e7ff43459061af5fbce",
+  "updated_at": "2026-07-03T22:33:52+05:00",
+  "label": "fix: разделить клики, сообщения и лиды-формы в Meta-метриках",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
