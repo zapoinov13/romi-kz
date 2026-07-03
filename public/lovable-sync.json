@@ -1,7 +1,7 @@
 {
-  "git_sha": "902daf7",
-  "git_sha_full": "902daf79a14c67b0cf7b13e2f162453ca5e722ca",
-  "updated_at": "2026-07-03T13:37:49+05:00",
-  "label": "fix: USD везде, аналитика продаж и идемпотентный SQL",
+  "git_sha": "20763e3",
+  "git_sha_full": "20763e3c5ed91d72cbc71abc8dbe35888e9b0b3b",
+  "updated_at": "2026-07-03T13:49:20+05:00",
+  "label": "feat: быстрый выбор периода в аналитике продаж",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
