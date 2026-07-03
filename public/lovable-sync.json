@@ -1,7 +1,7 @@
 {
-  "git_sha": "918209b",
-  "git_sha_full": "918209bd091b7841e675991d138f3a510b8c1681",
-  "updated_at": "2026-07-03T08:09:59Z",
-  "label": "Marked findings as fixed",
+  "git_sha": "3d7bf3f",
+  "git_sha_full": "3d7bf3f5910ff118dab4f8418e3ae616b53db521",
+  "updated_at": "2026-07-03T13:12:50+05:00",
+  "label": "fix: лиды в аналитике продаж — CRM + Meta из РНП",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
