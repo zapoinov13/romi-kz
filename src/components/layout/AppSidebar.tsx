@@ -1,4 +1,10 @@
-import { BarChart3, Settings, Table2, Target } from "lucide-react";
+import {
+  BarChart3,
+  LayoutGrid,
+  Settings,
+  Table2,
+  Target,
+} from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/lib/routePrefetch";
 import {
@@ -23,113 +29,138 @@ type NavItem = {
   url: string;
   icon: typeof Target;
   hint?: string;
+  match?: (pathname: string) => boolean;
 };
 
+const sales: NavItem[] = [
+  {
+    title: "CRM",
+    url: "/crm",
+    icon: LayoutGrid,
+    hint: "Воронка, чаты, сделки",
+    match: (p) => p === "/crm" || p.startsWith("/crm/"),
+  },
+];
+
 const marketing: NavItem[] = [
-  { title: "Управление рекламой", url: "/ads", icon: Target },
+  {
+    title: "Управление рекламой",
+    url: "/ads",
+    icon: Target,
+    match: (p) => p === "/ads" || p.startsWith("/ads/") || p.startsWith("/create"),
+  },
 ];
 
 const analytics: NavItem[] = [
-  { title: "Таблица РНП", hint: "РНП - показатели по дням", url: "/metrics", icon: Table2 },
-  { title: "Аналитика продаж", hint: "Сквозная аналитика", url: "/analytics/sales", icon: BarChart3 },
+  {
+    title: "Таблица РНП",
+    hint: "Показатели по дням",
+    url: "/metrics",
+    icon: Table2,
+    match: (p) => p === "/metrics" || p.startsWith("/metrics/"),
+  },
+  {
+    title: "Аналитика продаж",
+    hint: "Сквозная аналитика",
+    url: "/analytics/sales",
+    icon: BarChart3,
+    match: (p) => p.startsWith("/analytics/sales"),
+  },
 ];
 
-const system: NavItem[] = [{ title: "Настройки", url: "/settings", icon: Settings }];
+const system: NavItem[] = [
+  {
+    title: "Настройки",
+    url: "/settings",
+    icon: Settings,
+    match: (p) => p.startsWith("/settings"),
+  },
+];
 
 const GROUPS = [
+  { label: "Продажи", items: sales },
   { label: "Маркетинг", items: marketing },
   { label: "Аналитика", items: analytics },
 ];
+
+function isItemActive(item: NavItem, pathname: string): boolean {
+  if (item.match) return item.match(pathname);
+  return pathname === item.url || pathname.startsWith(`${item.url}/`);
+}
 
 export function AppSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
 
-  const renderItem = (item: NavItem, activeOverride?: boolean) => (
-    <SidebarMenuItem key={item.url}>
-      <SidebarMenuButton
-        asChild
-        tooltip={collapsed ? item.title : undefined}
-        className="h-9 w-full p-0 hover:bg-transparent data-[active=true]:bg-transparent"
-      >
-        <NavLink
-          to={item.url}
-          end={item.url === "/"}
-          onClick={() => isMobile && setOpenMobile(false)}
-          onFocus={() => prefetchRoute(item.url)}
-          onMouseEnter={() => prefetchRoute(item.url)}
-          className={({ isActive }) => {
-            const active = activeOverride ?? isActive;
-            return cn(
-              "group relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors",
-              active
-                ? "bg-primary/10 text-primary"
-                : "text-foreground/70 hover:bg-secondary hover:text-foreground",
-            );
-          }}
-          title={item.hint ?? item.title}
+  const renderItem = (item: NavItem) => {
+    const active = isItemActive(item, pathname);
+
+    return (
+      <SidebarMenuItem key={item.url}>
+        <SidebarMenuButton
+          asChild
+          tooltip={collapsed ? item.title : undefined}
+          isActive={active}
+          className="h-auto p-0 hover:bg-transparent data-[active=true]:bg-transparent"
         >
-          {({ isActive }) => {
-            const active = activeOverride ?? isActive;
-            return (
-              <>
-                <span
-                  aria-hidden
-                  className={cn(
-                    "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full transition-opacity",
-                    active ? "bg-primary opacity-100" : "opacity-0",
-                  )}
-                />
-                <item.icon
-                  className={cn(
-                    "h-[17px] w-[17px] shrink-0 transition-colors",
-                    active ? "text-primary" : "text-foreground/55 group-hover:text-foreground",
-                  )}
-                  strokeWidth={2}
-                />
-                {!collapsed && <span className="min-w-0 flex-1 truncate">{item.title}</span>}
-              </>
-            );
-          }}
-        </NavLink>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
+          <NavLink
+            to={item.url}
+            end={item.url === "/"}
+            onClick={() => isMobile && setOpenMobile(false)}
+            onFocus={() => prefetchRoute(item.url)}
+            onMouseEnter={() => prefetchRoute(item.url)}
+            title={item.hint ?? item.title}
+            className={cn(
+              "group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
+              active
+                ? "bg-white text-primary shadow-sm ring-1 ring-border/80"
+                : "text-foreground/75 hover:bg-white/70 hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-secondary/80 text-foreground/55 group-hover:bg-secondary group-hover:text-foreground",
+              )}
+            >
+              <item.icon className="h-4 w-4" strokeWidth={2.25} />
+            </span>
+            {!collapsed && <span className="min-w-0 flex-1 truncate leading-tight">{item.title}</span>}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border bg-white">
-      <SidebarHeader className="gap-3 border-b border-border bg-white px-3 py-3">
+    <Sidebar collapsible="icon" className="border-r border-border/80 bg-[hsl(var(--sidebar-background))]">
+      <SidebarHeader className="gap-3 border-b border-border/60 px-3 py-3.5">
         <div className={cn("flex items-center", collapsed ? "justify-center" : "px-0.5")}>
           <RomiLogo size={collapsed ? "sm" : "md"} />
         </div>
         <ProjectSwitcher collapsed={collapsed} />
       </SidebarHeader>
 
-      <SidebarContent className="bg-white px-2 py-2">
+      <SidebarContent className="px-2.5 py-3">
         {GROUPS.map((group) => (
-          <SidebarGroup key={group.label} className="py-1.5">
+          <SidebarGroup key={group.label} className="py-1">
             {!collapsed && (
-              <SidebarGroupLabel className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60">
+              <SidebarGroupLabel className="mb-1.5 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 {group.label}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
-                {group.items.map((item) =>
-                  renderItem(
-                    item,
-                    item.url === "/ads" && pathname.startsWith("/create") ? true : undefined,
-                  ),
-                )}
-              </SidebarMenu>
+              <SidebarMenu className="gap-1">{group.items.map((item) => renderItem(item))}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border bg-white px-2 py-2">
-        <SidebarMenu className="gap-0.5">{system.map((item) => renderItem(item))}</SidebarMenu>
+      <SidebarFooter className="border-t border-border/60 px-2.5 py-2.5">
+        <SidebarMenu className="gap-1">{system.map((item) => renderItem(item))}</SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

@@ -1,4 +1,4 @@
-import { Target, Settings, Menu, Table2 } from "lucide-react";
+import { Target, Settings, Menu, LayoutGrid, BarChart3 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -6,9 +6,9 @@ import { prefetchRoute } from "@/lib/routePrefetch";
 
 type NavItem = { title: string; url: string; icon: typeof Target };
 const ITEMS: readonly NavItem[] = [
+  { title: "CRM", url: "/crm", icon: LayoutGrid },
   { title: "Реклама", url: "/ads", icon: Target },
-  { title: "РНП", url: "/metrics", icon: Table2 },
-  { title: "Настройки", url: "/settings", icon: Settings },
+  { title: "Продажи", url: "/analytics/sales", icon: BarChart3 },
 ];
 
 export function MobileBottomNav() {
@@ -24,7 +24,10 @@ export function MobileBottomNav() {
     >
       <div className="mx-auto grid h-14 max-w-lg grid-cols-4 px-1">
         {ITEMS.map((item) => {
-          const active = pathname === item.url || pathname.startsWith(`${item.url}/`);
+          const active =
+            pathname === item.url ||
+            pathname.startsWith(`${item.url}/`) ||
+            (item.url === "/ads" && pathname.startsWith("/create"));
 
           return (
             <NavLink
@@ -38,8 +41,8 @@ export function MobileBottomNav() {
             >
               <span
                 className={cn(
-                  "grid h-8 w-10 place-items-center rounded-md",
-                  active ? "bg-accent" : "bg-transparent",
+                  "grid h-8 w-10 place-items-center rounded-lg",
+                  active ? "bg-primary text-primary-foreground shadow-sm" : "bg-transparent",
                 )}
               >
                 <item.icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 2} />
@@ -54,7 +57,7 @@ export function MobileBottomNav() {
           className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[10px] font-medium text-muted-foreground"
           aria-label="Открыть меню"
         >
-          <span className="grid h-8 w-10 place-items-center rounded-md">
+          <span className="grid h-8 w-10 place-items-center rounded-lg">
             <Menu className="h-5 w-5 shrink-0" />
           </span>
           <span className="leading-none">Ещё</span>
