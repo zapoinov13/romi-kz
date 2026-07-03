@@ -4350,6 +4350,160 @@ export type Database = {
           },
         ]
       }
+      sales_analytics_leads: {
+        Row: {
+          amount: number | null
+          channel: string | null
+          created_at: string
+          id: string
+          is_qualified: boolean | null
+          lead_id: string | null
+          meta_ad_id: string | null
+          name: string
+          payment_status: string | null
+          phone: string
+          project_id: string
+          service_id: string | null
+          source_label: string | null
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          amount?: number | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_qualified?: boolean | null
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          name?: string
+          payment_status?: string | null
+          phone?: string
+          project_id: string
+          service_id?: string | null
+          source_label?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          amount?: number | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_qualified?: boolean | null
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          name?: string
+          payment_status?: string | null
+          phone?: string
+          project_id?: string
+          service_id?: string | null
+          source_label?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_analytics_leads_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_analytics_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "sales_analytics_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_analytics_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_analytics_leads_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "sales_service_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_service_catalog: {
+        Row: {
+          created_at: string
+          default_price: number
+          id: string
+          is_active: boolean
+          name: string
+          project_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_price?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          project_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_price?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          project_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_service_catalog_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "sales_service_catalog_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_service_catalog_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sipuni_cdr_log: {
         Row: {
           created_at: string
@@ -5404,6 +5558,16 @@ export type Database = {
           p_api_url?: string
           p_id_instance: string
           p_project_id: string
+        }
+        Returns: string
+      }
+      build_sales_source_label: {
+        Args: {
+          p_campaign: string
+          p_channel: string
+          p_meta_ad_id: string
+          p_source: string
+          p_utm: Json
         }
         Returns: string
       }
