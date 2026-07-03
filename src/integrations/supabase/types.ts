@@ -4218,6 +4218,7 @@ export type Database = {
           initials: string
           intake_token: string
           intake_token_present: boolean | null
+          is_demo: boolean
           is_primary: boolean
           name: string
           updated_at: string
@@ -4230,6 +4231,7 @@ export type Database = {
           initials?: string
           intake_token?: string
           intake_token_present?: boolean | null
+          is_demo?: boolean
           is_primary?: boolean
           name: string
           updated_at?: string
@@ -4242,6 +4244,7 @@ export type Database = {
           initials?: string
           intake_token?: string
           intake_token_present?: boolean | null
+          is_demo?: boolean
           is_primary?: boolean
           name?: string
           updated_at?: string

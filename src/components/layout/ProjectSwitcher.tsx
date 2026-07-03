@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -118,10 +119,17 @@ export function ProjectSwitcher({ collapsed, metaStyle = false }: Props) {
             {(!collapsed || metaStyle) && (
               <>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-semibold">{active?.name ?? "Проект"}</div>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-[13px] font-semibold">{active?.name ?? "Проект"}</span>
+                    {active?.isDemo ? (
+                      <Badge variant="secondary" className="h-4 shrink-0 px-1.5 text-[9px] uppercase tracking-wide">
+                        Демо
+                      </Badge>
+                    ) : null}
+                  </div>
                   {!metaStyle && (
                     <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {active?.domain ?? "Проект"}
+                      {active?.isDemo ? "Тестовые данные" : (active?.domain ?? "Проект")}
                     </div>
                   )}
                 </div>
@@ -155,6 +163,11 @@ export function ProjectSwitcher({ collapsed, metaStyle = false }: Props) {
                       {p.initials}
                     </span>
                     <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    {p.isDemo ? (
+                      <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[9px]">
+                        Демо
+                      </Badge>
+                    ) : null}
                     {isActive && <Check className="h-4 w-4 text-primary" />}
                   </button>
                   {!p.isPrimary && (

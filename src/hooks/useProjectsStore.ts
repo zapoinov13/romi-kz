@@ -17,6 +17,7 @@ export type Project = {
   domain?: string;
   initials: string;
   isPrimary?: boolean;
+  isDemo?: boolean;
   intakeToken?: string;
 };
 
@@ -32,6 +33,7 @@ type Row = {
   domain: string | null;
   initials: string;
   is_primary: boolean;
+  is_demo?: boolean;
   intake_token?: string | null;
 };
 
@@ -41,6 +43,7 @@ const toProject = (r: Row): Project => ({
   domain: r.domain ?? undefined,
   initials: r.initials,
   isPrimary: r.is_primary,
+  isDemo: r.is_demo ?? false,
   intakeToken: r.intake_token ?? undefined,
 });
 
