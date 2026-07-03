@@ -1792,10 +1792,12 @@ export type Database = {
           auto_msg_24h_hours: number
           auto_msg_24h_template_key: string
           cron_secret: string | null
+          cron_secret_present: boolean | null
           followup_2h_enabled: boolean
           followup_2h_minutes: number
           id: boolean
           meta_access_token: string | null
+          meta_access_token_present: boolean | null
           revival_7d_days: number
           revival_7d_enabled: boolean
           revival_7d_template_key: string
@@ -1812,10 +1814,12 @@ export type Database = {
           auto_msg_24h_hours?: number
           auto_msg_24h_template_key?: string
           cron_secret?: string | null
+          cron_secret_present?: boolean | null
           followup_2h_enabled?: boolean
           followup_2h_minutes?: number
           id?: boolean
           meta_access_token?: string | null
+          meta_access_token_present?: boolean | null
           revival_7d_days?: number
           revival_7d_enabled?: boolean
           revival_7d_template_key?: string
@@ -1832,10 +1836,12 @@ export type Database = {
           auto_msg_24h_hours?: number
           auto_msg_24h_template_key?: string
           cron_secret?: string | null
+          cron_secret_present?: boolean | null
           followup_2h_enabled?: boolean
           followup_2h_minutes?: number
           id?: boolean
           meta_access_token?: string | null
+          meta_access_token_present?: boolean | null
           revival_7d_days?: number
           revival_7d_enabled?: boolean
           revival_7d_template_key?: string
@@ -4195,6 +4201,7 @@ export type Database = {
           id: string
           initials: string
           intake_token: string
+          intake_token_present: boolean | null
           is_primary: boolean
           name: string
           updated_at: string
@@ -4206,6 +4213,7 @@ export type Database = {
           id?: string
           initials?: string
           intake_token?: string
+          intake_token_present?: boolean | null
           is_primary?: boolean
           name: string
           updated_at?: string
@@ -4217,6 +4225,7 @@ export type Database = {
           id?: string
           initials?: string
           intake_token?: string
+          intake_token_present?: boolean | null
           is_primary?: boolean
           name?: string
           updated_at?: string
@@ -5603,6 +5612,10 @@ export type Database = {
       get_creative_funnel: {
         Args: { p_ad_id: string; p_since?: string; p_until?: string }
         Returns: Json
+      }
+      get_project_intake_token: {
+        Args: { p_project_id: string }
+        Returns: string
       }
       has_module_access: {
         Args: { _module_key: string; _user_id: string }
