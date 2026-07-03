@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
+import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso } from "@/lib/periodRange";
 import { isManualOverrideActive, resolveCdiMetric } from "@/lib/cdiManualOverride";
 
 export interface DailyInsightRow {
@@ -249,11 +251,11 @@ function aggregate(rows: CdiRow[]): InsightsData {
 
 async function fetchInsights(
   actIds: string[],
-  month: string,
+  since: string,
+  until: string,
   projectId?: string | null,
 ): Promise<InsightsData> {
-  const range = monthRange(month);
-  if (!range || actIds.length === 0) {
+  if (actIds.length === 0) {
     return { currency: "USD", totals: EMPTY_TOTALS, daily: [] };
   }
   const ids = actIds.map(normalizeActId);
@@ -261,15 +263,23 @@ async function fetchInsights(
     .from("cabinet_daily_insights")
     .select("date, spend, impressions, clicks, leads, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified")
     .in("external_id", ids)
-    .gte("date", range.since)
-    .lte("date", range.until)
+    .gte("date", since)
+    .lte("date", until)
     .order("date", { ascending: true });
-  // Изоляция проекта: если несколько проектов делили один external_id (миграция кабинета и т.п.),
-  // чужие строки в выборку не попадут.
   if (projectId) q = q.eq("project_id", projectId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return aggregate((data ?? []) as CdiRow[]);
+}
+
+async function fetchInsightsMonth(
+  actIds: string[],
+  month: string,
+  projectId?: string | null,
+): Promise<InsightsData> {
+  const range = monthRange(month);
+  if (!range) return { currency: "USD", totals: EMPTY_TOTALS, daily: [] };
+  return fetchInsights(actIds, range.since, range.until, projectId);
 }
 
 export function useMetaInsights(
@@ -291,7 +301,7 @@ export function useMetaInsights(
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchInsights([actId], month, projectId)
+    fetchInsightsMonth([actId], month, projectId)
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => {
         if (cancelled) return;
@@ -307,7 +317,7 @@ export function useMetaInsights(
         "postgres_changes",
         { event: "*", schema: "public", table: "cabinet_daily_insights", filter: `external_id=eq.${norm}` },
         () => {
-          fetchInsights([actId], month, projectId)
+          fetchInsightsMonth([actId], month, projectId)
             .then((d) => { if (!cancelled) setData(d); })
             .catch((e) => { if (!cancelled) console.warn("[useMetaInsights] realtime refetch failed", e); });
         },
@@ -318,6 +328,42 @@ export function useMetaInsights(
       supabase.removeChannel(channel);
     };
   }, [actId, month, enabled, refreshKey, projectId]);
+
+  return { data, loading, error, refresh: () => setRefreshKey((k) => k + 1) };
+}
+
+/** Расходы и лиды Meta за произвольный диапазон дат (день, неделя и т.д.). */
+export function useMetaInsightsRange(
+  actId: string | null | undefined,
+  range: ReportPeriodRange,
+  enabled = true,
+) {
+  const { activeId: projectId } = useProjectsStore();
+  const [data, setData] = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { since, until } = dateRangeToIso(range);
+  const rangeKey = `${since}_${until}`;
+
+  useEffect(() => {
+    if (!enabled || !actId) {
+      setData(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchInsights([actId], since, until, projectId)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Неизвестная ошибка");
+        setData({ currency: "USD", totals: EMPTY_TOTALS, daily: [] });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [actId, since, until, rangeKey, enabled, refreshKey, projectId]);
 
   return { data, loading, error, refresh: () => setRefreshKey((k) => k + 1) };
 }
@@ -342,7 +388,7 @@ export function useMultiMetaInsights(
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchInsights(actIds, month, projectId)
+    fetchInsightsMonth(actIds, month, projectId)
       .then((d) => { if (!cancelled) setData(d); })
       .catch((e) => {
         if (cancelled) return;

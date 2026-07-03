@@ -157,9 +157,14 @@ export function filterDisplayableSalesLeads(rows: SalesAnalyticsLead[]): SalesAn
   return rows.filter(hasLeadContact);
 }
 
-export function inSalesMonth(iso: string, since: string, until: string): boolean {
+export function inDateRange(iso: string, since: string, until: string): boolean {
   const day = iso.slice(0, 10);
   return day >= since && day <= until;
+}
+
+/** @deprecated используйте inDateRange */
+export function inSalesMonth(iso: string, since: string, until: string): boolean {
+  return inDateRange(iso, since, until);
 }
 
 /** @deprecated Синтетические строки больше не показываются в таблице — только KPI из РНП. */

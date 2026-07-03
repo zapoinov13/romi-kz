@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
-import { useMetaInsights } from "@/hooks/useMetaInsights";
+import { useMetaInsightsRange } from "@/hooks/useMetaInsights";
 import { resolveCabinetActId } from "@/lib/cabinetResolve";
-import { monthKeyFromDate } from "@/lib/salesAnalyticsMetrics";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 
 export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | null) {
@@ -12,8 +11,7 @@ export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | n
     [cabinets, cabinetId],
   );
   const actId = cabinet ? resolveCabinetActId(cabinet) : null;
-  const monthKey = monthKeyFromDate(range.from);
-  const { data, loading, error } = useMetaInsights(actId, monthKey, !!actId);
+  const { data, loading, error } = useMetaInsightsRange(actId, range, !!actId);
 
   return {
     spend: data?.totals.spend ?? 0,

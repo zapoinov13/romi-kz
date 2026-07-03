@@ -24,14 +24,13 @@ import { useSalesAnalyticsLeads } from "@/hooks/useSalesAnalyticsLeads";
 import { useSalesRnpSpend } from "@/hooks/useSalesRnpSpend";
 import { useSalesServices } from "@/hooks/useSalesServices";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso } from "@/lib/periodRange";
 import {
   computeSalesKpi,
   computeTopCreatives,
   computeTopServices,
   filterDisplayableSalesLeads,
   filterSalesLeads,
-  monthBounds,
-  monthKeyFromDate,
 } from "@/lib/salesAnalyticsMetrics";
 import { exportSalesLeadsCsv } from "@/lib/salesAnalyticsExport";
 import { EMPTY_SALES_FILTERS, type SalesLeadFilters } from "@/types/salesAnalytics";
@@ -49,12 +48,15 @@ export default function SalesAnalytics() {
     }
   }, [cabinets, cabinetId]);
 
-  const monthKey = monthKeyFromDate(range.from);
-  const { since, until } = monthBounds(monthKey);
+  const { since, until } = dateRangeToIso(range);
   const selectedCabinet = cabinets.find((c) => c.id === cabinetId) ?? null;
 
+  useEffect(() => {
+    setFilters(EMPTY_SALES_FILTERS);
+  }, [since, until, cabinetId]);
+
   const { rows, loading, error, overlayMissing, updateLead } = useSalesAnalyticsLeads(
-    monthKey,
+    range,
     cabinetId || null,
   );
   const { spend, rnpLeads, cabinetName, loading: spendLoading } = useSalesRnpSpend(
@@ -88,7 +90,7 @@ export default function SalesAnalytics() {
   };
 
   const handleExport = () => {
-    const slug = selectedCabinet?.name?.replace(/\s+/g, "-") ?? monthKey;
+    const slug = selectedCabinet?.name?.replace(/\s+/g, "-") ?? since;
     exportSalesLeadsCsv(filtered, services, `analitika-prodazh-${slug}`);
     toast.success("Экспорт готов");
   };
@@ -163,7 +165,7 @@ export default function SalesAnalytics() {
 
       {rnpLeads > crmLeadCount && (
         <div className="mb-4 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
-          В РНП за месяц: <strong>{rnpLeads}</strong> лидов Meta. В CRM с именем и телефоном:{" "}
+          В РНП за период: <strong>{rnpLeads}</strong> лидов Meta. В CRM с именем и телефоном:{" "}
           <strong>{crmLeadCount}</strong>. Остальные появятся в таблице, когда придут из WhatsApp
           или формы с контактами.
         </div>
@@ -178,7 +180,7 @@ export default function SalesAnalytics() {
 
       <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <ListChecks className="h-4 w-4" />
-        Заявки · {selectedCabinet?.name ?? monthKey}
+        Заявки · {selectedCabinet?.name ?? `${since} – ${until}`}
         {(loading || spendLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
         <span className="ml-auto tabular-nums">{filtered.length} строк</span>
       </div>

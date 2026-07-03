@@ -6,9 +6,10 @@ import type { PaymentStatus, SalesAnalyticsLead } from "@/types/salesAnalytics";
 import {
   buildSalesSourceLabel,
   filterByCabinet,
-  inSalesMonth,
-  monthBounds,
+  inDateRange,
 } from "@/lib/salesAnalyticsMetrics";
+import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso } from "@/lib/periodRange";
 
 type LeadRow = {
   id: string;
@@ -65,19 +66,19 @@ function mergeLead(lead: LeadRow, overlay?: OverlayRow): SalesAnalyticsLead {
   };
 }
 
-export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | null) {
+export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: string | null) {
   const { activeId: projectId } = useProjectsStore();
   const [rows, setRows] = useState<SalesAnalyticsLead[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overlayMissing, setOverlayMissing] = useState(false);
+  const { since, until } = dateRangeToIso(range);
 
   const load = useCallback(async () => {
     if (!projectId) {
       setRows([]);
       return;
     }
-    const { since, until } = monthBounds(monthKey);
     setLoading(true);
     setError(null);
 
@@ -120,12 +121,12 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
 
     const merged = ((leadsRes.data ?? []) as LeadRow[])
       .map((lead) => mergeLead(lead, overlayByLead.get(lead.id)))
-      .filter((lead) => inSalesMonth(lead.createdAt, since, until))
+      .filter((lead) => inDateRange(lead.createdAt, since, until))
       .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);
 
     setRows(merged);
     setLoading(false);
-  }, [projectId, monthKey, cabinetId]);
+  }, [projectId, since, until, cabinetId]);
 
   useEffect(() => {
     void load();
