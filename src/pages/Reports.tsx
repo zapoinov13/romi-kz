@@ -87,7 +87,7 @@ export default function Reports() {
           </SelectContent>
         </Select>
 
-        <PeriodPicker range={range} onChange={setRange} />
+        <PeriodPicker range={range} onChange={setRange} showPresets showPresetBar />
 
         <div className="flex h-10 items-center gap-3 rounded-xl border border-border/60 bg-card/40 px-4">
           <Switch checked={compare} onCheckedChange={setCompare} />

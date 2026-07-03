@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  eachDayInRange,
   lastWeekRange,
   matchPeriodPreset,
   rangesEqual,
@@ -26,5 +27,11 @@ describe("periodRange", () => {
     expect(r.to.getDay()).toBe(0);
     expect(rangesEqual(r, r)).toBe(true);
     expect(matchPeriodPreset(r)).toBe("lastWeek");
+  });
+
+  it("eachDayInRange returns inclusive day list", () => {
+    const r = yesterdayRange();
+    expect(eachDayInRange(r)).toHaveLength(1);
+    expect(eachDayInRange(thisWeekRange()).length).toBeGreaterThanOrEqual(1);
   });
 });

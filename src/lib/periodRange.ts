@@ -120,3 +120,34 @@ export function isFullMonthRange(range: ReportPeriodRange): boolean {
   const expected = monthRange(range.from);
   return rangesEqual(range, expected);
 }
+
+/** Все календарные дни в диапазоне включительно. */
+export function eachDayInRange(range: ReportPeriodRange): Date[] {
+  const days: Date[] = [];
+  const cur = startOfDay(range.from);
+  const end = startOfDay(range.to);
+  while (cur.getTime() <= end.getTime()) {
+    days.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+export function isoDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Начало дня from (вкл.) и конец дня to (вкл.) в миллисекундах. */
+export function periodTimeBounds(range: ReportPeriodRange): { start: number; end: number } {
+  const start = startOfDay(range.from).getTime();
+  const end = startOfDay(range.to).getTime() + 86_400_000 - 1;
+  return { start, end };
+}
+
+export function isTimestampInPeriod(ts: number, range: ReportPeriodRange): boolean {
+  const { start, end } = periodTimeBounds(range);
+  return ts >= start && ts <= end;
+}

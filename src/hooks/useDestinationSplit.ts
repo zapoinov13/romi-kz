@@ -72,21 +72,23 @@ const isLeadFormDest = (d: string | null | undefined) => {
 
 export function useDestinationSplit(
   cabinetIds: string[] | null, // null = all cabinets in project
-  month: string,
+  range: { since: string; until: string },
   enabled = true,
 ) {
   const { activeId: projectId } = useProjectsStore();
   const [data, setData] = useState<DestinationSplit>(EMPTY);
   const [loading, setLoading] = useState(false);
   const key = (cabinetIds ?? []).join(",");
+  const rangeKey = `${range.since}_${range.until}`;
 
   useEffect(() => {
     if (!enabled) {
       setData(EMPTY);
       return;
     }
-    const range = monthRange(month);
-    if (!range) {
+    const since = range.since;
+    const until = range.until;
+    if (!since || !until) {
       setData(EMPTY);
       return;
     }
@@ -118,8 +120,8 @@ export function useDestinationSplit(
       let mcdQ = supabase
         .from("meta_campaign_daily")
         .select("campaign_id, cabinet_id, spend, clicks, leads, messages")
-        .gte("date", range.since)
-        .lte("date", range.until)
+        .gte("date", since)
+        .lte("date", until)
         .in("cabinet_id", Array.from(cabMeta.keys()));
       if (projectId) mcdQ = mcdQ.eq("project_id", projectId);
       const { data: mcd } = await mcdQ;
@@ -188,7 +190,7 @@ export function useDestinationSplit(
       }
     })().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [key, month, enabled, projectId]);
+  }, [key, rangeKey, enabled, projectId, range.since, range.until]);
 
   return { data, loading };
 }

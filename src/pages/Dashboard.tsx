@@ -100,7 +100,7 @@ const Dashboard = () => {
         description={rangeLabel}
         actions={
           <>
-            <PeriodPicker range={range} onChange={setRange} />
+            <PeriodPicker range={range} onChange={setRange} showPresets showPresetBar />
             <Button
               variant="outline"
               className="h-10 gap-2 rounded-xl border-border/60"

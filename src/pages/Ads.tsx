@@ -39,7 +39,6 @@ const Ads = () => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
-  const monthCursor = period.from;
 
   const toggleExpanded = (id: string) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -128,7 +127,7 @@ const Ads = () => {
                 </>
               )}
             </span>
-            <PeriodPicker range={period} onChange={setPeriod} showPresets />
+            <PeriodPicker range={period} onChange={setPeriod} showPresets showPresetBar />
           </div>
         </div>
 
@@ -198,11 +197,11 @@ const Ads = () => {
         <div className="divide-y divide-[hsl(var(--meta-border))] bg-white">
           {filtered.map((c) => (
             <CabinetRow
-              key={`${c.id}-${refreshKey}`}
+              key={`${c.id}-${period.from.getTime()}-${period.to.getTime()}-${refreshKey}`}
               cabinet={c}
               expanded={!!expanded[c.id]}
               onToggle={() => toggleExpanded(c.id)}
-              monthCursor={monthCursor}
+              period={period}
               onToggleOnline={handleToggleOnline}
               onRemove={removeCabinet}
               metaTable

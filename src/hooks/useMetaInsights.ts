@@ -404,3 +404,40 @@ export function useMultiMetaInsights(
 
   return { data, loading, error, refresh: () => setRefreshKey((k) => k + 1) };
 }
+
+/** Расходы Meta за произвольный диапазон — несколько кабинетов. */
+export function useMultiMetaInsightsRange(
+  actIds: string[],
+  range: ReportPeriodRange,
+  enabled = true,
+) {
+  const { activeId: projectId } = useProjectsStore();
+  const [data, setData] = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const key = actIds.join(",");
+  const { since, until } = dateRangeToIso(range);
+  const rangeKey = `${since}_${until}`;
+
+  useEffect(() => {
+    if (!enabled || actIds.length === 0) {
+      setData({ currency: "USD", totals: EMPTY_TOTALS, daily: [] });
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchInsights(actIds, since, until, projectId)
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Неизвестная ошибка");
+        setData({ currency: "USD", totals: EMPTY_TOTALS, daily: [] });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [key, since, until, rangeKey, enabled, refreshKey, projectId]);
+
+  return { data, loading, error, refresh: () => setRefreshKey((k) => k + 1) };
+}

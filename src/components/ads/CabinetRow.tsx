@@ -17,7 +17,9 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AdCabinet } from "@/types/ads";
-import { useMetaInsights } from "@/hooks/useMetaInsights";
+import { useMetaInsightsRange } from "@/hooks/useMetaInsights";
+import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso, eachDayInRange, isoDateLocal } from "@/lib/periodRange";
 import { supabase } from "@/integrations/supabase/client";
 import { manualValueForSave } from "@/lib/cdiManualOverride";
 import {
@@ -87,21 +89,19 @@ interface Props {
   cabinet: AdCabinet;
   expanded: boolean;
   onToggle: () => void;
-  monthCursor: Date;
+  period: ReportPeriodRange;
   onToggleOnline: (id: string) => void;
   onRemove: (id: string) => void;
   onSynced?: () => void;
   metaTable?: boolean;
 }
 
-const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, onRemove, onSynced, metaTable }: Props) => {
-  const monthParam = `${monthCursor.getFullYear()}-${String(
-    monthCursor.getMonth() + 1,
-  ).padStart(2, "0")}`;
+const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRemove, onSynced, metaTable }: Props) => {
+  const { since, until } = dateRangeToIso(period);
 
-  const { data, loading, error, refresh } = useMetaInsights(
+  const { data, loading, error, refresh } = useMetaInsightsRange(
     cabinet.externalId,
-    monthParam,
+    period,
     true,
   );
 
@@ -116,9 +116,6 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
     }
     setSyncing(true);
     try {
-      const since = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}-01`;
-      const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
-      const until = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
       const { data: resp, error: err } = await supabase.functions.invoke("meta-daily-sync", {
         body: { cabinet_id: cabinet.id, since, until },
       });
@@ -149,21 +146,17 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
     return map;
   }, [data]);
 
-  const monthDays = useMemo(() => {
-    const year = monthCursor.getFullYear();
-    const month = monthCursor.getMonth();
-    const last = new Date(year, month + 1, 0).getDate();
-    const monthShort = MONTHS_RU_SHORT[month];
-    return Array.from({ length: last }, (_, i) => {
-      const day = i + 1;
-      const isoDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const periodDays = useMemo(() => {
+    return eachDayInRange(period).map((date) => {
+      const isoDate = isoDateLocal(date);
+      const monthShort = MONTHS_RU_SHORT[date.getMonth()];
       return {
         key: isoDate,
-        label: `${day} ${monthShort}`,
+        label: `${date.getDate()} ${monthShort}`,
         iso: isoDate,
       };
     });
-  }, [monthCursor]);
+  }, [period.from, period.to]);
 
   const cpl = totals && totals.leads > 0 ? totals.spend / totals.leads : 0;
 
@@ -543,7 +536,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, monthCursor, onToggleOnline, 
                 </tr>
               </thead>
               <tbody>
-                {monthDays.map((d) => {
+                {periodDays.map((d) => {
                   const row = dailyByDate.get(d.iso);
                   const dayCpl =
                     row && row.leads > 0 ? row.spend / row.leads : 0;

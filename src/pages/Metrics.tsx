@@ -22,10 +22,11 @@ import {
 } from "@/components/ui/select";
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
-import { useMultiMetaInsights, type DailyInsightRow } from "@/hooks/useMetaInsights";
+import { useMultiMetaInsightsRange, type DailyInsightRow } from "@/hooks/useMetaInsights";
 import { useFinancePlans, monthKey } from "@/hooks/useFinancePlan";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso, eachDayInRange, isoDateLocal } from "@/lib/periodRange";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -79,7 +80,7 @@ function manualMeta(
 
 const Metrics = () => {
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
-  const monthCursor = period.from;
+  const { since, until } = dateRangeToIso(period);
   const { cabinets } = usePersonalCabinets();
   const [cabinetId, setCabinetId] = useState<string>("");
   const { activeId: projectId } = useProjectsStore();
@@ -90,8 +91,6 @@ const Metrics = () => {
       setCabinetId(cabinets[0].id);
     }
   }, [cabinets, cabinetId]);
-
-  const monthParam = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}`;
 
   const allActIds = useMemo(
     () => cabinets.map((c) => c.externalId).filter(Boolean),
@@ -110,14 +109,14 @@ const Metrics = () => {
 
   const canEdit = Boolean(selectedCabinet);
 
-  const { data, loading, error, refresh } = useMultiMetaInsights(
+  const { data, loading, error, refresh } = useMultiMetaInsightsRange(
     actIds,
-    monthParam,
+    period,
     actIds.length > 0,
   );
 
   const { getPlan } = useFinancePlans();
-  const planSrc = getPlan(monthKey(monthCursor));
+  const planSrc = getPlan(monthKey(period.from));
   const plan = planSrc
     ? {
         spend: planSrc.spend,
@@ -128,20 +127,15 @@ const Metrics = () => {
       }
     : null;
 
-  const daysInMonth = new Date(
-    monthCursor.getFullYear(),
-    monthCursor.getMonth() + 1,
-    0,
-  ).getDate();
+  const periodDays = useMemo(() => {
+    return eachDayInRange(period).map((date) => ({
+      day: date.getDate(),
+      iso: isoDateLocal(date),
+      weekday: WEEKDAYS_RU[date.getDay()],
+    }));
+  }, [period.from, period.to]);
 
-  const monthDays = useMemo(() => {
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const date = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), day);
-      const iso = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      return { day, iso, weekday: WEEKDAYS_RU[date.getDay()] };
-    });
-  }, [monthCursor, daysInMonth]);
+  const daysInPeriod = periodDays.length;
 
   const dailyByDate = useMemo(() => {
     const m = new Map<string, DailyInsightRow>();
@@ -151,14 +145,14 @@ const Metrics = () => {
 
   const filledDays = useMemo(() => {
     let n = 0;
-    for (const { iso } of monthDays) {
+    for (const { iso } of periodDays) {
       const d = dailyByDate.get(iso);
       if (d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0)) n += 1;
     }
     return n;
-  }, [monthDays, dailyByDate]);
+  }, [periodDays, dailyByDate]);
 
-  const monthProgress = Math.round((filledDays / daysInMonth) * 100);
+  const monthProgress = daysInPeriod > 0 ? Math.round((filledDays / daysInPeriod) * 100) : 0;
   const totals = useMemo(() => aggregateRnpSums(data?.daily ?? []), [data]);
 
   const upsertField = async (isoDate: string, patch: Record<string, number | null>) => {
@@ -259,7 +253,7 @@ const Metrics = () => {
 
   const handleExportCsv = () => {
     const header = ["Дата", "День", ...RNP_COLUMNS.map((c) => c.short)];
-    const rows = monthDays.map(({ day, iso, weekday }) => {
+    const rows = periodDays.map(({ day, iso, weekday }) => {
       const d = dailyByDate.get(iso);
       return [
         iso,
@@ -284,7 +278,7 @@ const Metrics = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rnp-${monthParam}${selectedCabinet ? `-${selectedCabinet.name}` : ""}.csv`;
+    a.download = `rnp-${since}_${until}${selectedCabinet ? `-${selectedCabinet.name}` : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -296,13 +290,6 @@ const Metrics = () => {
     }
     setResyncing(true);
     try {
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const since = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}-01`;
-      const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
-      const monthEnd = lastDay < yesterday ? lastDay : yesterday;
-      const until = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth() + 1).padStart(2, "0")}-${String(monthEnd.getDate()).padStart(2, "0")}`;
       const { error: invErr } = await supabase.functions.invoke("meta-daily-sync", {
         body: { since, until, cabinet_id: selectedCabinet.id },
       });
@@ -326,7 +313,7 @@ const Metrics = () => {
         title="РНП · Таблица показателей"
         description={
           selectedCabinet
-            ? `${selectedCabinet.name} · ${filledDays}/${daysInMonth} дней`
+            ? `${selectedCabinet.name} · ${filledDays}/${daysInPeriod} дн.`
             : "Выберите кабинет"
         }
         meta={
@@ -348,7 +335,7 @@ const Metrics = () => {
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <PeriodPicker range={period} onChange={setPeriod} />
+          <PeriodPicker range={period} onChange={setPeriod} showPresets showPresetBar />
           <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
             <SelectTrigger className="h-11 min-w-[240px] rounded-lg border border-input bg-white">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -468,7 +455,7 @@ const Metrics = () => {
                 })}
               </tr>
 
-              {monthDays.map(({ day, iso, weekday }) => {
+              {periodDays.map(({ day, iso, weekday }) => {
                 const d = dailyByDate.get(iso);
                 const isWeekend = weekday === "Сб" || weekday === "Вс";
                 const hasData = d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0 || d.sales > 0);

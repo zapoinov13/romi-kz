@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
-import { useMultiMetaInsights } from "@/hooks/useMetaInsights";
+import { useMultiMetaInsightsRange } from "@/hooks/useMetaInsights";
 import { useDestinationSplit } from "@/hooks/useDestinationSplit";
 import { useLeadsLite, type LeadLite } from "@/hooks/useLeadsLite";
 import { CHANNELS, resolveChannel, type ChannelKey } from "@/lib/channelAttribution";
@@ -32,6 +32,7 @@ const TrendChart = lazy(() =>
 );
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import { useReportData, type ReportPeriodRange } from "@/hooks/useReportData";
+import { dateRangeToIso, eachDayInRange, inDateRange, isoDateLocal } from "@/lib/periodRange";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -135,16 +136,11 @@ function pctDelta(cur: number, prev: number): number | null {
 
 const Analytics = () => {
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
-  const monthCursor = period.from;
   const [cabinetId, setCabinetId] = useState<string>("all");
   const { cabinets } = usePersonalCabinets();
+  const { since, until } = dateRangeToIso(period);
 
-  const monthParam = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}`;
-  const monthLabel = `1 ${MONTHS_RU[monthCursor.getMonth()]}. – ${new Date(
-    monthCursor.getFullYear(),
-    monthCursor.getMonth() + 1,
-    0,
-  ).getDate()} ${MONTHS_RU[monthCursor.getMonth()]}. ${monthCursor.getFullYear()}`;
+  const monthLabel = `${period.from.getDate()} ${MONTHS_RU[period.from.getMonth()]}. – ${period.to.getDate()} ${MONTHS_RU[period.to.getMonth()]}. ${period.to.getFullYear()}`;
 
   const allActIds = useMemo(
     () => cabinets.map((c) => c.externalId).filter(Boolean),
@@ -156,7 +152,7 @@ const Analytics = () => {
     return cab?.externalId ? [cab.externalId] : [];
   }, [cabinetId, allActIds, cabinets]);
 
-  const { data, loading, error, refresh } = useMultiMetaInsights(actIds, monthParam, actIds.length > 0);
+  const { data, loading, error, refresh } = useMultiMetaInsightsRange(actIds, period, actIds.length > 0);
 
   // Единый источник правды для KPI — тот же, что у Dashboard / Reports / Metrics.
   // Это убирает расхождение «100 vs 107 vs 115» между страницами.
@@ -169,26 +165,23 @@ const Analytics = () => {
     if (cabinetId === "all") return cabinets.map((c) => c.id);
     return [cabinetId];
   }, [cabinetId, cabinets]);
-  const { data: splitData } = useDestinationSplit(cabinetIdsForSplit, monthParam, cabinetIdsForSplit.length > 0);
+  const { data: splitData } = useDestinationSplit(
+    cabinetIdsForSplit,
+    { since, until },
+    cabinetIdsForSplit.length > 0,
+  );
 
   const { leads, loading: leadsLoading, refetch } = useLeadsLite();
 
-  // Filter leads by month
-  const monthStart = monthCursor.getTime();
-  const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1).getTime();
-
-  const monthLeads = useMemo(
-    () => leads.filter((l) => {
-      const t = new Date(l.createdAt).getTime();
-      return t >= monthStart && t < monthEnd;
-    }),
-    [leads, monthStart, monthEnd],
+  const periodLeads = useMemo(
+    () => leads.filter((l) => inDateRange(l.createdAt, since, until)),
+    [leads, since, until],
   );
   // Optional cabinet filter on leads (используется для UTM-таблицы и каналов)
   const filteredLeads = useMemo(() => {
-    if (cabinetId === "all") return monthLeads;
-    return monthLeads.filter((l) => l.cabinetId === cabinetId);
-  }, [monthLeads, cabinetId]);
+    if (cabinetId === "all") return periodLeads;
+    return periodLeads.filter((l) => l.cabinetId === cabinetId);
+  }, [periodLeads, cabinetId]);
 
   // ВСЕ KPI — из useReportData, чтобы цифры на Analytics совпадали с Dashboard /
   // Reports / Metrics. Раньше Analytics считал leadCount/salesCount/revenue по
@@ -278,8 +271,7 @@ const Analytics = () => {
       // Только активный кабинет (если выбран) — иначе все продажи
       if (cabinetId !== "all" && l.cabinetId !== cabinetId) continue;
       const paidAt = l.paidAt ?? l.lastActivityAt ?? l.createdAt;
-      const t = new Date(paidAt).getTime();
-      if (t < monthStart || t >= monthEnd) continue;
+      if (!inDateRange(paidAt, since, until)) continue;
       const bucket = ensure(classify(l as LeadLite));
       bucket.sales += 1;
       bucket.revenue += l.amount || 0;
@@ -297,7 +289,7 @@ const Analytics = () => {
     return ["whatsapp", "site", "instagram", "google", "tiktok"]
       .map((k) => map.get(k as ChannelBucket)!)
       .filter(Boolean);
-  }, [filteredLeads, leads, monthStart, monthEnd, spend, cabinetId]);
+  }, [filteredLeads, leads, since, until, spend, cabinetId]);
 
   // UTM campaigns table + AI quality aggregates.
   // ЕДИНАЯ СЕМАНТИКА: leads — по createdAt в периоде, sales/revenue — по paid_at.
@@ -343,8 +335,7 @@ const Analytics = () => {
       if (!isLeadPaid(l)) continue;
       if (cabinetId !== "all" && l.cabinetId !== cabinetId) continue;
       const paidAt = l.paidAt ?? l.lastActivityAt ?? l.createdAt;
-      const t = new Date(paidAt).getTime();
-      if (t < monthStart || t >= monthEnd) continue;
+      if (!inDateRange(paidAt, since, until)) continue;
       const u = l.utm ?? {};
       if (!u.source && !u.campaign && !u.medium) continue;
       const cur = ensure(u);
@@ -358,12 +349,10 @@ const Analytics = () => {
         avgScore: _scoreCount > 0 ? _scoreSum / _scoreCount : 0,
       }))
       .sort((a, b) => b.revenue - a.revenue || (b.avgScore ?? 0) - (a.avgScore ?? 0) || b.leads - a.leads);
-  }, [filteredLeads, leads, monthStart, monthEnd, cabinetId]);
+  }, [filteredLeads, leads, since, until, cabinetId]);
 
-  // Trend data: per day
+  // Trend data: per day in selected period
   const trend = useMemo<TrendPoint[]>(() => {
-    const days = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
-    const points: TrendPoint[] = [];
     const dailyMap = new Map<string, { spend: number }>();
     for (const d of data?.daily ?? []) {
       dailyMap.set(d.date, { spend: d.spend });
@@ -376,17 +365,16 @@ const Analytics = () => {
       if (isLeadPaid(l)) cur.sales += 1;
       leadsByDate.set(d, cur);
     }
-    for (let i = 1; i <= days; i++) {
-      const iso = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-      points.push({
+    return eachDayInRange(period).map((date) => {
+      const iso = isoDateLocal(date);
+      return {
         date: iso,
         spend: Math.round(dailyMap.get(iso)?.spend ?? 0),
         leads: leadsByDate.get(iso)?.leads ?? 0,
         sales: leadsByDate.get(iso)?.sales ?? 0,
-      });
-    }
-    return points;
-  }, [data, filteredLeads, monthCursor]);
+      };
+    });
+  }, [data, filteredLeads, period]);
 
   const hasLinkedData = actIds.length > 0;
   const hasMonthData = !!data?.daily.length || filteredLeads.length > 0;
@@ -400,7 +388,7 @@ const Analytics = () => {
         description="UTM-атрибуция · эффективность каналов · полная воронка"
         actions={
           <>
-            <PeriodPicker range={period} onChange={setPeriod} />
+            <PeriodPicker range={period} onChange={setPeriod} showPresets showPresetBar />
             <button
               onClick={() => { refresh(); refetch(); }}
               className="grid h-10 w-10 place-items-center rounded-xl border border-border/60 bg-card/60 hover:bg-secondary"
@@ -438,7 +426,7 @@ const Analytics = () => {
       {!loading && !leadsLoading && !hasMonthData && (
         <div className="mt-6 rounded-2xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
           <div className="font-semibold">
-            {hasLinkedData ? "За выбранный месяц данных пока нет" : "Нет подключенных личных рекламных кабинетов"}
+            {hasLinkedData ? "За выбранный период данных пока нет" : "Нет подключенных личных рекламных кабинетов"}
           </div>
           <div className="mt-1 text-xs opacity-80">
             {hasLinkedData
