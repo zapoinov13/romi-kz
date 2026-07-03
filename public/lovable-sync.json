@@ -1,7 +1,7 @@
 {
-  "git_sha": "0907246",
-  "git_sha_full": "0907246133a71820744b12aef348bb41db77e925",
-  "updated_at": "2026-07-03T13:17:23+05:00",
-  "label": "feat: Green API в настройках — выбор проекта, QR и instance ID",
+  "git_sha": "721c2b9",
+  "git_sha_full": "721c2b9ffbb21a8bfca869990e793437ab5a0c51",
+  "updated_at": "2026-07-03T08:19:15Z",
+  "label": "Переделал дизайн сайдбара",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
