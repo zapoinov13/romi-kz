@@ -8,7 +8,6 @@ import {
   Sparkles,
   Users,
   BarChart3,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,16 +32,11 @@ import { PaymentAmountDialog } from "@/components/crm/PaymentAmountDialog";
 import { DiagnosticAmountDialog } from "@/components/crm/DiagnosticAmountDialog";
 const ManagersView = lazy(() => import("@/components/crm/ManagersView").then((m) => ({ default: m.ManagersView })));
 const AnalyticsView = lazy(() => import("@/components/crm/AnalyticsView").then((m) => ({ default: m.AnalyticsView })));
-const AutomationsSettings = lazy(() =>
-  import("@/components/crm/AutomationsSettings").then((m) => ({ default: m.AutomationsSettings })),
-);
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-type Tab = "funnel" | "chats" | "clients" | "managers" | "analytics" | "automations";
+type Tab = "funnel" | "chats" | "clients" | "managers" | "analytics";
 
 const Crm = () => {
-  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     stages,
@@ -82,9 +76,8 @@ const Crm = () => {
       { id: "clients", label: "База", icon: Database },
       { id: "managers", label: "Менеджеры", icon: Users },
       { id: "analytics", label: "Аналитика", icon: BarChart3 },
-      { id: "automations", label: isAdmin ? "Автоматизации" : "Телефония", icon: Zap },
     ],
-    [isAdmin],
+    [],
   );
 
   const [tab, setTab] = useState<Tab>("funnel");
@@ -399,7 +392,6 @@ const Crm = () => {
               />
             )}
 
-            {tab === "automations" && <AutomationsSettings />}
           </Suspense>
         </div>
       </section>
