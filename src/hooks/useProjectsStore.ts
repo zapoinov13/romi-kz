@@ -43,7 +43,7 @@ const toProject = (r: Row): Project => ({
   domain: r.domain ?? undefined,
   initials: r.initials,
   isPrimary: r.is_primary,
-  isDemo: r.is_demo ?? false,
+  isDemo: r.is_demo === true || r.domain === "demo.local",
   intakeToken: r.intake_token ?? undefined,
 });
 
