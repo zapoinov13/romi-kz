@@ -3,7 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import type { PaymentStatus, SalesAnalyticsLead } from "@/types/salesAnalytics";
-import { buildSalesSourceLabel, monthBounds } from "@/lib/salesAnalyticsMetrics";
+import {
+  buildSalesSourceLabel,
+  filterByCabinet,
+  inSalesMonth,
+  monthBounds,
+} from "@/lib/salesAnalyticsMetrics";
 
 type LeadRow = {
   id: string;
@@ -37,8 +42,8 @@ function mergeLead(lead: LeadRow, overlay?: OverlayRow): SalesAnalyticsLead {
     projectId: lead.project_id ?? "",
     leadId: lead.id,
     cabinetId: lead.cabinet_id,
-    name: (lead.name?.trim() || "—"),
-    phone: (lead.phone?.trim() || "—"),
+    name: lead.name?.trim() || "—",
+    phone: lead.phone?.trim() || "—",
     sourceLabel: buildSalesSourceLabel({
       metaAdId: lead.meta_ad_id,
       utm,
@@ -76,29 +81,23 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
     setLoading(true);
     setError(null);
 
+    // Как в CRM: project_id ИЛИ null (старые лиды без привязки)
     let leadsQuery = supabase
       .from("leads")
       .select(
         "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at",
       )
-      .eq("project_id", projectId)
       .eq("is_personal", false)
-      .gte("created_at", since)
-      .lte("created_at", `${until}T23:59:59.999Z`)
-      .order("created_at", { ascending: false });
-
-    if (cabinetId) {
-      leadsQuery = leadsQuery.eq("cabinet_id", cabinetId);
-    }
+      .or(`project_id.eq.${projectId},project_id.is.null`)
+      .order("created_at", { ascending: false })
+      .limit(3000);
 
     const [leadsRes, overlayRes] = await Promise.all([
       leadsQuery,
       supabase
         .from("sales_analytics_leads")
         .select("id, lead_id, is_qualified, payment_status, service_id, amount")
-        .eq("project_id", projectId)
-        .gte("created_at", since)
-        .lte("created_at", `${until}T23:59:59.999Z`),
+        .eq("project_id", projectId),
     ]);
 
     if (leadsRes.error) {
@@ -119,9 +118,11 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
       }
     }
 
-    const merged = ((leadsRes.data ?? []) as LeadRow[]).map((lead) =>
-      mergeLead(lead, overlayByLead.get(lead.id)),
-    );
+    const merged = ((leadsRes.data ?? []) as LeadRow[])
+      .map((lead) => mergeLead(lead, overlayByLead.get(lead.id)))
+      .filter((lead) => inSalesMonth(lead.createdAt, since, until))
+      .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);
+
     setRows(merged);
     setLoading(false);
   }, [projectId, monthKey, cabinetId]);
@@ -138,6 +139,9 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
       leadId: string,
       patch: Partial<Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">>,
     ) => {
+      if (leadId.startsWith("meta-gap-")) {
+        throw new Error("Это лид из Meta (РНП) — дождитесь синхронизации в CRM или создайте вручную");
+      }
       const current = rows.find((r) => r.leadId === leadId);
       if (!current || !projectId) throw new Error("Лид не найден");
 
@@ -168,9 +172,7 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
 
       setRows((prev) =>
         prev.map((r) =>
-          r.leadId === leadId
-            ? { ...r, ...patch, id: (data?.id as string) ?? r.id }
-            : r,
+          r.leadId === leadId ? { ...r, ...patch, id: (data?.id as string) ?? r.id } : r,
         ),
       );
     },

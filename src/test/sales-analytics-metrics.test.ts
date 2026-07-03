@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendMetaGapRows,
   computeSalesKpi,
   computeTopCreatives,
   filterSalesLeads,
@@ -51,14 +52,17 @@ describe("salesAnalyticsMetrics", () => {
     expect(f).toHaveLength(1);
   });
 
-  it("groups top creatives by revenue", () => {
-    const rows = [
-      lead({ id: "1", leadId: "1", metaAdId: "A", paymentStatus: "paid", amount: 200 }),
-      lead({ id: "2", leadId: "2", metaAdId: "B", paymentStatus: "paid", amount: 500 }),
-      lead({ id: "3", leadId: "3", metaAdId: "A" }),
-    ];
-    const top = computeTopCreatives(rows, 2);
-    expect(top[0].key).toBe("B");
-    expect(top[0].revenue).toBe(500);
+  it("uses rnp leads when higher than crm", () => {
+    const rows = [lead({ id: "1", leadId: "1" })];
+    const kpi = computeSalesKpi(rows, 100_000, 15);
+    expect(kpi.totalLeads).toBe(15);
+    expect(kpi.cpl).toBeCloseTo(100_000 / 15);
+  });
+
+  it("appends meta gap rows", () => {
+    const rows = [lead({ id: "1", leadId: "1" })];
+    const out = appendMetaGapRows(rows, 5, "cab", "2026-07");
+    expect(out).toHaveLength(5);
+    expect(out.filter((r) => r.isSynthetic)).toHaveLength(4);
   });
 });

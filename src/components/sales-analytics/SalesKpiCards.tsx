@@ -22,10 +22,22 @@ type Card = {
   icon: typeof Users;
 };
 
-function buildCards(kpi: SalesKpi, cabinetName?: string | null): Card[] {
+function buildCards(kpi: SalesKpi, cabinetName?: string | null, rnpLeads?: number): Card[] {
   const spendHint = cabinetName ? `РНП · ${cabinetName}` : "из РНП";
+  const leadsHint =
+    rnpLeads != null && rnpLeads > kpi.totalLeads
+      ? undefined
+      : rnpLeads != null && rnpLeads > 0
+        ? `Meta (РНП): ${rnpLeads}`
+        : undefined;
   return [
-    { key: "leads", label: "Всего лидов", value: fmt(kpi.totalLeads), icon: Users },
+    {
+      key: "leads",
+      label: "Всего лидов",
+      value: fmt(kpi.totalLeads),
+      hint: leadsHint,
+      icon: Users,
+    },
     { key: "spend", label: "Расходы", value: fmtTenge(kpi.spend), hint: spendHint, icon: Wallet },
     { key: "cpl", label: "Стоимость лида", value: fmtTenge(kpi.cpl), icon: Target },
     { key: "cac", label: "Стоимость клиента (CAC)", value: fmtTenge(kpi.cac), icon: DollarSign },
@@ -50,11 +62,12 @@ function buildCards(kpi: SalesKpi, cabinetName?: string | null): Card[] {
 type Props = {
   kpi: SalesKpi;
   cabinetName?: string | null;
+  rnpLeads?: number;
   loading?: boolean;
 };
 
-export function SalesKpiCards({ kpi, cabinetName, loading }: Props) {
-  const cards = buildCards(kpi, cabinetName);
+export function SalesKpiCards({ kpi, cabinetName, rnpLeads, loading }: Props) {
+  const cards = buildCards(kpi, cabinetName, rnpLeads);
   return (
     <div
       className={cn(

@@ -25,6 +25,7 @@ import { useSalesRnpSpend } from "@/hooks/useSalesRnpSpend";
 import { useSalesServices } from "@/hooks/useSalesServices";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import {
+  appendMetaGapRows,
   computeSalesKpi,
   computeTopCreatives,
   computeTopServices,
@@ -56,7 +57,7 @@ export default function SalesAnalytics() {
     monthKey,
     cabinetId || null,
   );
-  const { spend, cabinetName, loading: spendLoading } = useSalesRnpSpend(
+  const { spend, rnpLeads, cabinetName, loading: spendLoading } = useSalesRnpSpend(
     range,
     cabinetId || null,
   );
@@ -69,8 +70,14 @@ export default function SalesAnalytics() {
     remove: removeService,
   } = useSalesServices();
 
-  const filtered = useMemo(() => filterSalesLeads(rows, filters), [rows, filters]);
-  const kpi = useMemo(() => computeSalesKpi(filtered, spend), [filtered, spend]);
+  const rowsWithMeta = useMemo(() => {
+    if (!cabinetId || rnpLeads <= 0) return rows;
+    return appendMetaGapRows(rows, rnpLeads, cabinetId, monthKey);
+  }, [rows, rnpLeads, cabinetId, monthKey]);
+
+  const filtered = useMemo(() => filterSalesLeads(rowsWithMeta, filters), [rowsWithMeta, filters]);
+  const crmLeadCount = rows.length;
+  const kpi = useMemo(() => computeSalesKpi(filtered, spend, rnpLeads), [filtered, spend, rnpLeads]);
   const topCreatives = useMemo(() => computeTopCreatives(filtered), [filtered]);
   const topServices = useMemo(() => computeTopServices(filtered, services), [filtered, services]);
 
@@ -150,7 +157,15 @@ export default function SalesAnalytics() {
         </div>
       )}
 
-      <SalesKpiCards kpi={kpi} cabinetName={cabinetName} loading={loading || spendLoading} />
+      {rnpLeads > crmLeadCount && (
+        <div className="mb-4 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
+          В РНП за месяц: <strong>{rnpLeads}</strong> лидов Meta. В CRM привязано:{" "}
+          <strong>{crmLeadCount}</strong>. Разница показана как «Лид Meta» — это заявки из рекламы,
+          которые ещё не попали в CRM (WhatsApp / форма).
+        </div>
+      )}
+
+      <SalesKpiCards kpi={kpi} cabinetName={cabinetName} rnpLeads={rnpLeads} loading={loading || spendLoading} />
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <TopCreativesBlock items={topCreatives} />

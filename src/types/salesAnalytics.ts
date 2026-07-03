@@ -25,6 +25,8 @@ export type SalesAnalyticsLead = {
   serviceId: string | null;
   amount: number | null;
   createdAt: string;
+  /** Строка из Meta (РНП), ещё не в CRM — только просмотр */
+  isSynthetic?: boolean;
 };
 
 export type SalesLeadFilters = {

@@ -58,10 +58,16 @@ export function filterSalesLeads(rows: SalesAnalyticsLead[], filters: SalesLeadF
   });
 }
 
-export function computeSalesKpi(rows: SalesAnalyticsLead[], spend: number): SalesKpi {
-  const totalLeads = rows.length;
-  const qualifiedYes = rows.filter((r) => r.isQualified === true).length;
-  const paid = rows.filter((r) => r.paymentStatus === "paid");
+export function computeSalesKpi(
+  rows: SalesAnalyticsLead[],
+  spend: number,
+  rnpLeads?: number,
+): SalesKpi {
+  const realRows = rows.filter((r) => !r.isSynthetic);
+  const crmLeads = realRows.length;
+  const totalLeads = rnpLeads != null ? Math.max(crmLeads, rnpLeads) : rows.length;
+  const qualifiedYes = realRows.filter((r) => r.isQualified === true).length;
+  const paid = realRows.filter((r) => r.paymentStatus === "paid");
   const paidClients = paid.length;
   const revenue = paid.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
@@ -134,4 +140,41 @@ export function monthBounds(monthKey: string): { since: string; until: string } 
 export function filterByCabinet(rows: SalesAnalyticsLead[], cabinetId: string | null): SalesAnalyticsLead[] {
   if (!cabinetId) return rows;
   return rows.filter((r) => !r.cabinetId || r.cabinetId === cabinetId);
+}
+
+export function inSalesMonth(iso: string, since: string, until: string): boolean {
+  const day = iso.slice(0, 10);
+  return day >= since && day <= until;
+}
+
+/** Добавляет строки-заглушки для лидов Meta из РНП, которых нет в CRM */
+export function appendMetaGapRows(
+  rows: SalesAnalyticsLead[],
+  rnpLeads: number,
+  cabinetId: string,
+  monthKey: string,
+): SalesAnalyticsLead[] {
+  const crmCount = rows.filter((r) => !r.isSynthetic).length;
+  const gap = Math.max(0, rnpLeads - crmCount);
+  if (gap === 0) return rows;
+  const baseDay = `${monthKey}-15T12:00:00.000Z`;
+  const synthetic: SalesAnalyticsLead[] = Array.from({ length: gap }, (_, i) => ({
+    id: `meta-gap-${cabinetId}-${monthKey}-${i}`,
+    projectId: rows[0]?.projectId ?? "",
+    leadId: `meta-gap-${cabinetId}-${monthKey}-${i}`,
+    cabinetId,
+    name: `Лид Meta (${i + 1})`,
+    phone: "—",
+    sourceLabel: "Meta Ads · РНП",
+    metaAdId: null,
+    utmContent: null,
+    channel: "meta",
+    isQualified: null,
+    paymentStatus: null,
+    serviceId: null,
+    amount: null,
+    createdAt: baseDay,
+    isSynthetic: true,
+  }));
+  return [...rows, ...synthetic];
 }

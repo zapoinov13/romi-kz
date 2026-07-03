@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -57,7 +58,13 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.leadId} className="border-b border-border/40 hover:bg-muted/20">
+            <tr
+              key={r.leadId}
+              className={cn(
+                "border-b border-border/40 hover:bg-muted/20",
+                r.isSynthetic && "bg-muted/30",
+              )}
+            >
               <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
                 {format(new Date(r.createdAt), "dd.MM.yyyy", { locale: ru })}
               </td>
@@ -67,6 +74,9 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                 {r.sourceLabel ?? "—"}
               </td>
               <td className="px-3 py-2">
+                {r.isSynthetic ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : (
                 <Select
                   value={r.isQualified === true ? "yes" : r.isQualified === false ? "no" : "unset"}
                   onValueChange={(v) => {
@@ -83,8 +93,12 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                     <SelectItem value="no">Нет</SelectItem>
                   </SelectContent>
                 </Select>
+                )}
               </td>
               <td className="px-3 py-2">
+                {r.isSynthetic ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : (
                 <Select
                   value={r.paymentStatus ?? "unset"}
                   onValueChange={(v) => {
@@ -101,8 +115,12 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                     <SelectItem value="unpaid">Не оплатил</SelectItem>
                   </SelectContent>
                 </Select>
+                )}
               </td>
               <td className="px-3 py-2">
+                {r.isSynthetic ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : (
                 <Select
                   value={r.serviceId ?? "unset"}
                   onValueChange={(v) => {
@@ -129,12 +147,17 @@ export function SalesLeadsTable({ rows, services, loading, onUpdate }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                )}
               </td>
               <td className="px-3 py-2">
+                {r.isSynthetic ? (
+                  <span className="text-xs text-muted-foreground">—</span>
+                ) : (
                 <AmountCell
                   value={r.amount}
                   onSave={(amount) => void onUpdate(r.leadId, { amount })}
                 />
+                )}
               </td>
             </tr>
           ))}
