@@ -69,7 +69,7 @@ export function useSalesServices() {
     if (patch.name != null) db.name = patch.name;
     if (patch.defaultPrice != null) db.default_price = patch.defaultPrice;
     if (patch.isActive != null) db.is_active = patch.isActive;
-    const { error } = await supabase.from("sales_service_catalog").update(db).eq("id", id);
+    const { error } = await supabase.from("sales_service_catalog").update(db as never).eq("id", id);
     if (error) throw new Error(error.message);
     setItems((prev) =>
       prev.map((s) =>

@@ -161,7 +161,7 @@ export function useSalesAnalyticsLeads(monthKey: string, cabinetId: string | nul
 
       const { data, error: err } = await supabase
         .from("sales_analytics_leads")
-        .upsert(dbPatch, { onConflict: "lead_id" })
+        .upsert(dbPatch as never, { onConflict: "lead_id" })
         .select("id")
         .single();
       if (err) throw new Error(err.message);
