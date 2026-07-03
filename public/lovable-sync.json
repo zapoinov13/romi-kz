@@ -1,7 +1,7 @@
 {
-  "git_sha": "20763e3",
-  "git_sha_full": "20763e3c5ed91d72cbc71abc8dbe35888e9b0b3b",
-  "updated_at": "2026-07-03T13:49:20+05:00",
-  "label": "feat: быстрый выбор периода в аналитике продаж",
+  "git_sha": "96e9588",
+  "git_sha_full": "96e95883f6998347656f7204a635fb87d1bc955f",
+  "updated_at": "2026-07-03T13:53:54+05:00",
+  "label": "fix: расходы Meta в USD, не тенге с символом $",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
