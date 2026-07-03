@@ -1,7 +1,7 @@
 {
-  "git_sha": "f5bcba6",
-  "git_sha_full": "f5bcba6ae734c179ca2c63fdcbdcce02872c7c96",
-  "updated_at": "2026-07-03T15:53:08+05:00",
-  "label": "fix: восстановить список проектов без колонки is_demo в БД",
+  "git_sha": "6bc4b64",
+  "git_sha_full": "6bc4b64c34a4e9bcd3bc0944da5c136a54c9ad21",
+  "updated_at": "2026-07-03T21:42:15+05:00",
+  "label": "fix: фильтрация данных по выбранному периоду (сегодня, вчера, неделя)",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
