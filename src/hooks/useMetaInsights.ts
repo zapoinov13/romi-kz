@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso } from "@/lib/periodRange";
+import { normalizeCdiRowsMetaMoney } from "@/lib/cdiCurrency";
 import { isManualOverrideActive, resolveCdiMetric } from "@/lib/cdiManualOverride";
 
 export interface DailyInsightRow {
@@ -246,7 +247,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
   // Это даёт ту же ROMI на Dashboard/Reports/Analytics/Metrics для одного периода.
   totals.romi = totals.spend > 0 ? ((totals.crmRevenue - totals.spend) / totals.spend) * 100 : 0;
   const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-  return { currency, totals, daily };
+  return { currency: "USD", totals, daily };
 }
 
 async function fetchInsights(
@@ -269,7 +270,8 @@ async function fetchInsights(
   if (projectId) q = q.eq("project_id", projectId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return aggregate((data ?? []) as CdiRow[]);
+  const normalized = await normalizeCdiRowsMetaMoney((data ?? []) as CdiRow[]);
+  return aggregate(normalized);
 }
 
 async function fetchInsightsMonth(

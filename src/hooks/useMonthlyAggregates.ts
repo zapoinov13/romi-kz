@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
+import { metaMoneyToUsd, loadUsdKztRates } from "@/lib/cdiCurrency";
 
 export type MonthAgg = {
   revenue: number; // USD, from paid agency clients (pay_date month)
@@ -31,9 +32,12 @@ export function useMonthlyAggregates(year: number) {
       .lt("date", end);
     if (active?.id) q = q.eq("project_id", active.id);
     const { data: cdi } = await q;
+    const dates = (cdi ?? []).map((r: { date: string }) => r.date);
+    const rates = await loadUsdKztRates(dates);
     (cdi ?? []).forEach((r: any) => {
       const m = new Date(r.date).getMonth();
-      next[m].spend += Number(r.spend ?? 0);
+      const raw = Number(r.spend ?? 0);
+      next[m].spend += metaMoneyToUsd(raw, r.currency, r.date, rates);
     });
 
     const { data: clients } = await supabase

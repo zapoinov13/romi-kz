@@ -7,6 +7,7 @@ import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { normalizeSource } from "@/lib/leadSource";
 import { isLeadDiagnosticEvent, isLeadPaid } from "@/lib/leadStageFlags";
 import { resolveCdiMetric } from "@/lib/cdiManualOverride";
+import { normalizeCdiRowsMetaMoney } from "@/lib/cdiCurrency";
 import {
   buildResolvedDailyRevenuePerCabinets,
   sumResolvedMetricsPerCabinets,
@@ -222,7 +223,7 @@ async function fetchMetaForRange(
 
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("cabinet_id, external_id, date, spend, impressions, clicks, leads, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue")
+    .select("cabinet_id, external_id, date, spend, impressions, clicks, leads, revenue, currency, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue")
     .in("external_id", ids)
     .gte("date", since)
     .lte("date", until);
@@ -232,11 +233,13 @@ async function fetchMetaForRange(
   const { data, error } = await q;
   if (error) throw new Error(error.message);
 
+  const rows = await normalizeCdiRowsMetaMoney(data ?? []);
+
   const dailyAgg = new Map<string, { spend: number; leads: number; revenue: number }>();
   let totSpend = 0, totImp = 0, totClicks = 0, totLeads = 0;
   let totSales = 0, totRevenue = 0, totDiag = 0, totDiagRev = 0;
 
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const spend = Number(row.spend) || 0;
     const impressions = Number(row.impressions) || 0;
     const clicks = Number(row.clicks) || 0;

@@ -8,6 +8,7 @@ import { isLeadPaid, isLeadVisit } from "@/lib/leadStageFlags";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "./useProjectsStore";
 import { useRealtimeTable } from "./useRealtimeTable";
+import { loadUsdKztRates, metaMoneyToUsd } from "@/lib/cdiCurrency";
 
 type ProviderKey = "meta" | "google" | "instagram_organic";
 
@@ -72,7 +73,7 @@ export function useDashboardData(
     void (async () => {
       const { data: rows, error: err } = await supabase
         .from("cabinet_daily_insights")
-        .select("provider, spend, leads, crm_sales, manual_sales, crm_revenue, manual_revenue")
+        .select("provider, date, spend, leads, currency, crm_sales, manual_sales, crm_revenue, manual_revenue")
         .eq("project_id", projectId)
         .gte("date", sinceYmd)
         .lte("date", untilYmd);
@@ -80,22 +81,34 @@ export function useDashboardData(
         if (!cancelled) setProviderAgg([]);
         return;
       }
+      const dates = (rows ?? []).map((r) => (r as { date: string }).date);
+      const rates = await loadUsdKztRates(dates);
       const acc = new Map<ProviderKey, ProviderAgg>();
       for (const r of rows ?? []) {
-        const provider = ((r as { provider?: string }).provider ?? "meta") as ProviderKey;
+        const row = r as {
+          provider?: string;
+          date: string;
+          spend?: number;
+          currency?: string | null;
+          leads?: number;
+          crm_sales?: number;
+          manual_sales?: number | null;
+          crm_revenue?: number;
+          manual_revenue?: number | null;
+        };
+        const provider = (row.provider ?? "meta") as ProviderKey;
         const cur = acc.get(provider) ?? {
           provider,
           label: PROVIDER_LABELS[provider] ?? provider,
           spend: 0, leads: 0, revenue: 0, sales: 0,
         };
-        cur.spend += Number((r as { spend?: number }).spend ?? 0);
-        cur.leads += Number((r as { leads?: number }).leads ?? 0);
-        // Override-семантика: ручные значения перезаписывают CRM (NULL = «не задано»).
-        const crmS = Number((r as { crm_sales?: number }).crm_sales ?? 0);
-        const manS = (r as { manual_sales?: number | null }).manual_sales;
+        cur.spend += metaMoneyToUsd(Number(row.spend ?? 0), row.currency, row.date, rates);
+        cur.leads += Number(row.leads ?? 0);
+        const crmS = Number(row.crm_sales ?? 0);
+        const manS = row.manual_sales;
         cur.sales += manS !== null && manS !== undefined ? Number(manS) || 0 : crmS;
-        const crmR = Number((r as { crm_revenue?: number }).crm_revenue ?? 0);
-        const manR = (r as { manual_revenue?: number | null }).manual_revenue;
+        const crmR = Number(row.crm_revenue ?? 0);
+        const manR = row.manual_revenue;
         cur.revenue += manR !== null && manR !== undefined ? Number(manR) || 0 : crmR;
         acc.set(provider, cur);
       }
