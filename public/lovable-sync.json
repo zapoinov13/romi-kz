@@ -1,7 +1,7 @@
 {
-  "git_sha": "0a69600",
-  "git_sha_full": "0a69600a39c605dd5f5bf948b217402a782c5c31",
-  "updated_at": "2026-07-03T15:03:52+05:00",
-  "label": "fix: порядок разделов в сайдбаре — маркетинг, продажи, аналитика",
+  "git_sha": "f50a71b",
+  "git_sha_full": "f50a71bbd4cd376c7ba8a54ce0a2ab246bd14a4b",
+  "updated_at": "2026-07-03T10:10:12Z",
+  "label": "Fixed security vulnerabilities",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
