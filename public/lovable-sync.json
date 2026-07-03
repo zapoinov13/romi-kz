@@ -1,7 +1,7 @@
 {
-  "git_sha": "96e9588",
-  "git_sha_full": "96e95883f6998347656f7204a635fb87d1bc955f",
-  "updated_at": "2026-07-03T13:53:54+05:00",
-  "label": "fix: расходы Meta в USD, не тенге с символом $",
+  "git_sha": "5cf3542",
+  "git_sha_full": "5cf3542e7d73b639d0df8e4d2508258bd354a710",
+  "updated_at": "2026-07-03T14:34:50+05:00",
+  "label": "feat: единая интеграция CRM, аналитики и справочников",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
