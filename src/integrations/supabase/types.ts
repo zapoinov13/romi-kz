@@ -2231,6 +2231,7 @@ export type Database = {
       content_factory_provider_keys: {
         Row: {
           api_key_encrypted: string
+          api_key_present: boolean | null
           balance_info: Json | null
           created_at: string
           created_by: string | null
@@ -2247,6 +2248,7 @@ export type Database = {
         }
         Insert: {
           api_key_encrypted: string
+          api_key_present?: boolean | null
           balance_info?: Json | null
           created_at?: string
           created_by?: string | null
@@ -2263,6 +2265,7 @@ export type Database = {
         }
         Update: {
           api_key_encrypted?: string
+          api_key_present?: boolean | null
           balance_info?: Json | null
           created_at?: string
           created_by?: string | null
@@ -2583,6 +2586,7 @@ export type Database = {
           media_count: number | null
           name: string | null
           page_access_token: string
+          page_access_token_present: boolean | null
           page_id: string
           page_name: string | null
           profile_picture_url: string | null
@@ -2602,6 +2606,7 @@ export type Database = {
           media_count?: number | null
           name?: string | null
           page_access_token: string
+          page_access_token_present?: boolean | null
           page_id: string
           page_name?: string | null
           profile_picture_url?: string | null
@@ -2621,6 +2626,7 @@ export type Database = {
           media_count?: number | null
           name?: string | null
           page_access_token?: string
+          page_access_token_present?: boolean | null
           page_id?: string
           page_name?: string | null
           profile_picture_url?: string | null
@@ -3602,6 +3608,7 @@ export type Database = {
       meta_tokens: {
         Row: {
           access_token: string
+          access_token_present: boolean | null
           created_at: string
           created_by: string | null
           fb_user_id: string | null
@@ -3615,6 +3622,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          access_token_present?: boolean | null
           created_at?: string
           created_by?: string | null
           fb_user_id?: string | null
@@ -3628,6 +3636,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          access_token_present?: boolean | null
           created_at?: string
           created_by?: string | null
           fb_user_id?: string | null
@@ -3877,6 +3886,7 @@ export type Database = {
         Row: {
           allowed_chat_ids: string[]
           bot_token: string
+          bot_token_present: boolean | null
           bot_username: string | null
           chat_id: string
           chat_title: string | null
@@ -3905,6 +3915,7 @@ export type Database = {
         Insert: {
           allowed_chat_ids?: string[]
           bot_token: string
+          bot_token_present?: boolean | null
           bot_username?: string | null
           chat_id: string
           chat_title?: string | null
@@ -3933,6 +3944,7 @@ export type Database = {
         Update: {
           allowed_chat_ids?: string[]
           bot_token?: string
+          bot_token_present?: boolean | null
           bot_username?: string | null
           chat_id?: string
           chat_title?: string | null
@@ -4105,6 +4117,7 @@ export type Database = {
       project_telegram_bots: {
         Row: {
           bot_token: string
+          bot_token_present: boolean | null
           bot_username: string | null
           chat_id: string
           chat_title: string | null
@@ -4120,6 +4133,7 @@ export type Database = {
         }
         Insert: {
           bot_token: string
+          bot_token_present?: boolean | null
           bot_username?: string | null
           chat_id: string
           chat_title?: string | null
@@ -4135,6 +4149,7 @@ export type Database = {
         }
         Update: {
           bot_token?: string
+          bot_token_present?: boolean | null
           bot_username?: string | null
           chat_id?: string
           chat_title?: string | null
