@@ -1,7 +1,7 @@
 {
-  "git_sha": "721c2b9",
-  "git_sha_full": "721c2b9ffbb21a8bfca869990e793437ab5a0c51",
-  "updated_at": "2026-07-03T08:19:15Z",
-  "label": "Переделал дизайн сайдбара",
+  "git_sha": "afa72df",
+  "git_sha_full": "afa72dfb9ab842a948247a7a9c804a3801586683",
+  "updated_at": "2026-07-03T08:30:53Z",
+  "label": "Привёл сайдбар в порядок",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
