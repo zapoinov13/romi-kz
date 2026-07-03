@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
+import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import type { SalesService } from "@/types/salesAnalytics";
 
 type Row = {
@@ -44,6 +45,7 @@ export function useSalesServices() {
   useEffect(() => {
     void load();
   }, [load]);
+  useRealtimeTable("sales_service_catalog", () => void load(), !!projectId);
 
   const add = useCallback(
     async (name: string, defaultPrice: number) => {

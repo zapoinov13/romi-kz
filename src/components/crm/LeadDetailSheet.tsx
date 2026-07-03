@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
@@ -6,9 +6,10 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Trash2, MessageSquare, ShoppingCart, ListChecks, User, History, EyeOff } from "lucide-react";
+import { Trash2, MessageSquare, ShoppingCart, ListChecks, User, History, EyeOff, MessageSquareLock } from "lucide-react";
 import type { ChatMessage, Lead, LeadStage, PaymentMethod, WhatsAppConfig } from "@/types/crm";
 import type { TeamMember } from "@/hooks/useTeamStore";
+import { supabase } from "@/integrations/supabase/client";
 import { LeadHeader } from "./lead/LeadHeader";
 import { LeadActionPanel } from "./lead/LeadActionPanel";
 import { LeadChatPanel } from "./lead/LeadChatPanel";
@@ -16,6 +17,7 @@ import { LeadDealTab } from "./lead/LeadDealTab";
 import { LeadTasksTab } from "./lead/LeadTasksTab";
 import { LeadProfileTab } from "./lead/LeadProfileTab";
 import { LeadLogTab } from "./lead/LeadLogTab";
+import { LeadCommentsTab, type InternalComment } from "./lead/LeadCommentsTab";
 
 interface Props {
   lead: Lead | null;
@@ -55,6 +57,38 @@ export function LeadDetailSheet({
 }: Props) {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState("deal");
+  const [comments, setComments] = useState<InternalComment[]>([]);
+
+  useEffect(() => {
+    if (!lead?.id || !open) {
+      setComments([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("communications")
+        .select("id, lead_id, content, created_by, created_at")
+        .eq("lead_id", lead.id)
+        .eq("type", "note")
+        .order("created_at", { ascending: true });
+      if (cancelled) return;
+      setComments(
+        (data ?? []).map((row) => {
+          const r = row as { id: string; lead_id: string; content: string | null; created_by: string | null; created_at: string };
+          return {
+            id: r.id,
+            leadId: r.lead_id,
+            text: r.content ?? "",
+            authorId: r.created_by,
+            authorName: members.find((m) => m.id === r.created_by)?.name ?? "Менеджер",
+            createdAt: r.created_at,
+          };
+        }),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [lead?.id, open, members]);
 
   if (!lead) return null;
 
@@ -118,9 +152,10 @@ export function LeadDetailSheet({
               </div>
 
               <Tabs value={tab} onValueChange={setTab} className="flex flex-col px-5 pt-3 pb-4">
-                <TabsList className={cn("grid w-full", isMobile ? "grid-cols-5" : "grid-cols-4")}>
+                <TabsList className={cn("grid w-full", isMobile ? "grid-cols-6" : "grid-cols-5")}>
                   <TabsTrigger value="deal" className="gap-1 px-1 text-[10px] sm:text-xs"><ShoppingCart className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Сделка</span></TabsTrigger>
                   <TabsTrigger value="tasks" className="gap-1 px-1 text-[10px] sm:text-xs"><ListChecks className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Задачи</span></TabsTrigger>
+                  <TabsTrigger value="comments" className="gap-1 px-1 text-[10px] sm:text-xs"><MessageSquareLock className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Коммент.</span></TabsTrigger>
                   <TabsTrigger value="profile" className="gap-1 px-1 text-[10px] sm:text-xs"><User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Профиль</span></TabsTrigger>
                   <TabsTrigger value="log" className="gap-1 px-1 text-[10px] sm:text-xs"><History className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Лог</span></TabsTrigger>
                   {isMobile && (
@@ -138,6 +173,14 @@ export function LeadDetailSheet({
                       onAdd={(title, due) => onAddTask(lead.id, title, due)}
                       onToggle={(tid) => onToggleTask(lead.id, tid)}
                       onRemove={(tid) => onRemoveTask(lead.id, tid)}
+                    />
+                  </TabsContent>
+                  <TabsContent value="comments" className="m-0 data-[state=inactive]:hidden">
+                    <LeadCommentsTab
+                      leadId={lead.id}
+                      comments={comments}
+                      members={members}
+                      onAdded={(c) => setComments((prev) => [...prev, c])}
                     />
                   </TabsContent>
                   <TabsContent value="profile" className="m-0 data-[state=inactive]:hidden">

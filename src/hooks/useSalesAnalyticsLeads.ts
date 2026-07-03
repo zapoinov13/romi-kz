@@ -24,7 +24,15 @@ type LeadRow = {
   cabinet_id: string | null;
   created_at: string;
   first_touch_at: string | null;
+  is_qualified: boolean | null;
+  paid: boolean | null;
+  amount: number | string | null;
+  service_id: string | null;
+  service: string | null;
+  stage_id: string | null;
 };
+
+type StageRow = { id: string; key: string };
 
 type OverlayRow = {
   id: string;
@@ -35,9 +43,34 @@ type OverlayRow = {
   amount: number | null;
 };
 
-function mergeLead(lead: LeadRow, overlay?: OverlayRow): SalesAnalyticsLead {
+function derivePaymentStatus(lead: LeadRow, stageKey: string | null): PaymentStatus | null {
+  if (lead.paid) return "paid";
+  if (stageKey === "rejected") return "unpaid";
+  return null;
+}
+
+function deriveQualified(lead: LeadRow, stageKey: string | null): boolean | null {
+  if (lead.is_qualified != null) return lead.is_qualified;
+  if (!stageKey) return null;
+  if (["in_progress", "invoice", "scheduled", "visit", "paid"].includes(stageKey)) return true;
+  if (["rejected", "no_answer"].includes(stageKey)) return false;
+  return null;
+}
+
+function mergeLead(
+  lead: LeadRow,
+  stageKey: string | null,
+  overlay?: OverlayRow,
+): SalesAnalyticsLead {
   const utm = lead.utm;
   const createdAt = lead.first_touch_at ?? lead.created_at;
+  const fromCrm = {
+    isQualified: deriveQualified(lead, stageKey),
+    paymentStatus: derivePaymentStatus(lead, stageKey),
+    serviceId: lead.service_id ?? null,
+    amount: lead.amount != null && Number(lead.amount) > 0 ? Number(lead.amount) : null,
+  };
+
   return {
     id: overlay?.id ?? lead.id,
     projectId: lead.project_id ?? "",
@@ -55,13 +88,14 @@ function mergeLead(lead: LeadRow, overlay?: OverlayRow): SalesAnalyticsLead {
     metaAdId: lead.meta_ad_id,
     utmContent: utm?.utm_content ?? utm?.content ?? null,
     channel: lead.channel,
-    isQualified: overlay?.is_qualified ?? null,
-    paymentStatus:
+    isQualified: fromCrm.isQualified ?? overlay?.is_qualified ?? null,
+    paymentStatus: fromCrm.paymentStatus ?? (
       overlay?.payment_status === "paid" || overlay?.payment_status === "unpaid"
         ? (overlay.payment_status as PaymentStatus)
-        : null,
-    serviceId: overlay?.service_id ?? null,
-    amount: overlay?.amount != null ? Number(overlay.amount) : null,
+        : null
+    ),
+    serviceId: fromCrm.serviceId ?? overlay?.service_id ?? null,
+    amount: fromCrm.amount ?? (overlay?.amount != null ? Number(overlay.amount) : null),
     createdAt,
   };
 }
@@ -82,23 +116,23 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     setLoading(true);
     setError(null);
 
-    // Как в CRM: project_id ИЛИ null (старые лиды без привязки)
     let leadsQuery = supabase
       .from("leads")
       .select(
-        "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at",
+        "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at, is_qualified, paid, amount, service_id, service, stage_id",
       )
       .eq("is_personal", false)
       .or(`project_id.eq.${projectId},project_id.is.null`)
       .order("created_at", { ascending: false })
       .limit(3000);
 
-    const [leadsRes, overlayRes] = await Promise.all([
+    const [leadsRes, overlayRes, stagesRes] = await Promise.all([
       leadsQuery,
       supabase
         .from("sales_analytics_leads")
         .select("id, lead_id, is_qualified, payment_status, service_id, amount")
         .eq("project_id", projectId),
+      supabase.from("pipeline_stages").select("id, key"),
     ]);
 
     if (leadsRes.error) {
@@ -106,6 +140,11 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
       setRows([]);
       setLoading(false);
       return;
+    }
+
+    const stageKeyById = new Map<string, string>();
+    for (const s of (stagesRes.data ?? []) as StageRow[]) {
+      stageKeyById.set(s.id, s.key);
     }
 
     const overlayByLead = new Map<string, OverlayRow>();
@@ -120,7 +159,9 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     }
 
     const merged = ((leadsRes.data ?? []) as LeadRow[])
-      .map((lead) => mergeLead(lead, overlayByLead.get(lead.id)))
+      .map((lead) =>
+        mergeLead(lead, stageKeyById.get(lead.stage_id ?? "") ?? null, overlayByLead.get(lead.id)),
+      )
       .filter((lead) => inDateRange(lead.createdAt, since, until))
       .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);
 
@@ -134,51 +175,7 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
 
   useRealtimeTable("leads", () => void load(), !!projectId);
   useRealtimeTable("sales_analytics_leads", () => void load(), !!projectId);
+  useRealtimeTable("sales_service_catalog", () => void load(), !!projectId);
 
-  const updateLead = useCallback(
-    async (
-      leadId: string,
-      patch: Partial<Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">>,
-    ) => {
-      if (leadId.startsWith("meta-gap-")) {
-        throw new Error("Это лид из Meta (РНП) — дождитесь синхронизации в CRM или создайте вручную");
-      }
-      const current = rows.find((r) => r.leadId === leadId);
-      if (!current || !projectId) throw new Error("Лид не найден");
-
-      const dbPatch: Record<string, unknown> = {
-        project_id: projectId,
-        lead_id: leadId,
-        cabinet_id: current.cabinetId,
-        name: current.name,
-        phone: current.phone,
-        source_label: current.sourceLabel,
-        meta_ad_id: current.metaAdId,
-        utm_content: current.utmContent,
-        channel: current.channel,
-        created_at: current.createdAt,
-        updated_at: new Date().toISOString(),
-      };
-      if ("isQualified" in patch) dbPatch.is_qualified = patch.isQualified;
-      if ("paymentStatus" in patch) dbPatch.payment_status = patch.paymentStatus;
-      if ("serviceId" in patch) dbPatch.service_id = patch.serviceId;
-      if ("amount" in patch) dbPatch.amount = patch.amount;
-
-      const { data, error: err } = await supabase
-        .from("sales_analytics_leads")
-        .upsert(dbPatch as never, { onConflict: "lead_id" })
-        .select("id")
-        .single();
-      if (err) throw new Error(err.message);
-
-      setRows((prev) =>
-        prev.map((r) =>
-          r.leadId === leadId ? { ...r, ...patch, id: (data?.id as string) ?? r.id } : r,
-        ),
-      );
-    },
-    [projectId, rows],
-  );
-
-  return { rows, loading, error, overlayMissing, refresh: load, updateLead };
+  return { rows, loading, error, overlayMissing, refresh: load };
 }

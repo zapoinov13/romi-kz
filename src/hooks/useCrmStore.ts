@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { fetchPendingAdvances, markAdvanceDone } from "@/integrations/clientConfig/client";
 import { markAutoMoved } from "@/lib/autoMoveTracker";
+import { findLeadIdByPhone } from "@/lib/leadPhone";
 import { useWhatsAppConfig } from "@/hooks/useWhatsAppConfig";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type {
@@ -56,10 +57,10 @@ export const DEFAULT_STAGES: LeadStage[] = [
   { id: "new", title: "Новая", color: "primary", icon: "zap" },
   { id: "no_answer", title: "Без ответа", color: "warning", icon: "bell" },
   { id: "in_progress", title: "В работе", color: "primary", icon: "message" },
-  { id: "invoice", title: "Счёт", color: "warning", icon: "card" },
-  { id: "scheduled", title: "Записан", color: "primary", icon: "calendar" },
-  { id: "visit", title: "Визит", color: "success", icon: "map" },
-  { id: "paid", title: "Оплачен", color: "success", icon: "check" },
+  { id: "scheduled", title: "Визит назначен", color: "primary", icon: "calendar" },
+  { id: "visit", title: "Визит совершен", color: "success", icon: "map" },
+  { id: "invoice", title: "Счёт отправлен", color: "warning", icon: "card" },
+  { id: "paid", title: "Счёт оплачен", color: "success", icon: "check" },
   { id: "rejected", title: "Отказ", color: "destructive", icon: "ban" },
 ];
 
@@ -81,6 +82,8 @@ type LeadRow = {
   meta_ad_id?: string | null; meta_adset_id?: string | null; meta_campaign_id?: string | null;
   is_personal?: boolean | null;
   project_id?: string | null;
+  is_qualified?: boolean | null;
+  service_id?: string | null;
 };
 
 type CommRow = {
@@ -111,7 +114,8 @@ type StageHistRow = {
 };
 
 
-function commToChat(r: CommRow): ChatMessage {
+function commToChat(r: CommRow): ChatMessage | null {
+  if (r.type === "note") return null;
   const isCall = r.type === "call";
   const fromMe = r.direction === "out";
   return {
@@ -167,6 +171,8 @@ function leadRowToFrontIndexed(
     metaAdsetId: r.meta_adset_id ?? undefined,
     metaCampaignId: r.meta_campaign_id ?? undefined,
     isPersonal: r.is_personal ?? false,
+    isQualified: r.is_qualified ?? undefined,
+    serviceId: r.service_id ?? undefined,
     service: r.service ?? undefined,
     city: r.city ?? undefined,
     age: r.age ?? undefined,
@@ -246,7 +252,9 @@ export function useCrmStore() {
       .order("order_index");
     const keyToId = new Map<string, string>();
     const idToKey = new Map<string, string>();
-    const list: LeadStage[] = (data ?? []).map((r: any) => {
+    const list: LeadStage[] = (data ?? [])
+      .filter((r: { is_hidden?: boolean }) => !r.is_hidden)
+      .map((r: { key: string; title: string; color: string; icon: string; id: string }) => {
       keyToId.set(r.key, r.id);
       idToKey.set(r.id, r.key);
       return { id: r.key, title: r.title, color: r.color, icon: r.icon as LeadStage["icon"] };
@@ -333,7 +341,7 @@ export function useCrmStore() {
       .slice()
       .reverse()
       .filter((c) => visibleIds.has(c.lead_id));
-    setChats(commsAsc.map(commToChat));
+    setChats(commsAsc.map(commToChat).filter((c): c is ChatMessage => c !== null));
   }, [stageIdMap.idToKey, projectId]);
 
   useEffect(() => { void refetchStages(); }, [refetchStages]);
@@ -378,10 +386,13 @@ export function useCrmStore() {
         void refetchLeads();
         return;
       }
-      setChats((prev) => {
-        if (prev.some((c) => c.id === row.id)) return prev;
-        return [...prev, commToChat(row)].sort((a, b) => a.at.localeCompare(b.at));
-      });
+      const chat = commToChat(row);
+      if (chat) {
+        setChats((prev) => {
+          if (prev.some((c) => c.id === row.id)) return prev;
+          return [...prev, chat].sort((a, b) => a.at.localeCompare(b.at));
+        });
+      }
       setLeads((prev) =>
         prev.map((l) =>
           l.id === row.lead_id ? { ...l, lastActivityAt: row.created_at } : l,
@@ -516,6 +527,24 @@ export function useCrmStore() {
     if (!pipelineId) return;
     const stageId = stageUuid(input.stageId) ?? stageUuid("new");
     if (!stageId) return;
+
+    const existingId = await findLeadIdByPhone(input.phone, projectId ?? null);
+    if (existingId) {
+      const dbPatch: TablesUpdate<"leads"> = {};
+      if (input.name) dbPatch.name = input.name;
+      if (input.email !== undefined) dbPatch.email = input.email ?? null;
+      if (input.source) dbPatch.source = input.source;
+      if (input.note !== undefined) dbPatch.note = input.note ?? null;
+      if (input.service !== undefined) dbPatch.service = input.service ?? null;
+      if (input.assigneeId !== undefined) dbPatch.assigned_to = input.assigneeId ?? null;
+      if (Object.keys(dbPatch).length > 0) {
+        await supabase.from("leads").update(dbPatch).eq("id", existingId);
+      }
+      toast.info("Клиент с этим номером уже есть — карточка обновлена");
+      void refetchLeads();
+      return leadsRef.current.find((l) => l.id === existingId);
+    }
+
     const lt = getLastTouch();
     const { data, error } = await supabase.from("leads").insert({
       pipeline_id: pipelineId,
@@ -579,7 +608,7 @@ export function useCrmStore() {
     };
     setLeads((prev) => (prev.some((l) => l.id === newLead.id) ? prev : [newLead, ...prev]));
     return newLead;
-  }, [pipelineId, stageUuid, user?.id, projectId]);
+  }, [pipelineId, stageUuid, user?.id, projectId, refetchLeads]);
 
   const updateLead = useCallback(async (id: string, patch: Partial<Lead>) => {
     const dbPatch: TablesUpdate<"leads"> = {};
@@ -598,6 +627,11 @@ export function useCrmStore() {
     if (patch.assigneeId !== undefined) dbPatch.assigned_to = patch.assigneeId ?? null;
     if (patch.pinned !== undefined) dbPatch.pinned = patch.pinned;
     if (patch.nextVisitAt !== undefined) dbPatch.next_visit_at = patch.nextVisitAt ?? null;
+    if (patch.isQualified !== undefined) (dbPatch as { is_qualified?: boolean | null }).is_qualified = patch.isQualified;
+    if (patch.serviceId !== undefined) (dbPatch as { service_id?: string | null }).service_id = patch.serviceId ?? null;
+    if (patch.paid !== undefined) dbPatch.paid = patch.paid;
+    if (patch.paidAt !== undefined) dbPatch.paid_at = patch.paidAt ?? null;
+    if (patch.paymentMethod !== undefined) dbPatch.payment_method = patch.paymentMethod ?? null;
     if (patch.stageId !== undefined) {
       const sid = stageUuid(patch.stageId);
       if (sid) dbPatch.stage_id = sid;
@@ -822,7 +856,7 @@ export function useCrmStore() {
 
   const setRejectReason = useCallback(async (
     leadId: string,
-    reason: import("@/types/crm").RejectReason,
+    reason: string,
     note?: string,
   ) => {
     const trimmed = note?.trim();

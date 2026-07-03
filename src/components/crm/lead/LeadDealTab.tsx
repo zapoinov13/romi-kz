@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Calendar, Megaphone, CreditCard, Wallet, ArrowRightCircle, Layers } from "lucide-react";
+import { Calendar, Megaphone, CreditCard, Wallet, ArrowRightCircle, Layers, BadgeCheck, Stethoscope } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useSalesServices } from "@/hooks/useSalesServices";
 import type { Lead, LeadStage, PaymentMethod } from "@/types/crm";
 
 const SOURCE_PRESETS: { id: string; label: string }[] = [
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export function LeadDealTab({ lead, stages, onUpdate, onChangeStage }: Props) {
+  const { activeServices } = useSalesServices();
   const sourceKey = (lead.source ?? "").toLowerCase();
   const activePreset = PRESET_IDS.has(sourceKey) ? sourceKey : null;
 
@@ -81,6 +83,27 @@ export function LeadDealTab({ lead, stages, onUpdate, onChangeStage }: Props) {
       )}
 
 
+      {/* Квалификация */}
+      <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <BadgeCheck className="h-3.5 w-3.5 text-primary" /> Квал
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">
+              {lead.isQualified === true ? "да" : lead.isQualified === false ? "нет" : "авто"}
+            </span>
+            <Switch
+              checked={lead.isQualified === true}
+              onCheckedChange={(v) => onUpdate({ isQualified: v })}
+            />
+          </div>
+        </div>
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          Синхронизируется с разделом «Аналитика продаж». Выключите и включите, чтобы зафиксировать «нет» / «да».
+        </p>
+      </div>
+
       {/* Сумма сделки */}
       <div className="rounded-xl border border-border/60 bg-card/40 p-3">
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -102,6 +125,38 @@ export function LeadDealTab({ lead, stages, onUpdate, onChangeStage }: Props) {
           <span className="text-xs text-muted-foreground">$</span>
         </div>
       </div>
+
+      {/* Тип услуги — справочник */}
+      {activeServices.length > 0 && (
+        <div className="rounded-xl border border-border/60 bg-card/40 p-3">
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Stethoscope className="h-3.5 w-3.5 text-primary" /> Тип услуги
+          </div>
+          <Select
+            value={lead.serviceId ?? "unset"}
+            onValueChange={(v) => {
+              if (v === "unset") {
+                onUpdate({ serviceId: null, service: undefined });
+                return;
+              }
+              const svc = activeServices.find((s) => s.id === v);
+              onUpdate({
+                serviceId: v,
+                service: svc?.name,
+                amount: svc && !lead.amount ? svc.defaultPrice : lead.amount,
+              });
+            }}
+          >
+            <SelectTrigger className="mt-2"><SelectValue placeholder="Выберите услугу" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unset">—</SelectItem>
+              {activeServices.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Источник и визит */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

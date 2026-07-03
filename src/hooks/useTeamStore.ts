@@ -44,9 +44,13 @@ export function useTeamStore() {
 
     const roleByUser = new Map<string, TeamRole>();
     (roles ?? []).forEach((r: { user_id: string; role: string }) => {
-      if (r.role === "admin" || r.role === "marketer" || r.role === "director") {
-        roleByUser.set(r.user_id, r.role as TeamRole);
-      }
+      const mapped =
+        r.role === "admin" || r.role === "marketer" || r.role === "director"
+          ? (r.role as TeamRole)
+          : r.role === "manager"
+            ? "marketer"
+            : null;
+      if (mapped) roleByUser.set(r.user_id, mapped);
     });
     const modsByUser = new Map<string, ModuleKey[]>();
     (modules ?? []).forEach((m: { user_id: string; module_key: string }) => {

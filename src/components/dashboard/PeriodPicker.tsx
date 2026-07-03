@@ -76,11 +76,13 @@ interface Props {
   range: ReportPeriodRange;
   onChange: (range: ReportPeriodRange) => void;
   className?: string;
-  /** Быстрые пресеты: сегодня, вчера, недели */
+  /** Быстрые пресеты над календарём в попапе */
   showPresets?: boolean;
+  /** Дублировать чипы под селектором периода (удобно на широких экранах) */
+  showPresetBar?: boolean;
 }
 
-export function PeriodPicker({ range, onChange, className, showPresets = false }: Props) {
+export function PeriodPicker({ range, onChange, className, showPresets = false, showPresetBar = false }: Props) {
   const [open, setOpen] = useState(false);
   const activePreset = useMemo(() => matchPeriodPreset(range), [range]);
 
@@ -126,46 +128,44 @@ export function PeriodPicker({ range, onChange, className, showPresets = false }
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
-            <div className="flex flex-col sm:flex-row">
-              {showPresets && (
-                <div className="flex flex-row gap-1 overflow-x-auto border-b border-border/60 p-2 sm:w-[148px] sm:flex-col sm:overflow-visible sm:border-b-0 sm:border-r">
-                  {PERIOD_PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        onChange(p.getRange());
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        "shrink-0 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                        activePreset === p.id
-                          ? "bg-primary font-medium text-primary-foreground"
-                          : "text-foreground hover:bg-secondary",
-                      )}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <Calendar
-                mode="range"
-                selected={calendarRange}
-                onSelect={(selected) => {
-                  if (selected?.from && selected?.to) {
-                    onChange({ from: selected.from, to: selected.to });
-                    setOpen(false);
-                  } else if (selected?.from) {
-                    onChange({ from: selected.from, to: selected.from });
-                  }
-                }}
-                defaultMonth={range.from}
-                numberOfMonths={1}
-                initialFocus
-                className="pointer-events-auto p-3"
-              />
-            </div>
+            {showPresets && (
+              <div className="flex max-w-[min(100vw-2rem,320px)] flex-wrap gap-1 border-b border-border/60 p-2">
+                {PERIOD_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(p.getRange());
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[11px] font-medium leading-tight transition-colors",
+                      activePreset === p.id
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border/60 bg-background text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground",
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Calendar
+              mode="range"
+              selected={calendarRange}
+              onSelect={(selected) => {
+                if (selected?.from && selected?.to) {
+                  onChange({ from: selected.from, to: selected.to });
+                  setOpen(false);
+                } else if (selected?.from) {
+                  onChange({ from: selected.from, to: selected.from });
+                }
+              }}
+              defaultMonth={range.from}
+              numberOfMonths={1}
+              initialFocus
+              className="pointer-events-auto p-3"
+            />
           </PopoverContent>
         </Popover>
 
@@ -179,7 +179,7 @@ export function PeriodPicker({ range, onChange, className, showPresets = false }
         </button>
       </div>
 
-      {showPresets && (
+      {showPresetBar && (
         <div className="flex flex-wrap gap-1.5">
           {PERIOD_PRESETS.map((p) => (
             <button

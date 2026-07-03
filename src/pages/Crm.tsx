@@ -27,6 +27,8 @@ import { CrmKpiBar } from "@/components/crm/CrmKpiBar";
 import { SlaAlerts } from "@/components/crm/SlaAlerts";
 import { CrmFilters, type CrmFilterState } from "@/components/crm/CrmFilters";
 import { RejectReasonDialog } from "@/components/crm/RejectReasonDialog";
+import { CrmNotificationsBell } from "@/components/crm/CrmNotificationsBell";
+import { useCrmNotifications } from "@/hooks/useCrmNotifications";
 import { PaymentAmountDialog } from "@/components/crm/PaymentAmountDialog";
 import { DiagnosticAmountDialog } from "@/components/crm/DiagnosticAmountDialog";
 const ManagersView = lazy(() => import("@/components/crm/ManagersView").then((m) => ({ default: m.ManagersView })));
@@ -71,6 +73,7 @@ const Crm = () => {
     removeTask,
   } = useCrmStore();
   const { members } = useTeamStore();
+  const { items: notifications, unread, dismiss, clearAll } = useCrmNotifications();
 
   const TABS: { id: Tab; label: string; icon: typeof Columns3 }[] = useMemo(
     () => [
@@ -213,6 +216,20 @@ const Crm = () => {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <CrmNotificationsBell
+              items={notifications}
+              unread={unread}
+              onDismiss={dismiss}
+              onClear={clearAll}
+              onOpenLead={(id) => {
+                setActiveLeadId(id);
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set("lead", id);
+                  return next;
+                });
+              }}
+            />
             {!whatsapp.connected && (
               <Button
                 onClick={() => setWaOpen(true)}

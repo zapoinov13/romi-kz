@@ -20,18 +20,17 @@ export type StageHistoryEntry = {
   at: string;
 };
 
-export type RejectReason =
-  | "expensive"
-  | "no_contact"
-  | "changed_mind"
-  | "competitor"
-  | "other";
+export type RejectReason = string;
 
-export const REJECT_REASONS: { id: RejectReason; label: string; emoji: string }[] = [
+/** Fallback-список, если БД ещё не загружена */
+export const REJECT_REASONS: { id: string; label: string; emoji: string }[] = [
   { id: "expensive", label: "Дорого", emoji: "💸" },
-  { id: "no_contact", label: "Не дозвонились", emoji: "📵" },
+  { id: "no_contact", label: "Не выходит на связь", emoji: "📵" },
   { id: "changed_mind", label: "Передумал", emoji: "🤔" },
-  { id: "competitor", label: "Ушёл к конкуренту", emoji: "🏃" },
+  { id: "competitor", label: "Купил у конкурентов", emoji: "🏃" },
+  { id: "no_need", label: "Нет потребности", emoji: "🚫" },
+  { id: "no_budget", label: "Нет бюджета", emoji: "💳" },
+  { id: "wrong_lead", label: "Ошибочная заявка", emoji: "⚠️" },
   { id: "other", label: "Другое", emoji: "❓" },
 ];
 
@@ -100,6 +99,8 @@ export type Lead = {
   metaCampaignId?: string | null;
   // Card extensions (rich lead workspace)
   service?: string;
+  /** FK на справочник услуг (единый источник) */
+  serviceId?: string | null;
   city?: string;
   age?: number;
   nextVisitAt?: string;
@@ -116,6 +117,8 @@ export type Lead = {
    * не отображаются ни в воронке, ни в чатах, ни в базе, ни в аналитике.
    */
   isPersonal?: boolean;
+  /** Квалификация лида — синхронизируется с «Аналитикой продаж» */
+  isQualified?: boolean | null;
 };
 
 export type ChatMessage = {

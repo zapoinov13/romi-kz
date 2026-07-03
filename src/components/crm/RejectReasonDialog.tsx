@@ -3,14 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { REJECT_REASONS, type RejectReason } from "@/types/crm";
+import { REJECT_REASONS } from "@/types/crm";
+import { useLossReasons } from "@/hooks/useLossReasons";
 import { cn } from "@/lib/utils";
 import { XCircle } from "lucide-react";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onPick: (r: RejectReason, note?: string) => void;
+  onPick: (reasonKey: string, note?: string) => void;
   /** Если true — закрыть без выбора причины нельзя (нет «Отмена», Esc/overlay блокируются). По умолчанию true. */
   required?: boolean;
   /** Если true — показываем «Отмена», вызывающую onCancel. Игнорируется когда required=true и onCancel не задан. */
@@ -21,7 +22,12 @@ interface Props {
 const NOTE_LIMIT = 280;
 
 export function RejectReasonDialog({ open, onOpenChange, onPick, required = true, allowCancel = false, onCancel }: Props) {
-  const [reason, setReason] = useState<RejectReason | null>(null);
+  const { items: dbReasons, loading } = useLossReasons();
+  const reasons = dbReasons.length
+    ? dbReasons.map((r) => ({ id: r.key, label: r.label, emoji: r.emoji || "•" }))
+    : REJECT_REASONS;
+
+  const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
   useEffect(() => {
@@ -38,7 +44,6 @@ export function RejectReasonDialog({ open, onOpenChange, onPick, required = true
 
   const handleOpenChange = (v: boolean) => {
     if (!v && required && !showCancel) {
-      // блокируем закрытие без выбора причины
       return;
     }
     if (!v && showCancel) {
@@ -69,27 +74,31 @@ export function RejectReasonDialog({ open, onOpenChange, onPick, required = true
         </p>
 
         <Label className="mt-1 block text-[11px] uppercase tracking-wide text-muted-foreground">Причина</Label>
-        <div className="mt-1 grid grid-cols-1 gap-1.5">
-          {REJECT_REASONS.map((r) => {
-            const active = reason === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setReason(r.id)}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition-colors",
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border/60 bg-card/60 hover:border-primary/40 hover:bg-primary/5",
-                )}
-              >
-                <span className="text-lg">{r.emoji}</span>
-                {r.label}
-              </button>
-            );
-          })}
-        </div>
+        {loading ? (
+          <div className="py-6 text-center text-xs text-muted-foreground">Загрузка…</div>
+        ) : (
+          <div className="mt-1 grid grid-cols-1 gap-1.5">
+            {reasons.map((r) => {
+              const active = reason === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setReason(r.id)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/60 bg-card/60 hover:border-primary/40 hover:bg-primary/5",
+                  )}
+                >
+                  <span className="text-lg">{r.emoji}</span>
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="mt-3">
           <Label className="mb-1 block text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -119,12 +128,12 @@ export function RejectReasonDialog({ open, onOpenChange, onPick, required = true
               <Button variant="outline" onClick={() => { onCancel?.(); onOpenChange(false); }}>Отмена</Button>
             )}
             <Button
-            onClick={submit}
-            disabled={!canSubmit}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            <XCircle className="h-4 w-4" /> Закрыть как отказ
-          </Button>
+              onClick={submit}
+              disabled={!canSubmit}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <XCircle className="h-4 w-4" /> Закрыть как отказ
+            </Button>
           </div>
         </div>
       </DialogContent>

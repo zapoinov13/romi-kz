@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Edit2, Facebook, Megaphone, MessageCircle, Plus, Search, Sparkles, Trash2, Users2, Settings as SettingsIcon } from "lucide-react";
+import { Edit2, Facebook, Megaphone, MessageCircle, Plus, Search, Sparkles, Trash2, Users2, Settings as SettingsIcon, GitBranch, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,9 @@ import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
 import { GreenApiSettings } from "@/components/settings/GreenApiSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
 import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
+import { PipelinesSettings } from "@/components/settings/PipelinesSettings";
+import { LossReasonsSettings } from "@/components/settings/LossReasonsSettings";
+import { ServicesSettings } from "@/components/settings/ServicesSettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
@@ -38,7 +41,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "whatsapp", "telegram-ads", "openai"] as const;
+const SETTINGS_TABS = ["team", "meta", "whatsapp", "telegram-ads", "openai", "crm", "services"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
@@ -110,6 +113,8 @@ export default function Settings() {
           <TabsTrigger value="whatsapp" className="gap-2"><MessageCircle className="h-3.5 w-3.5" /> Green API</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
           <TabsTrigger value="openai" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> OpenAI</TabsTrigger>
+          <TabsTrigger value="crm" className="gap-2"><GitBranch className="h-3.5 w-3.5" /> CRM</TabsTrigger>
+          <TabsTrigger value="services" className="gap-2"><ListChecks className="h-3.5 w-3.5" /> Услуги</TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-0">
@@ -219,6 +224,15 @@ export default function Settings() {
 
         <TabsContent value="openai" className="mt-0">
           <OpenAiKeySettings />
+        </TabsContent>
+
+        <TabsContent value="crm" className="mt-0 space-y-4">
+          <PipelinesSettings />
+          <LossReasonsSettings />
+        </TabsContent>
+
+        <TabsContent value="services" className="mt-0">
+          <ServicesSettings />
         </TabsContent>
 
       </Tabs>

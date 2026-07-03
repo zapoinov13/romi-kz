@@ -76,8 +76,8 @@ export function currentMonthRange(): ReportPeriodRange {
 export const PERIOD_PRESETS: PeriodPreset[] = [
   { id: "today", label: "Сегодня", getRange: todayRange },
   { id: "yesterday", label: "Вчера", getRange: yesterdayRange },
-  { id: "thisWeek", label: "Эта неделя", getRange: thisWeekRange },
-  { id: "lastWeek", label: "Прошлая неделя", getRange: lastWeekRange },
+  { id: "thisWeek", label: "Эта неделя (пн → сегодня)", getRange: thisWeekRange },
+  { id: "lastWeek", label: "Прошлая неделя (пн–вс)", getRange: lastWeekRange },
   { id: "month", label: "Месяц", getRange: currentMonthRange },
 ];
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Download, ListChecks, Loader2, Settings2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BarChart3, Download, ListChecks, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -8,7 +9,6 @@ import { SalesKpiCards } from "@/components/sales-analytics/SalesKpiCards";
 import { SalesFiltersBar } from "@/components/sales-analytics/SalesFiltersBar";
 import { SalesLeadsTable } from "@/components/sales-analytics/SalesLeadsTable";
 import { SalesMonthNav } from "@/components/sales-analytics/SalesMonthNav";
-import { ServicesCatalogDialog } from "@/components/sales-analytics/ServicesCatalogDialog";
 import { TopCreativesBlock } from "@/components/sales-analytics/TopCreativesBlock";
 import { TopServicesBlock } from "@/components/sales-analytics/TopServicesBlock";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ export default function SalesAnalytics() {
   const [cabinetId, setCabinetId] = useState("");
   const [range, setRange] = useState<ReportPeriodRange>(() => currentMonthRange());
   const [filters, setFilters] = useState<SalesLeadFilters>(EMPTY_SALES_FILTERS);
-  const [servicesOpen, setServicesOpen] = useState(false);
 
   useEffect(() => {
     if (!cabinetId && cabinets.length > 0) {
@@ -55,7 +54,7 @@ export default function SalesAnalytics() {
     setFilters(EMPTY_SALES_FILTERS);
   }, [since, until, cabinetId]);
 
-  const { rows, loading, error, overlayMissing, updateLead } = useSalesAnalyticsLeads(
+  const { rows, loading, error, overlayMissing } = useSalesAnalyticsLeads(
     range,
     cabinetId || null,
   );
@@ -66,10 +65,6 @@ export default function SalesAnalytics() {
   const {
     items: services,
     activeServices,
-    loading: servicesLoading,
-    add: addService,
-    update: updateService,
-    remove: removeService,
   } = useSalesServices();
 
   const displayableRows = useMemo(() => filterDisplayableSalesLeads(rows), [rows]);
@@ -95,17 +90,6 @@ export default function SalesAnalytics() {
     toast.success("Экспорт готов");
   };
 
-  const handleUpdate = async (
-    leadId: string,
-    patch: Parameters<typeof updateLead>[1],
-  ) => {
-    try {
-      await updateLead(leadId, patch);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось сохранить");
-    }
-  };
-
   return (
     <PageContainer>
       <PageHeader
@@ -115,9 +99,8 @@ export default function SalesAnalytics() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SalesMonthNav range={range} onChange={setRange} />
-            <Button variant="outline" className="gap-2" onClick={() => setServicesOpen(true)}>
-              <Settings2 className="h-4 w-4" />
-              Услуги
+            <Button variant="outline" className="gap-2" asChild>
+              <Link to="/settings?tab=services">Справочник услуг</Link>
             </Button>
             <Button variant="outline" className="gap-2" onClick={handleExport}>
               <Download className="h-4 w-4" />
@@ -156,12 +139,17 @@ export default function SalesAnalytics() {
 
       {overlayMissing && (
         <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          <strong>Редактирование недоступно</strong> — таблица{" "}
-          <code className="text-xs">sales_analytics_leads</code> не создана. Выполните SQL в Supabase:{" "}
-          <code className="text-xs">scripts/lovable-sales-analytics.sql</code>
-          , затем обновите страницу. Лиды из CRM показываются, но квал / оплата / услуга не сохранятся.
+          Таблица синхронизации <code className="text-xs">sales_analytics_leads</code> не найдена.
+          Выполните миграции в Supabase (<code className="text-xs">scripts/lovable-sales-analytics.sql</code>).
+          Данные читаются из CRM; отчёты по квалу и оплате могут быть неполными.
         </div>
       )}
+
+      <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+        Квал, оплата, услуга и сумма редактируются только в{" "}
+        <Link to="/crm" className="font-medium text-primary underline-offset-2 hover:underline">CRM</Link>.
+        Изменения здесь отображаются автоматически.
+      </div>
 
       {rnpLeads > crmLeadCount && (
         <div className="mb-4 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
@@ -197,18 +185,8 @@ export default function SalesAnalytics() {
         rows={filtered}
         services={activeServices}
         loading={loading}
-        editable={!overlayMissing}
-        onUpdate={handleUpdate}
-      />
-
-      <ServicesCatalogDialog
-        open={servicesOpen}
-        onOpenChange={setServicesOpen}
-        items={services}
-        loading={servicesLoading}
-        onAdd={addService}
-        onUpdate={updateService}
-        onRemove={removeService}
+        editable={false}
+        onUpdate={async () => {}}
       />
     </PageContainer>
   );

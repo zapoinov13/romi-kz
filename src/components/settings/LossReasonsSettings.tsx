@@ -49,6 +49,17 @@ export function LossReasonsSettings() {
     else { setItems((prev) => prev.filter((i) => i.id !== id)); toast.success("Удалено"); }
   };
 
+  const rename = async (id: string, label: string, emoji: string | null) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const { error } = await supabase.from("loss_reasons").update({ label: trimmed, emoji: emoji?.trim() || null }).eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, label: trimmed, emoji: emoji?.trim() || null } : i)));
+      toast.success("Сохранено");
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-border/60 bg-card/40 p-5">
       <div className="mb-4 flex items-center gap-3">
@@ -87,11 +98,27 @@ export function LossReasonsSettings() {
           {items.map((r) => (
             <div key={r.id} className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
               <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-              <span className="text-lg leading-none">{r.emoji ?? "•"}</span>
-              <div className="min-w-0">
-                <div className="truncate text-sm">{r.label}</div>
-                <div className="truncate text-[10px] text-muted-foreground">{r.key}</div>
-              </div>
+              <Input
+                defaultValue={r.emoji ?? ""}
+                key={`${r.id}-emoji`}
+                className="h-8 w-14 text-center text-lg"
+                maxLength={4}
+                disabled={!isAdmin}
+                onBlur={(e) => {
+                  const emoji = e.target.value.trim();
+                  if (emoji !== (r.emoji ?? "")) void rename(r.id, r.label, emoji || null);
+                }}
+              />
+              <Input
+                defaultValue={r.label}
+                key={`${r.id}-label`}
+                className="h-8"
+                disabled={!isAdmin}
+                onBlur={(e) => {
+                  const label = e.target.value.trim();
+                  if (label && label !== r.label) void rename(r.id, label, r.emoji);
+                }}
+              />
               <button
                 onClick={() => remove(r.id)}
                 disabled={!isAdmin}

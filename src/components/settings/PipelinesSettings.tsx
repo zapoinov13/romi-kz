@@ -5,11 +5,27 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { GitBranch, Plus, Stethoscope, Trash2 } from "lucide-react";
+import { GitBranch, Plus, Stethoscope, Trash2, ChevronUp, ChevronDown, EyeOff } from "lucide-react";
 
 type Pipeline = { id: string; name: string; is_default: boolean };
-type Stage = { id: string; pipeline_id: string; key: string; title: string; order_index: number; is_terminal: boolean; is_diagnostic: boolean; color: string };
+type Stage = {
+  id: string;
+  pipeline_id: string;
+  key: string;
+  title: string;
+  order_index: number;
+  is_terminal: boolean;
+  is_diagnostic: boolean;
+  is_hidden: boolean;
+  color: string;
+};
+
+const COLORS = ["primary", "warning", "success", "destructive", "muted"] as const;
 
 export function PipelinesSettings() {
   const { isAdmin } = useAuth();
@@ -23,7 +39,10 @@ export function PipelinesSettings() {
     setLoading(true);
     const [{ data: ps, error: pe }, { data: ss, error: se }] = await Promise.all([
       supabase.from("pipelines").select("id, name, is_default").order("created_at"),
-      supabase.from("pipeline_stages").select("id, pipeline_id, key, title, order_index, is_terminal, is_diagnostic, color").order("order_index"),
+      supabase
+        .from("pipeline_stages")
+        .select("id, pipeline_id, key, title, order_index, is_terminal, is_diagnostic, is_hidden, color")
+        .order("order_index"),
     ]);
     if (pe) toast.error(pe.message);
     if (se) toast.error(se.message);
@@ -40,7 +59,9 @@ export function PipelinesSettings() {
   useRealtimeTable("pipelines", () => void load());
   useRealtimeTable("pipeline_stages", () => void load());
 
-  const currentStages = stages.filter((s) => s.pipeline_id === activePipeline);
+  const currentStages = stages
+    .filter((s) => s.pipeline_id === activePipeline)
+    .sort((a, b) => a.order_index - b.order_index);
 
   const addStage = async () => {
     if (!activePipeline) return;
@@ -62,13 +83,32 @@ export function PipelinesSettings() {
     else { setStages((prev) => prev.filter((s) => s.id !== id)); toast.success("Стадия удалена"); }
   };
 
-  const toggleDiagnostic = async (id: string, value: boolean) => {
-    const { error } = await supabase.from("pipeline_stages").update({ is_diagnostic: value } as never).eq("id", id);
+  const updateStage = async (id: string, patch: Partial<Stage>) => {
+    const { error } = await supabase.from("pipeline_stages").update(patch as never).eq("id", id);
     if (error) toast.error(error.message);
     else {
-      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, is_diagnostic: value } : s)));
-      toast.success(value ? "Этап помечен как диагностика" : "Снят флаг диагностики");
+      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+      if (patch.title) toast.success("Название сохранено");
     }
+  };
+
+  const toggleDiagnostic = async (id: string, value: boolean) => {
+    await updateStage(id, { is_diagnostic: value });
+    toast.success(value ? "Этап помечен как диагностика" : "Снят флаг диагностики");
+  };
+
+  const moveStage = async (id: string, dir: -1 | 1) => {
+    const idx = currentStages.findIndex((s) => s.id === id);
+    const swapIdx = idx + dir;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= currentStages.length) return;
+    const a = currentStages[idx];
+    const b = currentStages[swapIdx];
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from("pipeline_stages").update({ order_index: b.order_index } as never).eq("id", a.id),
+      supabase.from("pipeline_stages").update({ order_index: a.order_index } as never).eq("id", b.id),
+    ]);
+    if (e1 || e2) toast.error(e1?.message ?? e2?.message ?? "Не удалось изменить порядок");
+    else await load();
   };
 
   return (
@@ -79,7 +119,7 @@ export function PipelinesSettings() {
         </span>
         <div>
           <h2 className="text-base font-semibold">Воронки и стадии</h2>
-          <p className="text-xs text-muted-foreground">Стадии Kanban для CRM</p>
+          <p className="text-xs text-muted-foreground">Этапы Kanban: название, цвет, порядок, скрытие</p>
         </div>
       </div>
 
@@ -127,13 +167,40 @@ export function PipelinesSettings() {
 
           <div className="space-y-1.5">
             {currentStages.map((s, idx) => (
-              <div key={s.id} className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+              <div key={s.id} className="grid grid-cols-1 gap-2 rounded-lg border border-border/60 bg-background/40 px-3 py-2 sm:grid-cols-[auto_1fr_auto_auto_auto_auto] sm:items-center">
                 <span className="grid h-7 w-7 place-items-center rounded-md bg-secondary text-xs font-bold text-muted-foreground">
                   {idx + 1}
                 </span>
-                <div className="min-w-0">
-                  <div className="truncate text-sm">{s.title}</div>
+                <div className="min-w-0 space-y-1.5">
+                  <Input
+                    defaultValue={s.title}
+                    key={`${s.id}-${s.title}`}
+                    onBlur={(e) => {
+                      const title = e.target.value.trim();
+                      if (title && title !== s.title) void updateStage(s.id, { title });
+                    }}
+                    disabled={!isAdmin}
+                    className="h-8 text-sm"
+                  />
                   <div className="truncate text-[10px] text-muted-foreground">{s.key}</div>
+                </div>
+                <Select
+                  value={s.color}
+                  onValueChange={(v) => void updateStage(s.id, { color: v })}
+                  disabled={!isAdmin}
+                >
+                  <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COLORS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-1" title="Скрыть на Kanban">
+                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Switch
+                    checked={s.is_hidden}
+                    onCheckedChange={(v) => void updateStage(s.id, { is_hidden: v })}
+                    disabled={!isAdmin}
+                  />
                 </div>
                 <button
                   onClick={() => toggleDiagnostic(s.id, !s.is_diagnostic)}
@@ -146,21 +213,36 @@ export function PipelinesSettings() {
                   title="Считать переход в эту стадию диагностикой"
                 >
                   <Stethoscope className="h-3 w-3" />
-                  Диагностика
+                  Диагн.
                 </button>
-                <div className="min-w-[80px] text-right">
-                  {s.is_terminal && (
-                    <Badge variant="outline" className="text-[9px]">терминальная</Badge>
-                  )}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => void moveStage(s.id, -1)}
+                    disabled={!isAdmin || idx === 0}
+                    className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-40"
+                    aria-label="Выше"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void moveStage(s.id, 1)}
+                    disabled={!isAdmin || idx === currentStages.length - 1}
+                    className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-40"
+                    aria-label="Ниже"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => removeStage(s.id)}
+                    disabled={!isAdmin || s.is_terminal}
+                    className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                    aria-label="Удалить"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeStage(s.id)}
-                  disabled={!isAdmin || s.is_terminal}
-                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-                  aria-label="Удалить"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
             ))}
           </div>

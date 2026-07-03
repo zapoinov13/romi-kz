@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Lead, LeadStage, RejectReason } from "@/types/crm";
+import type { Lead, LeadStage } from "@/types/crm";
 import { REJECT_REASONS } from "@/types/crm";
 import type { TeamMember } from "@/hooks/useTeamStore";
 import { isLeadPaid } from "@/lib/leadStageFlags";
@@ -73,7 +73,7 @@ export interface CrmKpi {
   scheduledPct: number;
   paidPct: number;
   rejectedPct: number;
-  topRejectReason?: { id: RejectReason; label: string; count: number };
+  topRejectReason?: { id: string; label: string; count: number };
 }
 
 export interface SlaAlertBucket {
@@ -100,7 +100,7 @@ export interface ManagerStats {
 }
 
 export interface RejectStat {
-  id: RejectReason;
+  id: string;
   label: string;
   emoji: string;
   count: number;
@@ -147,7 +147,7 @@ export function useCrmAnalytics(
           );
 
     // Reject reasons
-    const reasonCounts = new Map<RejectReason, { count: number; lost: number }>();
+    const reasonCounts = new Map<string, { count: number; lost: number }>();
     for (const l of leads) {
       if (!isRejectedLead(l)) continue;
       const r = l.rejectReason ?? "other";
@@ -156,17 +156,18 @@ export function useCrmAnalytics(
       cur.lost += l.amount || 0;
       reasonCounts.set(r, cur);
     }
-    const rejectStats: RejectStat[] = REJECT_REASONS.map((r) => {
-      const c = reasonCounts.get(r.id) ?? { count: 0, lost: 0 };
-      return {
-        id: r.id,
-        label: r.label,
-        emoji: r.emoji,
-        count: c.count,
-        lostRevenue: c.lost,
-        share: rejected ? (c.count / rejected) * 100 : 0,
-      };
-    })
+    const rejectStats: RejectStat[] = Array.from(reasonCounts.entries())
+      .map(([id, c]) => {
+        const preset = REJECT_REASONS.find((r) => r.id === id);
+        return {
+          id,
+          label: preset?.label ?? id,
+          emoji: preset?.emoji ?? "•",
+          count: c.count,
+          lostRevenue: c.lost,
+          share: rejected ? (c.count / rejected) * 100 : 0,
+        };
+      })
       .filter((r) => r.count > 0)
       .sort((a, b) => b.count - a.count);
 

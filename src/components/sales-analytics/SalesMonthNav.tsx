@@ -14,6 +14,7 @@ export function SalesMonthNav({ range, onChange, className }: Props) {
       range={range}
       onChange={onChange}
       showPresets
+      showPresetBar
       className={cn("items-end", className)}
     />
   );

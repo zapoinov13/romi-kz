@@ -2,7 +2,8 @@ import {
   CheckCircle2, FileText, MessageSquare, Phone, PhoneCall, Plus, ShoppingCart, Wallet, XCircle, Calendar, ArrowRight, Bell, RotateCcw, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { REJECT_REASONS, type Lead, type LeadEvent, type LeadEventType, type LeadStage, type RejectReason } from "@/types/crm";
+import { REJECT_REASONS, type Lead, type LeadEvent, type LeadEventType, type LeadStage } from "@/types/crm";
+import { useLossReasons } from "@/hooks/useLossReasons";
 
 interface Props {
   lead: Lead;
@@ -27,6 +28,7 @@ const META: Record<LeadEventType, { icon: typeof Phone; label: string; tone: str
 };
 
 export function LeadLogTab({ lead, stages }: Props) {
+  const { items: lossReasons } = useLossReasons();
   const events: LeadEvent[] = lead.events ?? [];
   const sorted = [...events].sort((a, b) => b.at.localeCompare(a.at));
   const stageTitle = (id?: string) => stages.find((s) => s.id === id)?.title ?? id ?? "—";
@@ -70,11 +72,12 @@ export function LeadLogTab({ lead, stages }: Props) {
         } else if (ev.type === "visit_scheduled" && ev.payload?.at) {
           detail = <span className="text-xs text-muted-foreground">{new Date(String(ev.payload.at)).toLocaleString("ru-RU")}</span>;
         } else if (ev.type === "rejected" && ev.payload) {
-          const r = REJECT_REASONS.find((x) => x.id === (ev.payload?.reason as RejectReason));
+          const reasonKey = String(ev.payload?.reason ?? "");
+          const r = lossReasons.find((x) => x.key === reasonKey) ?? REJECT_REASONS.find((x) => x.id === reasonKey);
           const noteText = ev.payload?.note ? String(ev.payload.note) : "";
           detail = (
             <span className="text-xs text-muted-foreground">
-              {r ? <><span className="mr-1">{r.emoji}</span><span className="font-semibold text-foreground">{r.label}</span></> : "Причина не указана"}
+              {r ? <><span className="mr-1">{"emoji" in r ? r.emoji : "•"}</span><span className="font-semibold text-foreground">{"label" in r ? r.label : reasonKey}</span></> : reasonKey || "Причина не указана"}
               {noteText && <span className="text-muted-foreground"> — «{noteText}»</span>}
             </span>
           );

@@ -128,7 +128,7 @@ const Ads = () => {
                 </>
               )}
             </span>
-            <PeriodPicker range={period} onChange={setPeriod} />
+            <PeriodPicker range={period} onChange={setPeriod} showPresets />
           </div>
         </div>
 
