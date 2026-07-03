@@ -61,7 +61,41 @@ type WaBindRow = {
 const SettingsConnection = () => {
   const navigate = useNavigate();
   const { active } = useProjectsStore();
-  const projectId = active?.id ?? null;
+  return (
+    <main className="min-h-screen">
+      <section className="container max-w-3xl pt-10 pb-16 sm:pt-14 animate-fade-in-up">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/settings?tab=whatsapp")}
+          className="-ml-2 mb-4 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          К настройкам
+        </Button>
+        <GreenApiConnectionPanel
+          projectId={active?.id ?? null}
+          projectName={active?.name ?? null}
+        />
+        <div className="mt-10">
+          <SiteIntakeCard />
+        </div>
+      </section>
+    </main>
+  );
+};
+
+export type GreenApiConnectionPanelProps = {
+  projectId: string | null;
+  projectName: string | null;
+  embedded?: boolean;
+};
+
+export function GreenApiConnectionPanel({
+  projectId,
+  projectName,
+  embedded = false,
+}: GreenApiConnectionPanelProps) {
   const [waRow, setWaRow] = useState<WaBindRow | null>(null);
   const [waLoading, setWaLoading] = useState(true);
   const [webhookOk, setWebhookOk] = useState(false);
@@ -209,29 +243,22 @@ const SettingsConnection = () => {
   };
 
   return (
-    <main className="min-h-screen">
-      <section className="container max-w-3xl pt-10 pb-16 sm:pt-14 animate-fade-in-up">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/settings")}
-          className="-ml-2 mb-4 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          К настройкам
-        </Button>
-
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Подключение WhatsApp</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Green API → CRM MarkVision. Проект: <strong>{active?.name ?? "не выбран"}</strong>.
-          В Green API Console webhook всегда указывает на CRM URL ниже; n8n-бот подключается отдельным полем.
-        </p>
+    <>
+        {!embedded && (
+          <>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Подключение WhatsApp</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Green API → CRM. Проект: <strong>{projectName ?? "не выбран"}</strong>.
+              Webhook CRM прописывается автоматически после привязки инстанса.
+            </p>
+          </>
+        )}
 
         <WhatsAppSetupChecklist steps={setupSteps} loading={waLoading} />
 
         <WhatsappProjectBindCard
           projectId={projectId}
-          projectName={active?.name ?? null}
+          projectName={projectName}
           row={waRow}
           loading={waLoading}
           onRefresh={refreshWaRow}
@@ -392,9 +419,7 @@ const SettingsConnection = () => {
             </Tabs>
           </CardContent>
         </Card>
-      </section>
 
-      {/* QR Dialog */}
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -422,7 +447,7 @@ const SettingsConnection = () => {
           </Button>
         </DialogContent>
       </Dialog>
-    </main>
+    </>
   );
 };
 

@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Rocket, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { LIVE_APP_URL } from "@/lib/deployConfig";
 
 const DISMISS_KEY = "mv_publish_banner_dismissed";
@@ -55,9 +53,14 @@ export function PublishUpdateBanner() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button asChild size="sm" variant="default" className="h-8 rounded-lg">
-            <Link to="/settings?tab=publish">Как обновить</Link>
-          </Button>
+            <a
+              href="https://github.com/zapoinov13/romi-kz/actions"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 sm:text-sm"
+            >
+              GitHub Actions
+            </a>
           <button
             type="button"
             aria-label="Скрыть"

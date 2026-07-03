@@ -30,7 +30,6 @@ const SalesAnalytics = lazy(routeImports.SalesAnalytics);
 const Finance = lazy(routeImports.Finance);
 const Reports = lazy(routeImports.Reports);
 const Settings = lazy(routeImports.Settings);
-const SettingsConnection = lazy(routeImports.SettingsConnection);
 const ResetPassword = lazy(routeImports.ResetPassword);
 const ProjectStrategy = lazy(routeImports.ProjectStrategy);
 const ClientDashboard = lazy(routeImports.ClientDashboard);
@@ -85,7 +84,7 @@ const App = () => (
               <Route path="/finance" element={<RequireAuth><AppLayout><Finance /></AppLayout></RequireAuth>} />
               <Route path="/reports" element={<RequireAuth><AppLayout><Reports /></AppLayout></RequireAuth>} />
               <Route path="/settings" element={<RequireAuth><AppLayout><Settings /></AppLayout></RequireAuth>} />
-              <Route path="/settings/connection" element={<RequireAuth><AppLayout><SettingsConnection /></AppLayout></RequireAuth>} />
+              <Route path="/settings/connection" element={<Navigate to="/settings?tab=whatsapp" replace />} />
               <Route path="/create/step-1" element={<RequireAuth><AppLayout><CreateStep1 /></AppLayout></RequireAuth>} />
               <Route path="/create/step-2" element={<RequireAuth><AppLayout><CreateStep2 /></AppLayout></RequireAuth>} />
               <Route path="/create/step-3" element={<RequireAuth><AppLayout><CreateStep3 /></AppLayout></RequireAuth>} />

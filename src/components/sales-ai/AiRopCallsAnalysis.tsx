@@ -143,7 +143,7 @@ export function AiRopCallsAnalysis({ leads, projectId }: Props) {
                 ))}
               </div>
               <button
-                onClick={() => navigate("/settings/connection")}
+                onClick={() => navigate("/settings?tab=whatsapp")}
                 className="mt-3 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
                 Подключить телефонию

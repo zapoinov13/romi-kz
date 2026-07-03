@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Edit2, Facebook, Megaphone, Plus, Search, Trash2, Users2 } from "lucide-react";
+import { Edit2, Facebook, Megaphone, MessageCircle, Plus, Search, Sparkles, Trash2, Users2, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
-import { LovablePublishGuide } from "@/components/settings/LovablePublishGuide";
+import { GreenApiSettings } from "@/components/settings/GreenApiSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
 import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Settings as SettingsIcon, Sparkles, Rocket } from "lucide-react";
 import {
   ROLE_LABELS,
   TeamMember,
@@ -39,7 +38,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: "bg-muted text-muted-foreground border-border",
 };
 
-const SETTINGS_TABS = ["team", "meta", "publish", "telegram-ads", "openai"] as const;
+const SETTINGS_TABS = ["team", "meta", "whatsapp", "telegram-ads", "openai"] as const;
 
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
@@ -101,14 +100,14 @@ export default function Settings() {
       <PageHeader
         icon={SettingsIcon}
         title="Настройки"
-        description="Команда, воронки, телефония и личный профиль"
+        description="Команда, Meta, Green API WhatsApp и интеграции"
       />
 
       <Tabs defaultValue={defaultTab} key={defaultTab} className="mt-6 w-full">
         <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-card/40 p-1">
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
-          <TabsTrigger value="publish" className="gap-2"><Rocket className="h-3.5 w-3.5" /> Деплой</TabsTrigger>
+          <TabsTrigger value="whatsapp" className="gap-2"><MessageCircle className="h-3.5 w-3.5" /> Green API</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
           <TabsTrigger value="openai" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> OpenAI</TabsTrigger>
         </TabsList>
@@ -210,8 +209,8 @@ export default function Settings() {
           <MetaConnectSettings />
         </TabsContent>
 
-        <TabsContent value="publish" className="mt-0">
-          <LovablePublishGuide />
+        <TabsContent value="whatsapp" className="mt-0">
+          <GreenApiSettings />
         </TabsContent>
 
         <TabsContent value="telegram-ads" className="mt-0">
