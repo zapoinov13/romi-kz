@@ -188,6 +188,7 @@ const Analytics = () => {
   // своей формуле (adsLeads + orphanByCreatedAt), из-за чего на одинаковом
   // периоде показывалось разное число лидов (например 107 на Dashboard и 115 здесь).
   const adsLeads = reportTotals?.adsLeads ?? 0;
+  const adsMessages = reportTotals?.adsMessages ?? 0;
   const leadCount = reportTotals?.totalLeads ?? 0;
   const diagnosticsCount = reportTotals?.visits ?? 0;
   const salesCount = reportTotals?.sales ?? 0;
@@ -414,8 +415,8 @@ const Analytics = () => {
       {/* KPI grid */}
       <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-4">
         <KpiCard icon={DollarSign} label="Расход" value={spend > 0 ? fmtMoney(spend) : "—"} sub="за период" delta={pctDelta(spend, prevSpend)} />
-        <KpiCard icon={Users} label="Лиды" value={fmtNumber(leadCount)} sub={adsLeads ? `${adsLeads} из рекламы` : `${filteredLeads.length} в CRM`} delta={pctDelta(leadCount, prevTotalLeads)} />
-        <KpiCard icon={Target} label="CPL" value={cpl > 0 ? fmtMoney(cpl) : "—"} sub="стоимость лида" emphasized />
+        <KpiCard icon={Users} label="Заявки" value={fmtNumber(leadCount)} sub={adsLeads || adsMessages ? `${adsLeads} форм · ${adsMessages} сообщ.` : `${filteredLeads.length} в CRM`} delta={pctDelta(leadCount, prevTotalLeads)} />
+        <KpiCard icon={Target} label="CPL" value={cpl > 0 ? fmtMoney(cpl) : "—"} sub="на все конверсии Meta" emphasized />
         <KpiCard icon={ShoppingBag} label="Продажи" value={fmtNumber(salesCount)} sub={salesCount > 0 ? fmtPct(conversion) + " конверсия" : "нет продаж"} delta={pctDelta(salesCount, prevSales)} />
         <KpiCard icon={TrendingUp} label="Выручка" value={revenue > 0 ? fmtMoney(revenue) : "—"} sub={salesCount > 0 ? `${salesCount} продаж` : "нет данных"} delta={pctDelta(revenue, prevRevenue)} />
         <KpiCard icon={GitBranch} label="ROMI" value={romi !== null ? <span className={romi >= 0 ? "text-success" : "text-destructive"}>{romi >= 0 ? "+" : ""}{Math.round(romi)}%</span> : "—"} sub={spend > 0 ? "возврат инвестиций" : "нет расходов"} emphasized />

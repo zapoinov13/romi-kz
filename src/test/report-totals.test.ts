@@ -259,6 +259,17 @@ describe("computeTotals — Таблица показателей (CRM + manual 
     expect(totals.totalLeads).toBe(12);
     expect(totals.cpl).toBeCloseTo(200_000 / 12, 1);
   });
+
+  it("totalLeads включает формы + сообщения Meta", () => {
+    const crm = aggregateCrm([], range, "all");
+    const meta = { ...emptyMeta, leads: 4, messages: 6, spend: 100_000 };
+    const totals = computeTotals(meta, crm, resolvedMetricsFromCrmAggregate(crm));
+
+    expect(totals.adsLeads).toBe(4);
+    expect(totals.adsMessages).toBe(6);
+    expect(totals.totalLeads).toBe(10);
+    expect(totals.cpl).toBe(10_000);
+  });
 });
 
 describe("aggregateCrm — orphan детектирование", () => {

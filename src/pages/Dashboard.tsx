@@ -238,18 +238,24 @@ const Dashboard = () => {
       <SectionTitle accent="bg-primary">Окупаемость и стоимость результата</SectionTitle>
       {totals && <UnitEconomicsCard totals={totals} />}
 
-      <div className="mt-12 grid grid-cols-2 gap-3 text-[11px] text-muted-foreground sm:grid-cols-4">
+      <div className="mt-12 grid grid-cols-2 gap-3 text-[11px] text-muted-foreground sm:grid-cols-3 lg:grid-cols-6">
         <div>
           Заявок всего: <span className="font-semibold text-foreground">{fmtNum(totals?.totalLeads ?? 0)}</span>
+        </div>
+        <div>
+          Формы: <span className="font-semibold text-foreground">{fmtNum(totals?.adsLeads ?? 0)}</span>
+        </div>
+        <div>
+          Сообщения: <span className="font-semibold text-foreground">{fmtNum(totals?.adsMessages ?? 0)}</span>
         </div>
         <div>
           Кликов: <span className="font-semibold text-foreground">{fmtNum(totals?.clicks ?? 0)}</span>
         </div>
         <div>
-          Клики из показов: <span className="font-semibold text-foreground">{totals && totals.ctr > 0 ? `${totals.ctr.toFixed(2)}%` : "—"}</span>
+          CTR: <span className="font-semibold text-foreground">{totals && totals.ctr > 0 ? `${totals.ctr.toFixed(2)}%` : "—"}</span>
         </div>
         <div>
-          Стоимость заявки: <span className="font-semibold text-foreground">{totals && totals.cpl > 0 ? fmtTenge(totals.cpl) : "—"}</span>
+          CPL: <span className="font-semibold text-foreground">{totals && totals.cpl > 0 ? fmtTenge(totals.cpl) : "—"}</span>
         </div>
       </div>
     </PageContainer>

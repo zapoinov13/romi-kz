@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { usePersonalCabinets } from "@/hooks/useCabinetsStore";
 import { useMetaInsightsRange } from "@/hooks/useMetaInsights";
 import { resolveCabinetActId } from "@/lib/cabinetResolve";
+import { metaConversionsTotal } from "@/lib/metaAdsMetrics";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 
 export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | null) {
@@ -15,7 +16,10 @@ export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | n
 
   return {
     spend: data?.totals.spend ?? 0,
-    rnpLeads: data?.totals.leads ?? 0,
+    rnpLeads: metaConversionsTotal({
+      leads: data?.totals.leads ?? 0,
+      messages: data?.totals.messages ?? 0,
+    }),
     currency: data?.currency ?? "USD",
     cabinetName: cabinet?.name ?? null,
     actId,

@@ -54,14 +54,19 @@ export default function SalesAnalytics() {
     setFilters(EMPTY_SALES_FILTERS);
   }, [since, until, cabinetId]);
 
-  const { rows, loading, error, overlayMissing } = useSalesAnalyticsLeads(
+  const { rows, loading: leadsLoading, error: leadsError, overlayMissing } = useSalesAnalyticsLeads(
     range,
     cabinetId || null,
   );
-  const { spend, rnpLeads, cabinetName, loading: spendLoading } = useSalesRnpSpend(
-    range,
-    cabinetId || null,
-  );
+  const {
+    spend,
+    rnpLeads,
+    cabinetName,
+    loading: spendLoading,
+    error: spendError,
+  } = useSalesRnpSpend(range, cabinetId || null);
+  const loading = leadsLoading || spendLoading;
+  const error = leadsError ?? spendError;
   const {
     items: services,
     activeServices,

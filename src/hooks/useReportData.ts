@@ -27,6 +27,8 @@ export interface ReportTotals {
   impressions: number;
   clicks: number;
   adsLeads: number;
+  /** Начатые переписки Meta (отдельно от лид-форм). */
+  adsMessages: number;
   crmLeads: number;
   totalLeads: number;
   visits: number;
@@ -85,7 +87,7 @@ export interface ReportData {
 }
 
 const EMPTY_TOTALS: ReportTotals = {
-  spend: 0, impressions: 0, clicks: 0, adsLeads: 0, crmLeads: 0,
+  spend: 0, impressions: 0, clicks: 0, adsLeads: 0, adsMessages: 0, crmLeads: 0,
   totalLeads: 0, visits: 0, sales: 0, revenue: 0,
   cpl: 0, cpv: 0, cac: 0, ctr: 0, romi: 0, aov: 0,
   newFollowers: 0,
@@ -203,15 +205,15 @@ async function fetchMetaForRange(
   range: ReportPeriodRange,
   projectId?: string | null,
 ): Promise<{
-  spend: number; impressions: number; clicks: number; leads: number;
+  spend: number; impressions: number; clicks: number; leads: number; messages: number;
   cabinetSales: number; cabinetRevenue: number; cabinetDiagnostics: number;
   cabinetDiagnosticRevenue: number;
   cdiFactRows: CdiFactRow[];
-  daily: { date: string; spend: number; leads: number; revenue: number }[];
+  daily: { date: string; spend: number; leads: number; messages: number; revenue: number }[];
 }> {
   if (externalIds.length === 0) {
     return {
-      spend: 0, impressions: 0, clicks: 0, leads: 0,
+      spend: 0, impressions: 0, clicks: 0, leads: 0, messages: 0,
       cabinetSales: 0, cabinetRevenue: 0, cabinetDiagnostics: 0, cabinetDiagnosticRevenue: 0,
       cdiFactRows: [],
       daily: [],
@@ -223,7 +225,7 @@ async function fetchMetaForRange(
 
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("cabinet_id, external_id, date, spend, impressions, clicks, leads, revenue, currency, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue")
+    .select("cabinet_id, external_id, date, spend, impressions, clicks, leads, messages, revenue, currency, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue")
     .in("external_id", ids)
     .gte("date", since)
     .lte("date", until);
@@ -235,8 +237,8 @@ async function fetchMetaForRange(
 
   const rows = await normalizeCdiRowsMetaMoney(data ?? []);
 
-  const dailyAgg = new Map<string, { spend: number; leads: number; revenue: number }>();
-  let totSpend = 0, totImp = 0, totClicks = 0, totLeads = 0;
+  const dailyAgg = new Map<string, { spend: number; leads: number; messages: number; revenue: number }>();
+  let totSpend = 0, totImp = 0, totClicks = 0, totLeads = 0, totMessages = 0;
   let totSales = 0, totRevenue = 0, totDiag = 0, totDiagRev = 0;
 
   for (const row of rows) {
@@ -244,6 +246,7 @@ async function fetchMetaForRange(
     const impressions = Number(row.impressions) || 0;
     const clicks = Number(row.clicks) || 0;
     const leads = Number(row.leads) || 0;
+    const messages = Number((row as { messages?: number }).messages) || 0;
     // Override-семантика: manual_* перезаписывает crm_* (а не суммируется).
     // Раньше складывали → задвоение, когда оба источника содержат одну и ту же продажу.
     const crmSales = Number(row.crm_sales) || 0;
@@ -257,11 +260,13 @@ async function fetchMetaForRange(
       (row as { manual_diagnostic_revenue?: number | null }).manual_diagnostic_revenue,
       crmDiagRev,
     );
-    totSpend += spend; totImp += impressions; totClicks += clicks; totLeads += leads;
+    totSpend += spend; totImp += impressions; totClicks += clicks;
+    totLeads += leads; totMessages += messages;
     totSales += sales; totRevenue += revenue; totDiag += diag; totDiagRev += diagRev;
-    const cur = dailyAgg.get(row.date) ?? { spend: 0, leads: 0, revenue: 0 };
+    const cur = dailyAgg.get(row.date) ?? { spend: 0, leads: 0, messages: 0, revenue: 0 };
     cur.spend += spend;
     cur.leads += leads;
+    cur.messages += messages;
     cur.revenue += revenue + diagRev;
     dailyAgg.set(row.date, cur);
   }
@@ -281,6 +286,7 @@ async function fetchMetaForRange(
     impressions: totImp,
     clicks: totClicks,
     leads: totLeads,
+    messages: totMessages,
     cabinetSales: totSales,
     cabinetRevenue: totRevenue,
     cabinetDiagnostics: totDiag,
@@ -376,19 +382,18 @@ export function aggregateCrm(
 }
 
 export function computeTotals(
-  meta: { spend: number; impressions: number; clicks: number; leads: number },
+  meta: { spend: number; impressions: number; clicks: number; leads: number; messages?: number },
   crm: {
     leads: LeadLite[];
     orphanLeads: LeadLite[];
   },
   resolved: ResolvedPeriodMetrics,
 ): ReportTotals {
-  // Единый источник правды = Таблица показателей:
-  // live CRM по дням (crmDailyMetrics) + ручные manual_* из CDI.
-  // CDI здесь только для рекламных метрик (расход/клики/показы/Meta-лиды).
   const orphanLeadsCount = crm.orphanLeads.length;
-
-  const totalLeads = meta.leads + orphanLeadsCount;
+  const adsMessages = meta.messages ?? 0;
+  const adsFormLeads = meta.leads;
+  const metaConversions = adsFormLeads + adsMessages;
+  const totalLeads = metaConversions + orphanLeadsCount;
   const cpl = totalLeads > 0 ? meta.spend / totalLeads : 0;
 
   const visits = resolved.diagnostics;
@@ -403,7 +408,8 @@ export function computeTotals(
     spend: meta.spend,
     impressions: meta.impressions,
     clicks: meta.clicks,
-    adsLeads: meta.leads,
+    adsLeads: adsFormLeads,
+    adsMessages,
     crmLeads: crm.leads.length,
     totalLeads,
     visits,

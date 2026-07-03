@@ -20,6 +20,12 @@ import type { AdCabinet } from "@/types/ads";
 import { useMetaInsightsRange } from "@/hooks/useMetaInsights";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso, eachDayInRange, isoDateLocal } from "@/lib/periodRange";
+import {
+  metaConversionsTotal,
+  metaCostPerMessage,
+  metaCpc,
+  metaCplForms,
+} from "@/lib/metaAdsMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { manualValueForSave } from "@/lib/cdiManualOverride";
 import {
@@ -122,7 +128,9 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
       if (err) throw err;
       const r = (resp?.results ?? [])[0];
       if (r?.ok) {
-        toast.success(`Загружено: ${r.days} дн., ${r.leads} лидов, расход ${Math.round(r.spend)}`);
+        toast.success(
+          `Загружено: ${r.days} дн. · клики ${r.clicks ?? 0} · формы ${r.leads ?? 0} · сообщ. ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
+        );
         refresh();
         onSynced?.();
       } else {
@@ -158,7 +166,30 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
     });
   }, [period.from, period.to]);
 
-  const cpl = totals && totals.leads > 0 ? totals.spend / totals.leads : 0;
+  const cplForms = metaCplForms({
+    spend: totals?.spend ?? 0,
+    clicks: totals?.clicks ?? 0,
+    leads: totals?.leads ?? 0,
+    messages: totals?.messages ?? 0,
+  });
+  const cpc = metaCpc({
+    spend: totals?.spend ?? 0,
+    clicks: totals?.clicks ?? 0,
+    leads: totals?.leads ?? 0,
+    messages: totals?.messages ?? 0,
+  });
+  const costPerMessage = metaCostPerMessage({
+    spend: totals?.spend ?? 0,
+    clicks: totals?.clicks ?? 0,
+    leads: totals?.leads ?? 0,
+    messages: totals?.messages ?? 0,
+  });
+  const conversionsTotal = metaConversionsTotal({
+    spend: totals?.spend ?? 0,
+    clicks: totals?.clicks ?? 0,
+    leads: totals?.leads ?? 0,
+    messages: totals?.messages ?? 0,
+  });
 
   const upsertManual = async (
     isoDate: string,
@@ -324,28 +355,48 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
         <button
           type="button"
           onClick={onToggle}
-          className="grid w-full grid-cols-4 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 lg:w-auto lg:border-0 lg:bg-transparent lg:p-0 lg:gap-5"
+          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:w-auto lg:grid-cols-5 lg:border-0 lg:bg-transparent lg:p-0 lg:gap-4"
         >
           <Metric
             label="Расход"
             value={formatMoney(totals?.spend ?? 0, currency)}
           />
           <Metric
-            label="Лиды"
-            value={
-              <span>
-                <span className="text-primary">{formatNumber(totals?.leads ?? 0)}</span>{" "}
-                <span className="text-[10px] font-normal text-muted-foreground">
-                  {cpl > 0 ? formatMoney(cpl, currency) : ""}
-                </span>
-              </span>
-            }
-          />
-          <Metric
             label="Клики"
             value={
               <span className="text-violet-400">
                 {formatNumber(totals?.clicks ?? 0)}
+                {cpc > 0 ? (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                    {formatMoney(cpc, currency)}
+                  </span>
+                ) : null}
+              </span>
+            }
+          />
+          <Metric
+            label="Сообщ."
+            value={
+              <span className="text-sky-500">
+                {formatNumber(totals?.messages ?? 0)}
+                {costPerMessage > 0 ? (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                    {formatMoney(costPerMessage, currency)}
+                  </span>
+                ) : null}
+              </span>
+            }
+          />
+          <Metric
+            label="Лиды"
+            value={
+              <span className="text-success">
+                {formatNumber(totals?.leads ?? 0)}
+                {cplForms > 0 ? (
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                    {formatMoney(cplForms, currency)}
+                  </span>
+                ) : null}
               </span>
             }
           />
@@ -480,7 +531,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
               {
                 label: "Расходы",
@@ -488,24 +539,33 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 color: "text-foreground",
               },
               {
-                label: "Показы",
-                value: formatNumber(totals?.impressions ?? 0),
-                color: "text-blue-400",
-              },
-              {
                 label: "Клики",
                 value: formatNumber(totals?.clicks ?? 0),
                 color: "text-violet-400",
+                sub: cpc > 0 ? `CPC ${formatMoney(cpc, currency)}` : undefined,
               },
               {
-                label: "Лиды",
+                label: "Сообщения",
+                value: formatNumber(totals?.messages ?? 0),
+                color: "text-sky-500",
+                sub: costPerMessage > 0 ? `${formatMoney(costPerMessage, currency)} / сообщ.` : undefined,
+              },
+              {
+                label: "Лиды (формы)",
                 value: formatNumber(totals?.leads ?? 0),
                 color: "text-success",
+                sub: cplForms > 0 ? `CPL ${formatMoney(cplForms, currency)}` : undefined,
               },
               {
-                label: "CPL",
-                value: cpl > 0 ? formatMoney(cpl, currency) : `— ${CURRENCY_SYMBOLS[currency] ?? currency}`,
-                color: "text-amber-400",
+                label: "Конверсии",
+                value: formatNumber(conversionsTotal),
+                color: "text-primary",
+                sub: "лиды + сообщения",
+              },
+              {
+                label: "Показы",
+                value: formatNumber(totals?.impressions ?? 0),
+                color: "text-blue-400",
               },
             ].map((m) => (
               <div
@@ -518,28 +578,29 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 <div className={cn("mt-1 text-lg font-semibold", m.color)}>
                   {m.value}
                 </div>
+                {m.sub ? (
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">{m.sub}</div>
+                ) : null}
               </div>
             ))}
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border/60">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="w-full min-w-[640px] text-sm">
 
               <thead className="bg-background/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
                   <th className="px-4 py-3 text-right font-medium">Расходы</th>
-                  <th className="px-4 py-3 text-right font-medium">Показы</th>
                   <th className="px-4 py-3 text-right font-medium">Клики</th>
+                  <th className="px-4 py-3 text-right font-medium">Сообщ.</th>
                   <th className="px-4 py-3 text-right font-medium">Лиды</th>
-                  <th className="px-4 py-3 text-right font-medium">CPL</th>
+                  <th className="px-4 py-3 text-right font-medium">Показы</th>
                 </tr>
               </thead>
               <tbody>
                 {periodDays.map((d) => {
                   const row = dailyByDate.get(d.iso);
-                  const dayCpl =
-                    row && row.leads > 0 ? row.spend / row.leads : 0;
                   return (
                     <tr
                       key={d.key}
@@ -556,15 +617,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                       </td>
                       <td
                         className={cn(
-                          "px-4 py-3 text-right",
-                          !row?.impressions && "text-muted-foreground",
-                        )}
-                      >
-                        {row?.impressions ? formatNumber(row.impressions) : "—"}
-                      </td>
-                      <td
-                        className={cn(
-                          "px-4 py-3 text-right",
+                          "px-4 py-3 text-right text-violet-400",
                           !row?.clicks && "text-muted-foreground",
                         )}
                       >
@@ -572,7 +625,15 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                       </td>
                       <td
                         className={cn(
-                          "px-4 py-3 text-right",
+                          "px-4 py-3 text-right text-sky-500",
+                          !row?.messages && "text-muted-foreground",
+                        )}
+                      >
+                        {row?.messages ? formatNumber(row.messages) : "—"}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-4 py-3 text-right text-success",
                           !row?.leads && "text-muted-foreground",
                         )}
                       >
@@ -581,10 +642,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                       <td
                         className={cn(
                           "px-4 py-3 text-right",
-                          !dayCpl && "text-muted-foreground",
+                          !row?.impressions && "text-muted-foreground",
                         )}
                       >
-                        {dayCpl > 0 ? formatMoney(dayCpl, currency) : "—"}
+                        {row?.impressions ? formatNumber(row.impressions) : "—"}
                       </td>
                     </tr>
                   );

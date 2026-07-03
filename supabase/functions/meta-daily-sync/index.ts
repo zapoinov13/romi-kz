@@ -17,8 +17,7 @@ const LEAD_ACTIONS = [
   "offsite_conversion.fb_pixel_lead",
   "onsite_web_lead",
 ];
-// "Начатые переписки" — отдельное событие, считаем как лид и СУММИРУЕМ с лидами выше.
-// Только то событие, что Meta UI показывает в графе "Начало переписки".
+// "Начатые переписки" — отдельная метрика (WhatsApp / Messenger), НЕ лиды-формы.
 const MESSAGING_ACTIONS = [
   "onsite_conversion.messaging_conversation_started_7d",
 ];
@@ -352,7 +351,7 @@ Deno.serve(async (req) => {
         const rawRows = (iJson.data ?? []) as Array<Record<string, unknown>>;
 
         const rows: Array<Record<string, unknown>> = [];
-        let totalSpend = 0, totalLeads = 0, totalClicks = 0, totalRevenue = 0;
+        let totalSpend = 0, totalLeads = 0, totalMessages = 0, totalClicks = 0, totalRevenue = 0;
         for (const row of rawRows) {
           const date = String(row?.date_start ?? "");
           if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
@@ -360,10 +359,9 @@ Deno.serve(async (req) => {
           const impressions = Number(row?.impressions ?? 0);
           const clicks = Number(row?.clicks ?? 0);
           const formLeads = maxAction(row?.actions as any, LEAD_ACTIONS);
-          const msgLeads = maxAction(row?.actions as any, MESSAGING_ACTIONS);
-          const leads = formLeads + msgLeads;
+          const messages = maxAction(row?.actions as any, MESSAGING_ACTIONS);
           const revenue = sumActions(row?.action_values as any, PURCHASE_ACTIONS);
-          const cpl = leads > 0 ? spend / leads : 0;
+          const cpl = formLeads > 0 ? spend / formLeads : 0;
           const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
           const cpc = clicks > 0 ? spend / clicks : 0;
           const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
@@ -372,12 +370,13 @@ Deno.serve(async (req) => {
             external_id: actId,
             project_id: (cab as any).project_id ?? null,
             date,
-            spend, impressions, clicks, leads, revenue,
+            spend, impressions, clicks, leads: formLeads, messages, revenue,
             cpl, cpm, cpc, ctr,
             currency: accountCurrency,
             synced_at: new Date().toISOString(),
           });
-          totalSpend += spend; totalLeads += leads; totalClicks += clicks; totalRevenue += revenue;
+          totalSpend += spend; totalLeads += formLeads; totalMessages += messages;
+          totalClicks += clicks; totalRevenue += revenue;
         }
         if (rows.length > 0) {
           const { error: upErr } = await admin
@@ -392,12 +391,12 @@ Deno.serve(async (req) => {
         results.push({
           cabinet_id: cab.id, cabinet: cabName, ok: true,
           since, until, days: rows.length,
-          spend: totalSpend, leads: totalLeads, clicks: totalClicks, revenue: totalRevenue,
+          spend: totalSpend, leads: totalLeads, messages: totalMessages, clicks: totalClicks, revenue: totalRevenue,
         });
         console.log(
           `[meta-daily-sync] cabinet=${ext} project=${(cab as any).project_id ?? "—"} ` +
           `range=${since}..${until} days=${rows.length} spend=${totalSpend.toFixed(2)} ` +
-          `leads=${totalLeads} clicks=${totalClicks} revenue=${totalRevenue.toFixed(2)}`,
+          `leads=${totalLeads} messages=${totalMessages} clicks=${totalClicks} revenue=${totalRevenue.toFixed(2)}`,
         );
       } catch (e) {
         results.push({ cabinet_id: cab.id, cabinet: cabName, ok: false, error: (e as Error).message });

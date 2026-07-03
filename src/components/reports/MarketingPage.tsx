@@ -3,6 +3,7 @@ import {
 } from "lucide-react";
 import type { ReportData } from "@/hooks/useReportData";
 import { deltaPct } from "@/hooks/useReportData";
+import { metaConversionsTotal } from "@/lib/metaAdsMetrics";
 import { KpiCard } from "./KpiCard";
 import { SectionTitle } from "./SectionTitle";
 import { ReportPageWrapper } from "./ReportPageWrapper";
@@ -16,6 +17,10 @@ interface Props {
 
 export function MarketingPage({ data, rangeLabel, comparing }: Props) {
   const { totals, prev } = data;
+  const metaConv = metaConversionsTotal({ leads: totals.adsLeads, messages: totals.adsMessages });
+  const prevMetaConv = prev
+    ? metaConversionsTotal({ leads: prev.adsLeads, messages: prev.adsMessages })
+    : undefined;
 
   return (
     <ReportPageWrapper
@@ -29,9 +34,12 @@ export function MarketingPage({ data, rangeLabel, comparing }: Props) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <KpiCard icon={Wallet} label="Расходы Meta" hint="сумма spend за период" value={fmtTenge(totals.spend)} delta={deltaPct(totals.spend, prev?.spend)} comparing={comparing} invertDelta />
         <KpiCard icon={Eye} label="Показы Meta" hint="impressions" value={fmtNum(totals.impressions)} delta={deltaPct(totals.impressions, prev?.impressions)} comparing={comparing} />
-        <KpiCard icon={MousePointerClick} label="Клики Meta" hint="clicks" value={fmtNum(totals.clicks)} delta={deltaPct(totals.clicks, prev?.clicks)} comparing={comparing} />
-        <KpiCard icon={Users} label="Лиды Meta" hint="leads из Meta" value={fmtNum(totals.adsLeads)} delta={deltaPct(totals.adsLeads, prev?.adsLeads)} comparing={comparing} />
-        <KpiCard icon={Target} label="CPL Meta" hint="расход ÷ лиды Meta" value={totals.adsLeads > 0 ? fmtTenge(totals.spend / totals.adsLeads) : "—"} delta={deltaPct(totals.adsLeads > 0 ? totals.spend / totals.adsLeads : 0, prev && prev.adsLeads > 0 ? prev.spend / prev.adsLeads : undefined)} comparing={comparing} invertDelta />
+        <KpiCard icon={MousePointerClick} label="Клики Meta" hint="клики по объявлению — не лиды" value={fmtNum(totals.clicks)} delta={deltaPct(totals.clicks, prev?.clicks)} comparing={comparing} />
+        <KpiCard icon={Users} label="Лиды (формы)" hint="лид-формы / pixel lead" value={fmtNum(totals.adsLeads)} delta={deltaPct(totals.adsLeads, prev?.adsLeads)} comparing={comparing} />
+        <KpiCard icon={UserPlus} label="Сообщения" hint="начатые переписки WhatsApp / Messenger" value={fmtNum(totals.adsMessages)} delta={deltaPct(totals.adsMessages, prev?.adsMessages)} comparing={comparing} />
+        <KpiCard icon={Target} label="Конверсии Meta" hint="формы + сообщения (без кликов)" value={fmtNum(metaConv)} delta={deltaPct(metaConv, prevMetaConv)} comparing={comparing} />
+        <KpiCard icon={Target} label="CPL (формы)" hint="расход ÷ лиды-формы" value={totals.adsLeads > 0 ? fmtTenge(totals.spend / totals.adsLeads) : "—"} delta={deltaPct(totals.adsLeads > 0 ? totals.spend / totals.adsLeads : 0, prev && prev.adsLeads > 0 ? prev.spend / prev.adsLeads : undefined)} comparing={comparing} invertDelta />
+        <KpiCard icon={Target} label="Цена сообщения" hint="расход ÷ сообщения" value={totals.adsMessages > 0 ? fmtTenge(totals.spend / totals.adsMessages) : "—"} delta={deltaPct(totals.adsMessages > 0 ? totals.spend / totals.adsMessages : 0, prev && prev.adsMessages > 0 ? prev.spend / prev.adsMessages : undefined)} comparing={comparing} invertDelta />
         <KpiCard icon={UserPlus} label="Подписчики" hint="прирост подписчиков Instagram" value={fmtNum(totals.newFollowers)} delta={deltaPct(totals.newFollowers, prev?.newFollowers)} comparing={comparing} />
       </div>
     </ReportPageWrapper>

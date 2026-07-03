@@ -5,6 +5,8 @@ export type RnpColumnGroup = "ads" | "crm" | "funnel" | "money";
 
 export type RnpColumnKey =
   | "spend"
+  | "clicks"
+  | "messages"
   | "leads"
   | "cpl"
   | "qualified"
@@ -38,6 +40,8 @@ export interface RnpColumnDef {
 
 export interface RnpDaySums {
   spend: number;
+  clicks: number;
+  messages: number;
   leads: number;
   qualified: number;
   kev: number;
@@ -51,9 +55,11 @@ const fmtPct = (n: number) =>
   `${n.toLocaleString("ru-RU", { maximumFractionDigits: 1, minimumFractionDigits: 0 })}%`;
 
 function sumsFromDay(d: DailyInsightRow | undefined): RnpDaySums {
-  if (!d) return { spend: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0 };
+  if (!d) return { spend: 0, clicks: 0, messages: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0 };
   return {
     spend: d.spend,
+    clicks: d.clicks,
+    messages: d.messages,
     leads: d.leads,
     qualified: d.qualified,
     kev: d.diagnostics,
@@ -98,11 +104,33 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     total: (s) => s.spend,
   },
   {
+    key: "clicks",
+    group: "ads",
+    label: "Клики",
+    short: "Клики",
+    help: "Клики по объявлению. Это не лиды.",
+    kind: "meta",
+    format: fmtNum,
+    pick: (d) => d?.clicks ?? 0,
+    total: (s) => s.clicks,
+  },
+  {
+    key: "messages",
+    group: "ads",
+    label: "Сообщения",
+    short: "Сообщ.",
+    help: "Начатые переписки WhatsApp / Messenger из Meta.",
+    kind: "meta",
+    format: fmtNum,
+    pick: (d) => d?.messages ?? 0,
+    total: (s) => s.messages,
+  },
+  {
     key: "leads",
     group: "ads",
-    label: "Лидов получено",
+    label: "Лиды (формы)",
     short: "Лиды",
-    help: "Лиды за день. Из Meta, можно скорректировать вручную.",
+    help: "Лид-формы и pixel lead из Meta. Без сообщений и кликов.",
     kind: "direct",
     directField: "leads",
     format: fmtNum,
@@ -112,9 +140,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "cpl",
     group: "ads",
-    label: "Стоимость лида",
+    label: "Стоимость лида (формы)",
     short: "CPL",
-    help: "Затраты ÷ лиды.",
+    help: "Затраты ÷ лиды-формы. Сообщения считаются отдельно.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {
@@ -230,9 +258,11 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
 ];
 
 export function aggregateRnpSums(days: DailyInsightRow[]): RnpDaySums {
-  const sums: RnpDaySums = { spend: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0 };
+  const sums: RnpDaySums = { spend: 0, clicks: 0, messages: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0 };
   for (const d of days) {
     sums.spend += d.spend;
+    sums.clicks += d.clicks;
+    sums.messages += d.messages;
     sums.leads += d.leads;
     sums.qualified += d.qualified;
     sums.kev += d.diagnostics;

@@ -12,6 +12,7 @@ export interface DailyInsightRow {
   impressions: number;
   clicks: number;
   leads: number;
+  messages: number;
   /** FB pixel revenue. НЕ используется для бизнес-выручки — это событийная атрибуция. */
   pixelRevenue: number;
   /** @deprecated alias на pixelRevenue для обратной совместимости. */
@@ -56,11 +57,14 @@ export interface InsightTotals {
   impressions: number;
   clicks: number;
   leads: number;
+  messages: number;
   /** FB pixel revenue. Не используется в KPI выручки. */
   pixelRevenue: number;
   /** @deprecated alias на pixelRevenue. */
   revenue: number;
   cpl: number;
+  /** Стоимость начатой переписки = spend / messages */
+  costPerMessage: number;
   cpm: number;
   cpc: number;
   ctr: number;
@@ -81,8 +85,8 @@ export interface InsightsData {
 }
 
 const EMPTY_TOTALS: InsightTotals = {
-  spend: 0, impressions: 0, clicks: 0, leads: 0, pixelRevenue: 0, revenue: 0,
-  cpl: 0, cpm: 0, cpc: 0, ctr: 0, romi: 0,
+  spend: 0, impressions: 0, clicks: 0, leads: 0, messages: 0, pixelRevenue: 0, revenue: 0,
+  cpl: 0, costPerMessage: 0, cpm: 0, cpc: 0, ctr: 0, romi: 0,
   diagnostics: 0, diagnosticRevenue: 0, sales: 0, salesRevenue: 0, crmRevenue: 0, qualified: 0,
 };
 
@@ -110,6 +114,7 @@ interface CdiRow {
   impressions: number;
   clicks: number;
   leads: number;
+  messages: number;
   revenue: number | string;
   currency: string;
   crm_diagnostics?: number;
@@ -135,6 +140,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
     const impressions = Number(r.impressions) || 0;
     const clicks = Number(r.clicks) || 0;
     const leads = Number(r.leads) || 0;
+    const messages = Number(r.messages) || 0;
     // Override-семантика: ручные значения ПЕРЕЗАПИСЫВАЮТ CRM, а не суммируются с ним.
     // Раньше складывали (crm + manual) — это приводило к задвоению, когда менеджер вводил
     // 400к manual поверх 800к из CRM и получал 1.2М вместо 800к. См. жалобу пользователя.
@@ -170,6 +176,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
     totals.impressions += impressions;
     totals.clicks += clicks;
     totals.leads += leads;
+    totals.messages += messages;
     totals.pixelRevenue += pixelRevenue;
     totals.revenue += pixelRevenue;
     totals.diagnostics += diagnostics;
@@ -184,6 +191,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
       cur.impressions += impressions;
       cur.clicks += clicks;
       cur.leads += leads;
+      cur.messages += messages;
       cur.pixelRevenue += pixelRevenue;
       cur.revenue += pixelRevenue;
       cur.diagnostics += diagnostics;
@@ -220,7 +228,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
       cur.crmQualified += crmQualified;
     } else {
       dailyMap.set(r.date, {
-        date: r.date, spend, impressions, clicks, leads,
+        date: r.date, spend, impressions, clicks, leads, messages,
         pixelRevenue, revenue: pixelRevenue,
         diagnostics, crmDiagnostics: crmDiag, manualDiagnostics: manDiag,
         manualDiagnosticsRaw: isManualOverrideActive(r.manual_diagnostics) ? Number(r.manual_diagnostics) : null,
@@ -240,6 +248,7 @@ function aggregate(rows: CdiRow[]): InsightsData {
     }
   }
   totals.cpl = totals.leads > 0 ? totals.spend / totals.leads : 0;
+  totals.costPerMessage = totals.messages > 0 ? totals.spend / totals.messages : 0;
   totals.cpm = totals.impressions > 0 ? (totals.spend / totals.impressions) * 1000 : 0;
   totals.cpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
   totals.ctr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
@@ -262,7 +271,7 @@ async function fetchInsights(
   const ids = actIds.map(normalizeActId);
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("date, spend, impressions, clicks, leads, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified")
+    .select("date, spend, impressions, clicks, leads, messages, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified")
     .in("external_id", ids)
     .gte("date", since)
     .lte("date", until)

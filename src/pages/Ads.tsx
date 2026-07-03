@@ -184,11 +184,12 @@ const Ads = () => {
 
         {/* Table header — desktop */}
         {filtered.length > 0 && (
-          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
+          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_auto] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
             <div>Кабинет</div>
             <div className="text-right">Расход</div>
-            <div className="text-right">Лиды</div>
             <div className="text-right">Клики</div>
+            <div className="text-right">Сообщ.</div>
+            <div className="text-right">Лиды</div>
             <div className="text-right">Показы</div>
             <div />
           </div>
@@ -270,7 +271,7 @@ const Ads = () => {
                 const r = (data?.results ?? [])[0];
                 if (r?.ok) {
                   toast.success(
-                    `Статистика загружена: ${r.days} дн., ${r.leads} лидов, расход ${Math.round(r.spend)}`,
+                    `Статистика: ${r.days} дн. · клики ${r.clicks ?? 0} · формы ${r.leads ?? 0} · сообщ. ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
                   );
                   setRefreshKey((k) => k + 1);
                 } else if (r) {
