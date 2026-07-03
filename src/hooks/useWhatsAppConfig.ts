@@ -10,16 +10,18 @@ export function useWhatsAppConfig() {
 
   const refetch = useCallback(async () => {
     if (!user?.id) { setConfig({ connected: false }); return; }
-    const [configRes, statusRes] = await Promise.all([
-      supabase
-        .from("whatsapp_config_safe")
-        .select("phone, display_name, connected, connected_at")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase.functions.invoke("greenapi-proxy", {
-        body: { action: "status" },
-      }).catch(() => null),
-    ]);
+    const configRes = await supabase
+      .from("whatsapp_config_safe")
+      .select("phone, display_name, connected, connected_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // Only query live status if a config row already exists (credentials likely bound).
+    const statusRes = configRes.data
+      ? await supabase.functions
+          .invoke("greenapi-proxy", { body: { action: "status" } })
+          .catch(() => null)
+      : null;
 
     const data = configRes.data;
     const liveState = ((statusRes as { data?: { data?: { stateInstance?: string } } } | null)?.data?.data?.stateInstance) ?? null;
