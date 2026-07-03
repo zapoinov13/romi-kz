@@ -1,0 +1,123 @@
+import type {
+  SalesAnalyticsLead,
+  SalesKpi,
+  SalesLeadFilters,
+  SalesService,
+  TopCreativeRow,
+  TopServiceRow,
+} from "@/types/salesAnalytics";
+
+function digits(s: string) {
+  return s.replace(/\D/g, "");
+}
+
+export function filterSalesLeads(
+  rows: SalesAnalyticsLead[],
+  filters: SalesLeadFilters,
+): SalesAnalyticsLead[] {
+  return rows.filter((r) => {
+    const day = r.createdAt.slice(0, 10);
+    if (filters.dateFrom && day < filters.dateFrom) return false;
+    if (filters.dateTo && day > filters.dateTo) return false;
+    if (filters.qualified === "yes" && r.isQualified !== true) return false;
+    if (filters.qualified === "no" && r.isQualified !== false) return false;
+    if (filters.qualified === "unset" && r.isQualified !== null) return false;
+    if (filters.payment === "paid" && r.paymentStatus !== "paid") return false;
+    if (filters.payment === "unpaid" && r.paymentStatus !== "unpaid") return false;
+    if (filters.payment === "unset" && r.paymentStatus !== null) return false;
+    if (filters.serviceId && r.serviceId !== filters.serviceId) return false;
+    if (filters.sourceQuery.trim()) {
+      const q = filters.sourceQuery.trim().toLowerCase();
+      const src = (r.sourceLabel ?? r.metaAdId ?? r.utmContent ?? "").toLowerCase();
+      if (!src.includes(q)) return false;
+    }
+    if (filters.nameQuery.trim()) {
+      if (!r.name.toLowerCase().includes(filters.nameQuery.trim().toLowerCase())) return false;
+    }
+    if (filters.phoneQuery.trim()) {
+      const q = digits(filters.phoneQuery);
+      const p = digits(r.phone);
+      if (!p.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+export function computeSalesKpi(rows: SalesAnalyticsLead[], spend: number): SalesKpi {
+  const totalLeads = rows.length;
+  const qualifiedYes = rows.filter((r) => r.isQualified === true).length;
+  const paid = rows.filter((r) => r.paymentStatus === "paid");
+  const paidClients = paid.length;
+  const revenue = paid.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  return {
+    totalLeads,
+    spend,
+    cpl: totalLeads > 0 ? spend / totalLeads : 0,
+    cac: paidClients > 0 ? spend / paidClients : 0,
+    qualifiedRate: totalLeads > 0 ? (qualifiedYes / totalLeads) * 100 : 0,
+    paidClients,
+    revenue,
+    roas: spend > 0 ? (revenue / spend) * 100 : 0,
+    avgCheck: paidClients > 0 ? revenue / paidClients : 0,
+  };
+}
+
+export function computeTopCreatives(rows: SalesAnalyticsLead[], limit = 3): TopCreativeRow[] {
+  const map = new Map<string, TopCreativeRow>();
+  for (const r of rows) {
+    const key = r.metaAdId || r.utmContent || r.sourceLabel || "—";
+    const label = r.sourceLabel || r.metaAdId || r.utmContent || "—";
+    const cur = map.get(key) ?? { key, label, leads: 0, sales: 0, revenue: 0, conversion: 0 };
+    cur.leads += 1;
+    if (r.paymentStatus === "paid") {
+      cur.sales += 1;
+      cur.revenue += Number(r.amount) || 0;
+    }
+    map.set(key, cur);
+  }
+  return Array.from(map.values())
+    .map((x) => ({ ...x, conversion: x.leads > 0 ? (x.sales / x.leads) * 100 : 0 }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, limit);
+}
+
+export function computeTopServices(
+  rows: SalesAnalyticsLead[],
+  services: SalesService[],
+  limit = 3,
+): TopServiceRow[] {
+  const nameById = new Map(services.map((s) => [s.id, s.name]));
+  const map = new Map<string, TopServiceRow>();
+  for (const r of rows) {
+    if (r.paymentStatus !== "paid" || !r.serviceId) continue;
+    const name = nameById.get(r.serviceId) ?? "—";
+    const cur = map.get(r.serviceId) ?? {
+      serviceId: r.serviceId,
+      name,
+      sales: 0,
+      revenue: 0,
+      avgCheck: 0,
+    };
+    cur.sales += 1;
+    cur.revenue += Number(r.amount) || 0;
+    map.set(r.serviceId, cur);
+  }
+  return Array.from(map.values())
+    .map((x) => ({ ...x, avgCheck: x.sales > 0 ? x.revenue / x.sales : 0 }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, limit);
+}
+
+export function monthKeyFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+export function monthBounds(monthKey: string): { since: string; until: string } {
+  const [y, m] = monthKey.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const mm = String(m).padStart(2, "0");
+  return { since: `${y}-${mm}-01`, until: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+}

@@ -1,4 +1,4 @@
-import { Target, Settings, Table2 } from "lucide-react";
+import { BarChart3, Settings, Table2, Target } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/lib/routePrefetch";
 import {
@@ -35,6 +35,12 @@ const analytics: NavItem[] = [
     hint: "РНП · Таблица показателей по дням",
     url: "/metrics",
     icon: Table2,
+  },
+  {
+    title: "Аналитика продаж",
+    hint: "Сквозная аналитика от рекламы до оплаты",
+    url: "/analytics/sales",
+    icon: BarChart3,
   },
 ];
 
