@@ -1,7 +1,7 @@
 {
-  "git_sha": "e8ba15d",
-  "git_sha_full": "e8ba15d59bbcca968e4b97f9b645b95c42e73636",
-  "updated_at": "2026-07-05T00:41:07+05:00",
-  "label": "fix(whatsapp): greenapi_ingest direction enum crash (messages stopped)",
+  "git_sha": "1fa1ae9",
+  "git_sha_full": "1fa1ae9e29f627392c15d9bc74043ce77ebebdd1",
+  "updated_at": "2026-07-05T00:44:57+05:00",
+  "label": "fix(whatsapp): phonebook labels + load chats for project leads",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
