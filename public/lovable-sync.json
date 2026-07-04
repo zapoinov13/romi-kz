@@ -1,7 +1,7 @@
 {
-  "git_sha": "2244fab",
-  "git_sha_full": "2244fab765631f037409396fa27006c19c9cd59d",
-  "updated_at": "2026-07-05T01:06:34+05:00",
-  "label": "fix(edge): restore greenapi-proxy, split name sync to greenapi-sync-name",
+  "git_sha": "b879900",
+  "git_sha_full": "b87990088e51bbdeee70862029347f3c111c0ef8",
+  "updated_at": "2026-07-05T01:15:58+05:00",
+  "label": "ui: Apple glass shell + Agency label beside logo",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
