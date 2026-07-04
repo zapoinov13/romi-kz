@@ -10,12 +10,32 @@ export const ROLE_LABELS: Record<TeamRole, string> = {
   director: "Тим лид",
 };
 
-// Legacy module key kept for backward compatibility — only "ads" is used now.
-export type ModuleKey = "ads" | "factory" | "metrics" | "reports";
+/** Блоки приложения, к которым можно выдать доступ сотруднику. */
+export type ModuleKey =
+  | "ads"
+  | "crm"
+  | "metrics"
+  | "sales_analytics"
+  | "settings"
+  // legacy keys (читаем, но в UI не показываем)
+  | "factory"
+  | "reports";
 
-export const MODULES: { key: ModuleKey; label: string }[] = [
-  { key: "ads", label: "Управление рекламой" },
+export const MODULES: { key: ModuleKey; label: string; description: string }[] = [
+  { key: "ads", label: "Управление рекламой", description: "Кабинеты, кампании, статистика" },
+  { key: "crm", label: "CRM", description: "Воронка, чаты, сделки" },
+  { key: "metrics", label: "Таблица РНП", description: "Показатели по дням" },
+  { key: "sales_analytics", label: "Аналитика продаж", description: "Сквозная аналитика" },
+  { key: "settings", label: "Настройки", description: "Команда и интеграции" },
 ];
+
+export const ALL_MODULE_KEYS: ModuleKey[] = MODULES.map((m) => m.key);
+
+const KNOWN_MODULES = new Set<string>([
+  ...ALL_MODULE_KEYS,
+  "factory",
+  "reports",
+]);
 
 export type TeamMember = {
   id: string;
@@ -27,8 +47,10 @@ export type TeamMember = {
   createdAt: string;
 };
 
-export function defaultModulesForRole(_role: TeamRole): ModuleKey[] {
-  return ["ads"];
+export function defaultModulesForRole(role: TeamRole): ModuleKey[] {
+  if (role === "admin") return [...ALL_MODULE_KEYS];
+  if (role === "director") return ["ads", "crm", "metrics", "sales_analytics"];
+  return ["ads", "metrics"];
 }
 
 export function useTeamStore() {
@@ -54,10 +76,9 @@ export function useTeamStore() {
     });
     const modsByUser = new Map<string, ModuleKey[]>();
     (modules ?? []).forEach((m: { user_id: string; module_key: string }) => {
+      if (!KNOWN_MODULES.has(m.module_key)) return;
       const arr = modsByUser.get(m.user_id) ?? [];
-      if (["ads", "factory", "metrics", "reports"].includes(m.module_key)) {
-        arr.push(m.module_key as ModuleKey);
-      }
+      arr.push(m.module_key as ModuleKey);
       modsByUser.set(m.user_id, arr);
     });
     const cabsByUser = new Map<string, string[]>();
@@ -67,14 +88,15 @@ export function useTeamStore() {
       cabsByUser.set(c.user_id, arr);
     });
 
-    const list: TeamMember[] = (profiles ?? []).map((p: any) => {
+    const list: TeamMember[] = (profiles ?? []).map((p: { id: string; name: string | null; display_role?: string | null; created_at: string }) => {
       const role = roleByUser.get(p.id) ?? "marketer";
+      const mods = modsByUser.get(p.id);
       return {
         id: p.id,
         name: p.name ?? "",
-        email: p.email ?? "",
+        email: "",
         role,
-        modules: modsByUser.get(p.id) ?? defaultModulesForRole(role),
+        modules: role === "admin" ? [...ALL_MODULE_KEYS] : (mods?.length ? mods : defaultModulesForRole(role)),
         cabinets: cabsByUser.get(p.id) ?? [],
         createdAt: p.created_at,
       };
@@ -89,12 +111,13 @@ export function useTeamStore() {
   useRealtimeTable("team_member_cabinets", refetch);
 
   const addMember = useCallback(async (m: Omit<TeamMember, "id" | "createdAt">) => {
+    const modules = m.role === "admin" ? ALL_MODULE_KEYS : m.modules;
     const { data, error } = await supabase.functions.invoke("admin-create-user", {
       body: {
         email: m.email,
         name: m.name,
         role: m.role,
-        modules: ["ads"],
+        modules,
         cabinets: m.cabinets,
         invite: true,
       },
@@ -114,6 +137,16 @@ export function useTeamStore() {
     if (patch.role !== undefined) {
       await supabase.from("user_roles").delete().eq("user_id", id);
       await supabase.from("user_roles").insert({ user_id: id, role: patch.role });
+    }
+    if (patch.modules !== undefined || patch.role === "admin") {
+      const modules =
+        patch.role === "admin" ? ALL_MODULE_KEYS : (patch.modules ?? []);
+      await supabase.from("team_member_modules").delete().eq("user_id", id);
+      if (modules.length) {
+        await supabase.from("team_member_modules").insert(
+          modules.map((module_key) => ({ user_id: id, module_key })),
+        );
+      }
     }
     if (patch.cabinets !== undefined) {
       await supabase.from("team_member_cabinets").delete().eq("user_id", id);

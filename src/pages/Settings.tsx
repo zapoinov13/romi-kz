@@ -26,6 +26,7 @@ import { ServicesSettings } from "@/components/settings/ServicesSettings";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
+  MODULES,
   ROLE_LABELS,
   TeamMember,
   useTeamStore,
@@ -180,9 +181,17 @@ export default function Settings() {
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">{m.email}</div>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    <span className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
-                      Управление рекламой
-                    </span>
+                    {(m.role === "admin"
+                      ? MODULES
+                      : MODULES.filter((mod) => m.modules.includes(mod.key))
+                    ).map((mod) => (
+                      <span
+                        key={mod.key}
+                        className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success"
+                      >
+                        {mod.label}
+                      </span>
+                    ))}
                     {m.role === "admin" ? (
                       <span className="rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
                         Все кабинеты

@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./hooks/useAuth";
 import { RequireAuth } from "./components/auth/RequireAuth";
+import { HomeRedirect } from "./components/auth/HomeRedirect";
 import { routeImports } from "./lib/routePrefetch";
 
 const AppLayout = lazy(routeImports.AppLayout);
@@ -69,8 +70,8 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/client/:token" element={<ClientDashboard />} />
-              <Route path="/" element={<Navigate to="/ads" replace />} />
-              <Route path="/dashboard" element={<Navigate to="/ads" replace />} />
+              <Route path="/" element={<RequireAuth><HomeRedirect /></RequireAuth>} />
+              <Route path="/dashboard" element={<RequireAuth><HomeRedirect /></RequireAuth>} />
               <Route path="/metrics" element={<RequireAuth><AppLayout><Metrics /></AppLayout></RequireAuth>} />
               <Route path="/rnp" element={<Navigate to="/metrics" replace />} />
               <Route path="/ads" element={<RequireAuth><AppLayout><Ads /></AppLayout></RequireAuth>} />
