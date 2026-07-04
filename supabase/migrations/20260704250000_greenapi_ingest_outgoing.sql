@@ -1,6 +1,4 @@
--- CRM WhatsApp: входящие + исходящие (бот n8n, API, телефон) в одном диалоге.
--- Lovable → Supabase → SQL Editor → выполнить целиком.
--- Green API webhook: https://romi-kz.vercel.app/api/wa-webhook
+-- Сохранять исходящие WA (бот n8n, API, телефон) в CRM — полный диалог.
 
 CREATE OR REPLACE FUNCTION public.greenapi_ingest(p_payload jsonb)
 RETURNS jsonb
@@ -52,6 +50,7 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'unknown idInstance', 'idInstance', v_instance);
   END IF;
 
+  -- Delivery status for outgoing messages (sent / delivered / read).
   IF v_type = 'outgoingMessageStatus' THEN
     v_ext_id := nullif(btrim(p_payload->>'idMessage'), '');
     v_raw_status := nullif(btrim(p_payload->>'status'), '');
