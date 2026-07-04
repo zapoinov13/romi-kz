@@ -1,6 +1,4 @@
--- CRM WhatsApp: входящие + исходящие (бот n8n, API, телефон) в одном диалоге.
--- Lovable → Supabase → SQL Editor → выполнить целиком.
--- Green API webhook: https://romi-kz.vercel.app/api/wa-webhook
+-- Hotfix: direction enum type (42804) broke all incoming WA messages
 
 CREATE OR REPLACE FUNCTION public.greenapi_ingest(p_payload jsonb)
 RETURNS jsonb
