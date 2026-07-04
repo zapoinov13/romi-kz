@@ -1,7 +1,7 @@
 {
-  "git_sha": "cbe8a00",
-  "git_sha_full": "cbe8a00c415f910a3e0199dffaf992073d34cb13",
-  "updated_at": "2026-07-04T22:05:50+05:00",
-  "label": "fix: Green API auto webhook, cabinet creds, simplified WhatsApp UI",
+  "git_sha": "c22e85a",
+  "git_sha_full": "c22e85ae6e757be7ee6377f7580b70e8002cc54f",
+  "updated_at": "2026-07-04T22:08:11+05:00",
+  "label": "fix: eslint prefer-const in SettingsConnection refreshWaRow",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
