@@ -1,7 +1,7 @@
 {
-  "git_sha": "e3f960d",
-  "git_sha_full": "e3f960d43b2053d2ff11a504e3328cab88e9e36a",
-  "updated_at": "2026-07-04T15:07:08+05:00",
-  "label": "fix: WhatsApp в messages, лиды сайта в leads — на чтении и в sync",
+  "git_sha": "e1d6c74",
+  "git_sha_full": "e1d6c74a75eb39513143f7839a8f77db8e11739c",
+  "updated_at": "2026-07-04T15:22:43+05:00",
+  "label": "feat: колонки Ads — расходы, клики, ватсап, лиды сайта, стоимость лида",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
