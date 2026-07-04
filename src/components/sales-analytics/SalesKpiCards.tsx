@@ -21,106 +21,150 @@ type Card = {
   value: string;
   hint?: string;
   icon: typeof Users;
-  tone?: "default" | "meta" | "crm" | "money";
 };
 
-function buildCards(kpi: SalesKpi, cabinetName?: string | null): Card[] {
+function MetaCards({ kpi, cabinetName }: { kpi: SalesKpi; cabinetName?: string | null }) {
   const cab = cabinetName ? ` · ${cabinetName}` : "";
-  const metaSplit =
-    kpi.adsMessages > 0 || kpi.adsFormLeads > 0
-      ? `${fmt(kpi.adsMessages)} WhatsApp · ${fmt(kpi.adsFormLeads)} сайт`
-      : "формы + WhatsApp из Meta";
-
-  return [
+  const cards: Card[] = [
     {
       key: "spend",
       label: "Расход",
       value: fmtMoney(kpi.spend),
-      hint: `Meta Ads${cab}`,
+      hint: `Только Meta Ads${cab}`,
       icon: Wallet,
-      tone: "meta",
     },
     {
       key: "meta",
       label: "Лиды Meta",
       value: fmt(kpi.metaLeads),
-      hint: metaSplit,
+      hint:
+        kpi.adsMessages > 0 || kpi.adsFormLeads > 0
+          ? `${fmt(kpi.adsMessages)} WhatsApp · ${fmt(kpi.adsFormLeads)} сайт`
+          : "WhatsApp + сайт из рекламы",
       icon: MessageCircle,
-      tone: "meta",
     },
     {
       key: "cpl",
-      label: "Стоимость лида",
+      label: "Стоимость лида Meta",
       value: kpi.cpl > 0 ? fmtMoney(kpi.cpl) : "—",
       hint: "Расход ÷ лиды Meta",
       icon: Target,
-      tone: "meta",
     },
+  ];
+
+  return (
+    <section className="mb-4">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+        Реклама · Meta
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {cards.map((c) => (
+          <KpiCard key={c.key} card={c} className="border-sky-500/25" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CrmCards({ kpi }: { kpi: SalesKpi }) {
+  const cards: Card[] = [
     {
       key: "crm",
-      label: "В CRM",
+      label: "Лиды CRM",
       value: fmt(kpi.crmLeads),
-      hint: "С именем и телефоном",
+      hint: "С именем и телефоном в CRM",
       icon: Users,
-      tone: "crm",
     },
     {
       key: "qual",
       label: "Квал",
       value: `${fmt(kpi.qualifiedYes)} · ${fmtPct(kpi.qualifiedRate)}`,
-      hint: "Из лидов в CRM",
+      hint: "Только от лидов CRM",
       icon: Percent,
-      tone: "crm",
     },
     {
       key: "paid",
       label: "Оплатили",
       value: fmt(kpi.paidClients),
-      hint: "Клиенты с оплатой",
+      hint: "Оплаты в CRM",
       icon: UserCheck,
-      tone: "crm",
     },
+  ];
+
+  return (
+    <section className="mb-4">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+        CRM · заявки
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {cards.map((c) => (
+          <KpiCard key={c.key} card={c} className="border-violet-500/25" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MoneyCards({ kpi }: { kpi: SalesKpi }) {
+  const cards: Card[] = [
     {
       key: "cac",
       label: "CAC",
       value: kpi.cac > 0 ? fmtMoney(kpi.cac) : "—",
-      hint: "Расход ÷ оплатившие",
+      hint: "Расход Meta ÷ оплаты CRM",
       icon: DollarSign,
-      tone: "money",
     },
     {
       key: "revenue",
       label: "Выручка",
       value: fmtMoney(kpi.revenue),
-      hint: "Сумма оплат",
+      hint: "Сумма оплат в CRM",
       icon: TrendingUp,
-      tone: "money",
     },
     {
       key: "roas",
       label: "ROAS",
       value: kpi.spend > 0 ? fmtPct(kpi.roas) : "—",
-      hint: "Выручка ÷ расход",
+      hint: "Выручка CRM ÷ расход Meta",
       icon: Percent,
-      tone: "money",
     },
     {
       key: "avg",
       label: "Средний чек",
       value: kpi.avgCheck > 0 ? fmtMoney(kpi.avgCheck) : "—",
-      hint: "Выручка ÷ оплаты",
+      hint: "Выручка ÷ оплаты CRM",
       icon: DollarSign,
-      tone: "money",
     },
   ];
+
+  return (
+    <section className="mb-6">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+        Деньги
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {cards.map((c) => (
+          <KpiCard key={c.key} card={c} className="border-emerald-500/25" />
+        ))}
+      </div>
+    </section>
+  );
 }
 
-const TONE_RING: Record<NonNullable<Card["tone"]>, string> = {
-  default: "",
-  meta: "border-sky-500/20",
-  crm: "border-violet-500/20",
-  money: "border-emerald-500/20",
-};
+function KpiCard({ card, className }: { card: Card; className?: string }) {
+  return (
+    <div className={cn("rounded-xl border bg-card/80 p-4 shadow-sm", className)}>
+      <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+        <card.icon className="h-4 w-4 shrink-0" />
+        <span className="text-xs font-medium leading-snug">{card.label}</span>
+      </div>
+      <div className="text-xl font-bold tabular-nums tracking-tight">{card.value}</div>
+      {card.hint && (
+        <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{card.hint}</div>
+      )}
+    </div>
+  );
+}
 
 type Props = {
   kpi: SalesKpi;
@@ -129,30 +173,11 @@ type Props = {
 };
 
 export function SalesKpiCards({ kpi, cabinetName, loading }: Props) {
-  const cards = buildCards(kpi, cabinetName);
   return (
-    <div
-      className={cn(
-        "mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5",
-        loading && "opacity-60",
-      )}
-    >
-      {cards.map((c) => (
-        <div
-          key={c.key}
-          className={cn(
-            "rounded-xl border bg-card/80 p-4 shadow-sm",
-            TONE_RING[c.tone ?? "default"] || "border-border/60",
-          )}
-        >
-          <div className="mb-2 flex items-center gap-2 text-muted-foreground">
-            <c.icon className="h-4 w-4 shrink-0" />
-            <span className="text-xs font-medium leading-snug">{c.label}</span>
-          </div>
-          <div className="text-xl font-bold tabular-nums tracking-tight">{c.value}</div>
-          {c.hint && <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{c.hint}</div>}
-        </div>
-      ))}
+    <div className={cn(loading && "opacity-60")}>
+      <MetaCards kpi={kpi} cabinetName={cabinetName} />
+      <CrmCards kpi={kpi} />
+      <MoneyCards kpi={kpi} />
     </div>
   );
 }

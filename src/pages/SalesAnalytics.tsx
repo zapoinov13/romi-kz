@@ -109,8 +109,6 @@ export default function SalesAnalytics() {
     toast.success("Экспорт готов");
   };
 
-  const gap = Math.max(0, metaLeads - displayableRows.length);
-
   return (
     <PageContainer>
       <PageHeader
@@ -179,23 +177,14 @@ export default function SalesAnalytics() {
       )}
 
       <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        <strong className="text-foreground">Как считаем:</strong> расход и лиды Meta — из рекламы
-        (WhatsApp + сайт). Квал, оплаты и выручка — только по заявкам в CRM с именем и телефоном.
-        Редактирование — в{" "}
+        <strong className="text-foreground">Лиды Meta и лиды CRM — разные числа.</strong> Из рекламы
+        (WhatsApp + сайт) до CRM доходят не все: в Meta одно количество, в таблице заявок — только те,
+        у кого есть имя и телефон. Квал, оплаты и выручка считаются только по CRM. Редактирование — в{" "}
         <Link to="/crm" className="font-medium text-primary underline-offset-2 hover:underline">
           CRM
         </Link>
         .
       </div>
-
-      {gap > 0 && (
-        <div className="mb-4 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:text-sky-100">
-          Meta за период: <strong>{metaLeads}</strong> (
-          {adsMessages} WhatsApp · {adsFormLeads} сайт). В CRM с контактами:{" "}
-          <strong>{displayableRows.length}</strong>. Ещё <strong>{gap}</strong> появятся в таблице,
-          когда придут имя и телефон.
-        </div>
-      )}
 
       <SalesKpiCards kpi={kpi} cabinetName={cabinetName} loading={loading} />
 

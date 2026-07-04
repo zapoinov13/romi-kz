@@ -66,7 +66,10 @@ export type SalesMetaInput = {
 };
 
 /**
- * KPI: расход и CPL — по Meta; квал / оплаты / выручка — по CRM с контактами.
+ * KPI без смешивания счётчиков:
+ * - metaLeads / CPL — только реклама Meta
+ * - crmLeads / квал / оплаты / выручка — только CRM
+ * Числа независимы: из Meta в CRM доходят не все.
  */
 export function computeSalesKpi(
   rows: SalesAnalyticsLead[],

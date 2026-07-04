@@ -51,14 +51,17 @@ export const EMPTY_SALES_FILTERS: SalesLeadFilters = {
   phoneQuery: "",
 };
 
-/** KPI аналитики продаж: Meta и CRM раздельно. */
+/**
+ * KPI аналитики продаж.
+ * metaLeads и crmLeads никогда не смешиваются: из Meta до CRM доходят не все.
+ */
 export type SalesKpi = {
   spend: number;
-  /** Конверсии Meta: WhatsApp + лиды сайта */
+  /** Только Meta: WhatsApp + лиды сайта (не CRM) */
   metaLeads: number;
   adsMessages: number;
   adsFormLeads: number;
-  /** Лиды в CRM с именем и телефоном */
+  /** Только CRM с именем и телефоном (не Meta) */
   crmLeads: number;
   /** spend ÷ metaLeads */
   cpl: number;
@@ -66,7 +69,7 @@ export type SalesKpi = {
   /** qualifiedYes ÷ crmLeads */
   qualifiedRate: number;
   paidClients: number;
-  /** spend ÷ paidClients */
+  /** spend ÷ paidClients (расход Meta, оплаты CRM) */
   cac: number;
   revenue: number;
   /** revenue ÷ spend × 100 */
