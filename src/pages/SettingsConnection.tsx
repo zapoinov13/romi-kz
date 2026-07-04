@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, WHATSAPP_CONFIG_SAFE_SELECT, pickWhatsappConfigRow, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -47,19 +47,7 @@ const callProxy = async <T = unknown,>(
   return data as GreenResp<T>;
 };
 
-type WaBindRow = {
-  id: string;
-  project_id: string | null;
-  cabinet_id: string | null;
-  id_instance: string | null;
-  api_token_present: boolean | null;
-  api_url: string | null;
-  phone: string | null;
-  connected: boolean | null;
-  ads_only: boolean | null;
-  bot_webhook_url?: string | null;
-  webhook_url?: string | null;
-};
+type WaBindRow = WhatsappConfigSafeRow;
 
 const SettingsConnection = () => {
   const navigate = useNavigate();
@@ -140,32 +128,52 @@ export function GreenApiConnectionPanel({
   const [webhookEnsuring, setWebhookEnsuring] = useState(false);
   const [state, setState] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState(false);
+  const [waLoadError, setWaLoadError] = useState<string | null>(null);
   const webhookAutoTried = useRef(false);
 
   const refreshWaRow = useCallback(async () => {
-    if (!projectId || !cabinetId) {
+    if (!projectId) {
       setWaRow(null);
+      setWaLoadError(null);
       setWaLoading(false);
       return;
     }
     setWaLoading(true);
-    const q = supabase
-      .from("whatsapp_config_safe")
-      .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
-      .eq("cabinet_id", cabinetId);
-    const { data } = await q.maybeSingle();
-    if (!data) {
-      const legacy = await supabase
-        .from("whatsapp_config_safe")
-        .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
-        .eq("project_id", projectId)
-        .is("cabinet_id", null)
-        .maybeSingle();
-      setWaRow((legacy.data as WaBindRow | null) ?? null);
-    } else {
-      setWaRow((data as WaBindRow | null) ?? null);
+    setWaLoadError(null);
+    try {
+      let row: WaBindRow | null = null;
+
+      if (cabinetId) {
+        const { data, error } = await supabase
+          .from("whatsapp_config_safe")
+          .select(WHATSAPP_CONFIG_SAFE_SELECT)
+          .eq("cabinet_id", cabinetId)
+          .maybeSingle();
+        if (error?.message?.includes("cabinet_id")) {
+          setWaLoadError(
+            "В Supabase не применена миграция cabinet_id. Выполните scripts/lovable-whatsapp-cabinet-bind.sql",
+          );
+        } else if (!error && data) {
+          row = data as WaBindRow;
+        }
+      }
+
+      if (!row) {
+        const { data: list, error } = await supabase
+          .from("whatsapp_config_safe")
+          .select(WHATSAPP_CONFIG_SAFE_SELECT)
+          .eq("project_id", projectId);
+        if (error) {
+          setWaLoadError(error.message);
+        } else {
+          row = pickWhatsappConfigRow((list ?? []) as WaBindRow[], cabinetId);
+        }
+      }
+
+      setWaRow(row);
+    } finally {
+      setWaLoading(false);
     }
-    setWaLoading(false);
   }, [projectId, cabinetId]);
 
   const refreshState = useCallback(async () => {
@@ -195,6 +203,9 @@ export function GreenApiConnectionPanel({
   }, [refreshState]);
 
   const isBound = !!(waRow?.id_instance && waRow?.api_token_present);
+  const hasInstance = !!waRow?.id_instance;
+  const needsToken = hasInstance && !waRow?.api_token_present;
+  const canPollStatus = isBound;
 
   const ensureWebhookSetup = useCallback(async (silent = false) => {
     if (!projectId || !cabinetId || !waRow?.id_instance || !waRow?.api_token_present) {
@@ -286,7 +297,7 @@ export function GreenApiConnectionPanel({
           onBound={handleAfterBind}
         />
 
-        {isBound && (
+        {(isBound || hasInstance) && (
           <div className={cn(
             "flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground",
             embedded ? "mt-4" : "mt-6",
@@ -295,6 +306,8 @@ export function GreenApiConnectionPanel({
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
             ) : webhookOk || waRow?.webhook_url ? (
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+            ) : needsToken ? (
+              <Circle className="h-3.5 w-3.5 shrink-0 text-warning" />
             ) : (
               <Circle className="h-3.5 w-3.5 shrink-0" />
             )}
@@ -302,8 +315,14 @@ export function GreenApiConnectionPanel({
               ? "Настраиваем webhook CRM…"
               : webhookOk || waRow?.webhook_url
                 ? "Webhook CRM подключён — входящие WhatsApp попадают в CRM и аналитику продаж"
-                : "Webhook CRM настроится автоматически"}
+                : needsToken
+                  ? "Сначала введите apiToken и нажмите «Привязать» — затем webhook настроится автоматически"
+                  : "Webhook CRM настроится автоматически после привязки"}
           </div>
+        )}
+
+        {waLoadError && (
+          <p className="mt-3 text-xs text-destructive">{waLoadError}</p>
         )}
 
         {/* Status Card */}
@@ -323,7 +342,7 @@ export function GreenApiConnectionPanel({
               variant="outline"
               size="sm"
               onClick={refreshState}
-              disabled={loadingState || !isBound}
+              disabled={loadingState || !canPollStatus}
               className="gap-2"
             >
               {loadingState ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -348,31 +367,46 @@ export function GreenApiConnectionPanel({
                     (!stateMeta || stateMeta.tone === "muted") && "border-border bg-muted text-muted-foreground",
                   )}
                 >
-                  {stateMeta?.label ?? state ?? (isBound ? "Неизвестно" : "Не привязан")}
+                  {stateMeta?.label
+                    ?? state
+                    ?? (needsToken
+                      ? "Нужен apiToken"
+                      : hasInstance
+                        ? "Привязан"
+                        : "Не привязан")}
                 </Badge>
+                {waRow?.id_instance ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    idInstance: <code>{waRow.id_instance}</code>
+                  </p>
+                ) : null}
                 {waRow?.phone ? (
                   <p className="mt-1.5 text-sm font-semibold text-foreground">{waRow.phone}</p>
                 ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {isAuthed
                     ? "WhatsApp авторизован — входящие попадают в CRM"
-                    : isBound
-                      ? (
-                        <>
-                          Авторизуйте WhatsApp в{" "}
-                          <a
-                            href="https://console.green-api.com"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
-                          >
-                            Green API Console
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                          {" "}(QR-код на стороне Green API)
-                        </>
-                      )
-                      : "Сначала привяжите idInstance и токен"}
+                    : needsToken
+                      ? "Инстанс найден, но apiToken не сохранён — введите токен из Green API Console и нажмите «Привязать»"
+                      : isBound
+                        ? (
+                          <>
+                            Авторизуйте WhatsApp в{" "}
+                            <a
+                              href="https://console.green-api.com"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+                            >
+                              Green API Console
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                            {" "}(QR-код на стороне Green API), затем нажмите «Обновить»
+                          </>
+                        )
+                        : hasInstance
+                          ? "Нажмите «Обновить» для проверки статуса"
+                          : "Сначала привяжите idInstance и apiToken"}
                 </p>
               </div>
             </div>

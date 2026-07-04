@@ -132,6 +132,17 @@ async function resolveCreds(
       row = data as WaRow | null;
     }
 
+    if (!row?.id_instance) {
+      const { data } = await admin
+        .from("whatsapp_config")
+        .select("id, project_id, id_instance, api_token, api_url")
+        .eq("project_id", projectId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      row = data as WaRow | null;
+    }
+
     if (row?.id_instance) {
       const baseUrlOrErr = resolveGreenApiBaseUrl(row.api_url);
       if (typeof baseUrlOrErr !== "string") {

@@ -67,3 +67,36 @@ export const WHATSAPP_SETUP_STEPS = [
   { id: "bind", title: "Привязать инстанс", hint: "idInstance + apiToken из Green API Console" },
   { id: "webhook", title: "Webhook CRM", hint: "Настраивается автоматически после привязки" },
 ] as const;
+
+export const WHATSAPP_CONFIG_SAFE_SELECT =
+  "id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url";
+
+export type WhatsappConfigSafeRow = {
+  id: string;
+  project_id: string | null;
+  cabinet_id: string | null;
+  id_instance: string | null;
+  api_token_present: boolean | null;
+  api_url: string | null;
+  phone: string | null;
+  connected: boolean | null;
+  ads_only: boolean | null;
+  bot_webhook_url?: string | null;
+  webhook_url?: string | null;
+};
+
+/** Prefer cabinet match, then legacy row without cabinet, then any project row. */
+export function pickWhatsappConfigRow(
+  rows: WhatsappConfigSafeRow[],
+  cabinetId: string | null,
+): WhatsappConfigSafeRow | null {
+  if (rows.length === 0) return null;
+  if (cabinetId) {
+    return (
+      rows.find((r) => r.cabinet_id === cabinetId)
+      ?? rows.find((r) => !r.cabinet_id)
+      ?? rows[0]
+    );
+  }
+  return rows[0];
+}
