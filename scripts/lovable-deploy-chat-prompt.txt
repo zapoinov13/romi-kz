@@ -1,0 +1,15 @@
+Синхронизируй проект с GitHub: zapoinov13/romi-kz, ветка main (последний коммит).
+
+Supabase project ref: rgttklitvvqsnlsakvzr
+
+1) SQL Editor — выполни целиком файл scripts/lovable-whatsapp-cabinet-bind.sql из репозитория (129 строк). Это добавляет cabinet_id в whatsapp_config и новую RPC bind_whatsapp_to_project с p_cabinet_id.
+
+2) Edge Functions — задеploy с verify_jwt=false только для greenapi-webhook:
+   - greenapi-proxy (обновлённый: cabinet creds + auto webhook token)
+   - greenapi-webhook (stateInstanceChanged → сохраняет phone)
+
+3) Проверка после деплоя:
+   - POST /functions/v1/greenapi-webhook с body {"typeWebhook":"test"} → {"ok":true,"skipped":"test"}
+   - В SQL: SELECT proname FROM pg_proc WHERE proname = 'bind_whatsapp_to_project'; — должна быть функция с 5 аргументами (uuid, uuid, text, text, text)
+
+GitHub Actions supabase-deploy.yml сейчас не работает — секреты SUPABASE_ACCESS_TOKEN и SUPABASE_DB_PASSWORD не заданы. Если можешь — добавь их в repo secrets для автодеплоя при push в supabase/**.

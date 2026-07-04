@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, WHATSAPP_CONFIG_SAFE_SELECT, pickWhatsappConfigRow, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -142,32 +142,48 @@ export function GreenApiConnectionPanel({
     setWaLoadError(null);
     try {
       let row: WaBindRow | null = null;
+      let migrationPending = false;
 
       if (cabinetId) {
-        const { data, error } = await supabase
-          .from("whatsapp_config_safe")
-          .select(WHATSAPP_CONFIG_SAFE_SELECT)
-          .eq("cabinet_id", cabinetId)
-          .maybeSingle();
-        if (error?.message?.includes("cabinet_id")) {
-          setWaLoadError(
-            "В Supabase не применена миграция cabinet_id. Выполните scripts/lovable-whatsapp-cabinet-bind.sql",
-          );
-        } else if (!error && data) {
-          row = data as WaBindRow;
+        const byCabinet = await queryWhatsappConfigSafe((select) =>
+          supabase
+            .from("whatsapp_config_safe")
+            .select(select)
+            .eq("cabinet_id", cabinetId)
+            .maybeSingle(),
+        );
+        migrationPending = byCabinet.usedLegacySelect;
+        if (byCabinet.error && !byCabinet.usedLegacySelect) {
+          setWaLoadError(byCabinet.error.message);
+        } else if (byCabinet.data && !Array.isArray(byCabinet.data)) {
+          row = byCabinet.data;
         }
       }
 
       if (!row) {
-        const { data: list, error } = await supabase
-          .from("whatsapp_config_safe")
-          .select(WHATSAPP_CONFIG_SAFE_SELECT)
-          .eq("project_id", projectId);
-        if (error) {
-          setWaLoadError(error.message);
+        const byProject = await queryWhatsappConfigSafe((select) =>
+          supabase
+            .from("whatsapp_config_safe")
+            .select(select)
+            .eq("project_id", projectId),
+        );
+        migrationPending = migrationPending || byProject.usedLegacySelect;
+        if (byProject.error) {
+          setWaLoadError(byProject.error.message);
         } else {
-          row = pickWhatsappConfigRow((list ?? []) as WaBindRow[], cabinetId);
+          const list = (Array.isArray(byProject.data)
+            ? byProject.data
+            : byProject.data
+              ? [byProject.data]
+              : []) as WaBindRow[];
+          row = pickWhatsappConfigRow(list, cabinetId);
         }
+      }
+
+      if (migrationPending) {
+        setWaLoadError(
+          "Привязка работает на уровне проекта. Для привязки к кабинету выполните SQL: scripts/lovable-whatsapp-cabinet-bind.sql в Lovable",
+        );
       }
 
       setWaRow(row);
@@ -485,10 +501,13 @@ export function WhatsappProjectBindCard({
 
   const refreshAll = useCallback(async () => {
     if (!embedded) {
-      const { data } = await supabase
-        .from("whatsapp_config_safe")
-        .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url");
-      const list = (data ?? []) as WaBindRow[];
+      const { data, error, usedLegacySelect } = await queryWhatsappConfigSafe((select) =>
+        supabase.from("whatsapp_config_safe").select(select),
+      );
+      const list = (Array.isArray(data) ? data : data ? [data] : []) as WaBindRow[];
+      if (error && !usedLegacySelect) {
+        toast.error("Не удалось загрузить привязки", { description: error.message });
+      }
       setRows(list);
       const cabinetIds = Array.from(new Set(list.map((r) => r.cabinet_id).filter(Boolean))) as string[];
       if (cabinetIds.length > 0) {
@@ -557,16 +576,18 @@ export function WhatsappProjectBindCard({
     }
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("bind_whatsapp_to_project", {
-        p_project_id: projectId,
-        p_cabinet_id: cabinetId,
-        p_id_instance: idInstance,
-        p_api_token: token.length >= 20 ? token : undefined,
-        p_api_url: trimmedApiUrl || null,
+      const { error, usedLegacyRpc } = await bindWhatsappToProject({
+        projectId,
+        cabinetId,
+        idInstance,
+        apiToken: token.length >= 20 ? token : undefined,
+        apiUrl: trimmedApiUrl || null,
       });
       if (error) throw error;
       toast.success(`WhatsApp ${idInstance} → «${cabinetName ?? "кабинет"}»`, {
-        description: "Webhook CRM настраивается автоматически…",
+        description: usedLegacyRpc
+          ? "Привязано к проекту. Webhook CRM настраивается… (кабинет — после SQL в Lovable)"
+          : "Webhook CRM настраивается автоматически…",
       });
       await refreshAll();
       await onBound?.();

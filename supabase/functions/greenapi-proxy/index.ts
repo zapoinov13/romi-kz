@@ -114,22 +114,22 @@ async function resolveCreds(
     let row: WaRow | null = null;
 
     if (bodyCabinetId) {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("whatsapp_config")
         .select("id, project_id, id_instance, api_token, api_url")
         .eq("cabinet_id", bodyCabinetId)
         .maybeSingle();
-      row = data as WaRow | null;
+      if (!error) row = data as WaRow | null;
     }
 
     if (!row?.id_instance) {
-      const { data } = await admin
+      const { data, error } = await admin
         .from("whatsapp_config")
         .select("id, project_id, id_instance, api_token, api_url")
         .eq("project_id", projectId)
         .is("cabinet_id", null)
         .maybeSingle();
-      row = data as WaRow | null;
+      if (!error) row = data as WaRow | null;
     }
 
     if (!row?.id_instance) {
