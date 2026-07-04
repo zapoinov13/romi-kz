@@ -1,8 +1,5 @@
 /**
- * Meta Ads: WhatsApp-сообщения и лиды с сайта — разные метрики.
- *
- * Meta часто пишет начатые переписки и в `lead` / `onsite_conversion.lead_grouped`.
- * Колонки заполняем по destination / objective / optimization_goal кампании.
+ * Meta Ads: лиды (пиксель / цель «Лиды») и WhatsApp («Начатая переписка») — разные метрики.
  */
 
 export type MetaAction = { action_type: string; value: string };
@@ -78,37 +75,71 @@ export function isSiteLeadDestination(dest: string | null | undefined): boolean 
   );
 }
 
+export function isLeadCampaignObjective(objective: string | null | undefined): boolean {
+  const obj = (objective ?? "").toUpperCase();
+  return /OUTCOME_LEADS|LEAD_GENERATION|LEADS/.test(obj);
+}
+
+export function isWhatsAppCampaignObjective(
+  objective: string | null | undefined,
+  optimizationGoal?: string | null,
+  destinationType?: string | null,
+): boolean {
+  const obj = (objective ?? "").toUpperCase();
+  const opt = (optimizationGoal ?? "").toUpperCase();
+  if (isMessagingDestination(destinationType)) return true;
+  if (/CONVERSATION|MESSAGING|WHATSAPP|REPLIES/.test(opt)) return true;
+  if (/MESSAGES|MESSAGE/.test(obj)) return true;
+  if (/OUTCOME_ENGAGEMENT|ENGAGEMENT/.test(obj) && !/LEAD/.test(obj)) {
+    return isMessagingDestination(destinationType) || /CONVERSATION|MESSAGING|WHATSAPP/.test(opt);
+  }
+  return false;
+}
+
 export function campaignResultKind(
   destinationType: string | null | undefined,
   objective?: string | null,
   optimizationGoal?: string | null,
   campaignName?: string | null,
 ): CampaignResultKind {
-  const dest = (destinationType ?? "").toUpperCase();
   const obj = (objective ?? "").toUpperCase();
   const opt = (optimizationGoal ?? "").toUpperCase();
   const name = (campaignName ?? "").toLowerCase();
 
-  if (isMessagingDestination(dest)) return "whatsapp";
-  if (isSiteLeadDestination(dest)) return "site_leads";
+  if (isLeadCampaignObjective(objective)) return "site_leads";
+  if (isWhatsAppCampaignObjective(objective, optimizationGoal, destinationType)) return "whatsapp";
+  if (isSiteLeadDestination(destinationType)) return "site_leads";
 
-  if (/CONVERSATION|MESSAGING|WHATSAPP|REPLIES|MESSAGE/.test(opt)) return "whatsapp";
-  if (/LEAD|QUALITY_LEAD/.test(opt)) return "site_leads";
+  if (/LEAD|QUALITY_LEAD|OFFSITE_CONVERSION/.test(opt)) return "site_leads";
   if (/LINK_CLICK|LANDING_PAGE_VIEWS|REACH|IMPRESSIONS|THRUPLAY/.test(opt)) return "traffic";
 
-  if (/MESSAGE|CONVERSATION/.test(obj)) return "whatsapp";
-  if (/ENGAGEMENT/.test(obj) && !/LEAD/.test(obj)) return "whatsapp";
   if (/LEAD|SALES|CONVERSION/.test(obj)) return "site_leads";
   if (/TRAFFIC|LINK_CLICK/.test(obj)) return "traffic";
 
-  if (/whats?app|\bwa\b|вотсап|ватсап|сообщен|messenger|direct/.test(name)) return "whatsapp";
-  if (/сайт|site|лендинг|landing|pixel|пиксель|форм/.test(name)) return "site_leads";
+  if (/whats?app|\bwa\b|вотсап|ватсап|сообщен|messenger|instagram_direct|переписк/.test(name)) {
+    return "whatsapp";
+  }
+  if (/сайт|site|лендинг|landing|pixel|пиксель|форм|лид/.test(name)) return "site_leads";
   if (/трафик|traffic|клик|click/.test(name)) return "traffic";
 
   return "other";
 }
 
 export type SplitMetrics = { leads: number; messages: number };
+
+function whatsAppConversations(
+  rawMessages: number,
+  genericLeads: number,
+  kind: CampaignResultKind,
+): number {
+  if (rawMessages > 0) return rawMessages;
+  if (kind === "whatsapp" && genericLeads > 0) return genericLeads;
+  return 0;
+}
+
+function siteLeadConversions(pixelLeads: number, genericLeads: number): number {
+  return pixelLeads > 0 ? pixelLeads : genericLeads;
+}
 
 export function splitLeadsAndMessages(
   actions: MetaAction[] | undefined,
@@ -123,33 +154,26 @@ export function splitLeadsAndMessages(
   const kind = campaignResultKind(destinationType, objective, optimizationGoal, campaignName);
 
   if (kind === "whatsapp") {
-    return { leads: 0, messages: Math.max(rawMessages, genericLeads, pixelLeads) };
+    return { leads: 0, messages: whatsAppConversations(rawMessages, genericLeads, kind) };
   }
-
   if (kind === "traffic") {
     return { leads: 0, messages: 0 };
   }
-
   if (kind === "site_leads") {
-    const site = Math.max(pixelLeads, genericLeads);
-    if (rawMessages > 0 && site >= rawMessages) {
-      return { leads: Math.max(site - rawMessages, 0), messages: 0 };
-    }
-    return { leads: site, messages: 0 };
+    return { leads: siteLeadConversions(pixelLeads, genericLeads), messages: 0 };
   }
 
-  if (rawMessages > 0) {
-    return {
-      leads: pixelLeads,
-      messages: Math.max(rawMessages, genericLeads > pixelLeads ? genericLeads : 0),
-    };
+  if (pixelLeads > 0 && rawMessages === 0) {
+    return { leads: pixelLeads, messages: 0 };
   }
-  if (pixelLeads > 0) {
-    return { leads: Math.max(pixelLeads, genericLeads), messages: 0 };
+  if (rawMessages > 0 && pixelLeads === 0) {
+    return { leads: 0, messages: rawMessages };
   }
-  // Голый `lead` без destination — WhatsApp (типичный click-to-WA в KZ).
+  if (rawMessages > 0 && pixelLeads > 0) {
+    return { leads: pixelLeads, messages: rawMessages };
+  }
   if (genericLeads > 0) {
-    return { leads: 0, messages: genericLeads };
+    return { leads: genericLeads, messages: 0 };
   }
   return { leads: 0, messages: 0 };
 }
@@ -167,17 +191,19 @@ export function reclassifyStoredMetrics(
   const kind = campaignResultKind(destinationType, objective, optimizationGoal, campaignName);
 
   if (kind === "whatsapp") {
-    return { leads: 0, messages: Math.max(m, l) };
+    return { leads: 0, messages: m > 0 ? m : l };
   }
   if (kind === "traffic") {
     return { leads: 0, messages: 0 };
   }
   if (kind === "site_leads") {
     if (m > 0 && l >= m) return { leads: l - m, messages: 0 };
-    return { leads: l, messages: 0 };
+    if (l > 0) return { leads: l, messages: 0 };
+    if (m > 0) return { leads: m, messages: 0 };
+    return { leads: 0, messages: 0 };
   }
+  if (m > 0 && l === 0) return { leads: 0, messages: m };
+  if (l > 0 && m === 0) return { leads: l, messages: 0 };
   if (m > 0 && l >= m) return { leads: l - m, messages: m };
-  if (m > 0) return { leads: l, messages: m };
-  if (l > 0) return { leads: 0, messages: l };
-  return { leads: 0, messages: 0 };
+  return { leads: l, messages: m };
 }

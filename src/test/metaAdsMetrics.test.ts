@@ -35,6 +35,19 @@ describe("campaignResultKind", () => {
     expect(campaignResultKind("MESSAGING_INSTAGRAM_DIRECT_WHATSAPP")).toBe("whatsapp");
   });
 
+  it("OUTCOME_LEADS → site_leads (пиксель)", () => {
+    expect(campaignResultKind("WEBSITE", "OUTCOME_LEADS")).toBe("site_leads");
+    expect(campaignResultKind(null, "OUTCOME_LEADS")).toBe("site_leads");
+  });
+
+  it("OUTCOME_ENGAGEMENT + WA → whatsapp (начатая переписка)", () => {
+    expect(campaignResultKind("WHATSAPP", "OUTCOME_ENGAGEMENT")).toBe("whatsapp");
+  });
+
+  it("OUTCOME_ENGAGEMENT без WA → not whatsapp", () => {
+    expect(campaignResultKind(null, "OUTCOME_ENGAGEMENT")).toBe("other");
+  });
+
   it("WEBSITE / формы → site_leads", () => {
     expect(campaignResultKind("WEBSITE")).toBe("site_leads");
     expect(campaignResultKind("ON_AD")).toBe("site_leads");
@@ -61,12 +74,40 @@ describe("splitLeadsAndMessages по destination", () => {
     { action_type: "lead", value: "7" },
   ];
 
-  it("WhatsApp → только messages, leads = 0", () => {
-    expect(splitLeadsAndMessages(waActions, "WHATSAPP")).toEqual({ leads: 0, messages: 12 });
+  it("WhatsApp → только начатая переписка, leads = 0", () => {
+    expect(splitLeadsAndMessages(waActions, "WHATSAPP", "OUTCOME_ENGAGEMENT")).toEqual({
+      leads: 0,
+      messages: 12,
+    });
+  });
+
+  it("OUTCOME_LEADS + pixel → лиды сайта, не WA", () => {
+    expect(
+      splitLeadsAndMessages(
+        [
+          { action_type: "offsite_conversion.fb_pixel_lead", value: "13" },
+          { action_type: "lead", value: "15" },
+        ],
+        "WEBSITE",
+        "OUTCOME_LEADS",
+      ),
+    ).toEqual({ leads: 13, messages: 0 });
   });
 
   it("сайт → только leads, messages = 0", () => {
     expect(splitLeadsAndMessages(siteActions, "WEBSITE")).toEqual({ leads: 7, messages: 0 });
+  });
+
+  it("pixel lead без destination → лиды сайта (как в Ads Manager)", () => {
+    expect(
+      splitLeadsAndMessages(
+        [
+          { action_type: "offsite_conversion.fb_pixel_lead", value: "13" },
+          { action_type: "lead", value: "15" },
+        ],
+        null,
+      ),
+    ).toEqual({ leads: 13, messages: 0 });
   });
 
   it("трафик → ни лиды, ни сообщения", () => {
@@ -75,10 +116,10 @@ describe("splitLeadsAndMessages по destination", () => {
     ).toEqual({ leads: 0, messages: 0 });
   });
 
-  it("голый lead без destination → WhatsApp (не лид сайта)", () => {
+  it("голый lead без destination → leads (не WhatsApp)", () => {
     expect(splitLeadsAndMessages([{ action_type: "lead", value: "46" }], null)).toEqual({
-      leads: 0,
-      messages: 46,
+      leads: 46,
+      messages: 0,
     });
   });
 
@@ -95,14 +136,21 @@ describe("splitLeadsAndMessages по destination", () => {
 describe("reclassifyStoredMetrics", () => {
   it("чинит старые данные WA", () => {
     expect(reclassifyStoredMetrics(12, 12, "WHATSAPP")).toEqual({ leads: 0, messages: 12 });
-    expect(reclassifyStoredMetrics(20, 10, "WHATSAPP")).toEqual({ leads: 0, messages: 20 });
+    // messages = начатая переписка; если была только в leads — берём leads
+    expect(reclassifyStoredMetrics(20, 10, "WHATSAPP")).toEqual({ leads: 0, messages: 10 });
+    expect(reclassifyStoredMetrics(20, 0, "WHATSAPP")).toEqual({ leads: 0, messages: 20 });
   });
 
   it("сайт оставляет leads", () => {
     expect(reclassifyStoredMetrics(7, 0, "WEBSITE")).toEqual({ leads: 7, messages: 0 });
   });
 
-  it("CDI без метаданных: leads → messages", () => {
-    expect(reclassifyStoredMetrics(46, 0, null)).toEqual({ leads: 0, messages: 46 });
+  it("сайт: чинит старые данные в колонке messages", () => {
+    expect(reclassifyStoredMetrics(0, 13, "WEBSITE")).toEqual({ leads: 13, messages: 0 });
+    expect(reclassifyStoredMetrics(0, 13, null, "OUTCOME_LEADS")).toEqual({ leads: 13, messages: 0 });
+  });
+
+  it("CDI без метаданных: leads остаются leads", () => {
+    expect(reclassifyStoredMetrics(46, 0, null)).toEqual({ leads: 46, messages: 0 });
   });
 });

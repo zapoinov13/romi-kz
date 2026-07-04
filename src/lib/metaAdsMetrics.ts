@@ -1,4 +1,10 @@
-/** Meta Ads: клики, WhatsApp и лиды с сайта — разные метрики. */
+/**
+ * Meta Ads: клики, лиды (пиксель / цель «Лиды») и WhatsApp (начатая переписка) — разные метрики.
+ *
+ * Лиды — кампании OUTCOME_LEADS / LEAD_GENERATION: события пикселя (fb_pixel_lead) и формы.
+ * WhatsApp — кампании «Вовлечённость» → написать в WA: в Ads Manager = «Начатая переписка»
+ * (messaging_conversation_started_*).
+ */
 
 export type MetaTrafficTotals = {
   spend: number;
@@ -9,22 +15,20 @@ export type MetaTrafficTotals = {
 
 export type MetaAction = { action_type: string; value: string };
 
-/** Только пиксель сайта — однозначно «лиды с сайта». */
+/** Пиксель сайта — «Лиды с сайта» в Ads Manager. */
 const PIXEL_LEAD_ACTIONS = [
   "offsite_conversion.fb_pixel_lead",
   "onsite_web_lead",
 ];
 
-/**
- * Общий `lead` Meta использует и для форм, и для WhatsApp.
- * Без destination нельзя считать это лидом сайта.
- */
+/** Формы Meta и агрегат lead (без messaging action). */
 const GENERIC_LEAD_ACTIONS = [
   "lead",
   "leadgen.other",
   "onsite_conversion.lead_grouped",
 ];
 
+/** «Начатая переписка» в кабинете Meta. */
 const MESSAGING_ACTIONS = [
   "onsite_conversion.messaging_conversation_started_7d",
   "onsite_conversion.messaging_conversation_started_28d",
@@ -44,7 +48,6 @@ function maxAction(actions: MetaAction[] | undefined, types: string[]): number {
   return max;
 }
 
-/** Тип результата кампании: куда класть конверсии. */
 export type CampaignResultKind = "whatsapp" | "site_leads" | "traffic" | "other";
 
 export function isMessagingDestination(dest: string | null | undefined): boolean {
@@ -71,9 +74,33 @@ export function isSiteLeadDestination(dest: string | null | undefined): boolean 
   );
 }
 
+/** Цель кампании «Лиды» (пиксель / формы). */
+export function isLeadCampaignObjective(objective: string | null | undefined): boolean {
+  const obj = (objective ?? "").toUpperCase();
+  return /OUTCOME_LEADS|LEAD_GENERATION|LEADS/.test(obj);
+}
+
+/** Цель «написать в WhatsApp / начать переписку». */
+export function isWhatsAppCampaignObjective(
+  objective: string | null | undefined,
+  optimizationGoal?: string | null,
+  destinationType?: string | null,
+): boolean {
+  const obj = (objective ?? "").toUpperCase();
+  const opt = (optimizationGoal ?? "").toUpperCase();
+  if (isMessagingDestination(destinationType)) return true;
+  if (/CONVERSATION|MESSAGING|WHATSAPP|REPLIES/.test(opt)) return true;
+  if (/MESSAGES|MESSAGE/.test(obj)) return true;
+  // Вовлечённость → WA только с мессенджер-назначением или оптимизацией на переписку
+  if (/OUTCOME_ENGAGEMENT|ENGAGEMENT/.test(obj) && !/LEAD/.test(obj)) {
+    return isMessagingDestination(destinationType) || /CONVERSATION|MESSAGING|WHATSAPP/.test(opt);
+  }
+  return false;
+}
+
 /**
- * Определяет тип кампании.
- * Priority: destination → optimization_goal → objective → имя кампании.
+ * Куда класть конверсии кампании.
+ * Priority: objective «Лиды» → WA/messaging → site destination → opt → имя.
  */
 export function campaignResultKind(
   destinationType: string | null | undefined,
@@ -81,35 +108,47 @@ export function campaignResultKind(
   optimizationGoal?: string | null,
   campaignName?: string | null,
 ): CampaignResultKind {
-  const dest = (destinationType ?? "").toUpperCase();
   const obj = (objective ?? "").toUpperCase();
   const opt = (optimizationGoal ?? "").toUpperCase();
   const name = (campaignName ?? "").toLowerCase();
 
-  if (isMessagingDestination(dest)) return "whatsapp";
-  if (isSiteLeadDestination(dest)) return "site_leads";
+  if (isLeadCampaignObjective(objective)) return "site_leads";
+  if (isWhatsAppCampaignObjective(objective, optimizationGoal, destinationType)) return "whatsapp";
+  if (isSiteLeadDestination(destinationType)) return "site_leads";
 
-  if (/CONVERSATION|MESSAGING|WHATSAPP|REPLIES|MESSAGE/.test(opt)) return "whatsapp";
-  if (/LEAD|QUALITY_LEAD/.test(opt)) return "site_leads";
+  if (/LEAD|QUALITY_LEAD|OFFSITE_CONVERSION/.test(opt)) return "site_leads";
   if (/LINK_CLICK|LANDING_PAGE_VIEWS|REACH|IMPRESSIONS|THRUPLAY/.test(opt)) return "traffic";
 
-  if (/MESSAGE|CONVERSATION/.test(obj)) return "whatsapp";
-  // Engagement без явного lead — чаще сообщения (WA / Direct)
-  if (/ENGAGEMENT/.test(obj) && !/LEAD/.test(obj)) return "whatsapp";
   if (/LEAD|SALES|CONVERSION/.test(obj)) return "site_leads";
   if (/TRAFFIC|LINK_CLICK/.test(obj)) return "traffic";
 
-  // Имя кампании (агентства часто пишут WA / сайт / трафик в названии)
-  if (/whats?app|\bwa\b|вотсап|ватсап|сообщен|messenger|direct/.test(name)) return "whatsapp";
-  if (/сайт|site|лендинг|landing|pixel|пиксель|форм/.test(name)) return "site_leads";
+  if (/whats?app|\bwa\b|вотсап|ватсап|сообщен|messenger|instagram_direct|переписк/.test(name)) {
+    return "whatsapp";
+  }
+  if (/сайт|site|лендинг|landing|pixel|пиксель|форм|лид/.test(name)) return "site_leads";
   if (/трафик|traffic|клик|click/.test(name)) return "traffic";
 
   return "other";
 }
 
+/** Счётчик «Начатая переписка»; generic lead — только если Meta не отдал messaging action. */
+function whatsAppConversations(
+  rawMessages: number,
+  genericLeads: number,
+  kind: CampaignResultKind,
+): number {
+  if (rawMessages > 0) return rawMessages;
+  if (kind === "whatsapp" && genericLeads > 0) return genericLeads;
+  return 0;
+}
+
+/** Счётчик лидов: пиксель приоритетнее generic lead. */
+function siteLeadConversions(pixelLeads: number, genericLeads: number): number {
+  return pixelLeads > 0 ? pixelLeads : genericLeads;
+}
+
 /**
- * Раскладывает сырые actions Meta в колонки по типу кампании.
- * Клики сюда не входят.
+ * Раскладывает actions Meta в колонки leads / messages по цели кампании.
  */
 export function splitLeadsAndMessages(
   actions: MetaAction[] | undefined,
@@ -124,42 +163,34 @@ export function splitLeadsAndMessages(
   const kind = campaignResultKind(destinationType, objective, optimizationGoal, campaignName);
 
   if (kind === "whatsapp") {
-    // Meta часто пишет переписку в `lead` — в лиды сайта не кладём.
-    return { leads: 0, messages: Math.max(rawMessages, genericLeads, pixelLeads) };
+    return { leads: 0, messages: whatsAppConversations(rawMessages, genericLeads, kind) };
   }
 
   if (kind === "traffic") {
-    // Трафик = только клики. Конверсии в колонки не пишем.
     return { leads: 0, messages: 0 };
   }
 
   if (kind === "site_leads") {
-    // Сайт / формы: пиксель или формы. Messaging action на сайте редок.
-    const site = Math.max(pixelLeads, genericLeads);
-    if (rawMessages > 0 && site >= rawMessages) {
-      return { leads: Math.max(site - rawMessages, 0), messages: 0 };
-    }
-    return { leads: site, messages: 0 };
+    return { leads: siteLeadConversions(pixelLeads, genericLeads), messages: 0 };
   }
 
-  // Неизвестный тип: пиксель → сайт; messaging action → WA;
-  // голый `lead` без признаков сайта — WhatsApp (click-to-WA).
-  if (rawMessages > 0) {
-    return {
-      leads: pixelLeads,
-      messages: Math.max(rawMessages, genericLeads > pixelLeads ? genericLeads : 0),
-    };
+  // Без метаданных: пиксель → лиды; messaging action → начатая переписка
+  if (pixelLeads > 0 && rawMessages === 0) {
+    return { leads: pixelLeads, messages: 0 };
   }
-  if (pixelLeads > 0) {
-    return { leads: Math.max(pixelLeads, genericLeads), messages: 0 };
+  if (rawMessages > 0 && pixelLeads === 0) {
+    return { leads: 0, messages: rawMessages };
+  }
+  if (rawMessages > 0 && pixelLeads > 0) {
+    return { leads: pixelLeads, messages: rawMessages };
   }
   if (genericLeads > 0) {
-    return { leads: 0, messages: genericLeads };
+    return { leads: genericLeads, messages: 0 };
   }
   return { leads: 0, messages: 0 };
 }
 
-/** Переразложить уже сохранённые leads/messages по типу кампании. */
+/** Переразложить сохранённые leads/messages по типу кампании. */
 export function reclassifyStoredMetrics(
   leads: number,
   messages: number,
@@ -173,33 +204,33 @@ export function reclassifyStoredMetrics(
   const kind = campaignResultKind(destinationType, objective, optimizationGoal, campaignName);
 
   if (kind === "whatsapp") {
-    return { leads: 0, messages: Math.max(m, l) };
+    return { leads: 0, messages: m > 0 ? m : l };
   }
   if (kind === "traffic") {
     return { leads: 0, messages: 0 };
   }
   if (kind === "site_leads") {
     if (m > 0 && l >= m) return { leads: l - m, messages: 0 };
-    return { leads: l, messages: 0 };
+    if (l > 0) return { leads: l, messages: 0 };
+    if (m > 0) return { leads: m, messages: 0 };
+    return { leads: 0, messages: 0 };
   }
-  // other без метаданных: messaging action уже в m; иначе голый lead → WA
+  if (m > 0 && l === 0) return { leads: 0, messages: m };
+  if (l > 0 && m === 0) return { leads: l, messages: 0 };
   if (m > 0 && l >= m) return { leads: l - m, messages: m };
-  if (m > 0) return { leads: l, messages: m };
-  if (l > 0) return { leads: 0, messages: l };
-  return { leads: 0, messages: 0 };
+  return { leads: l, messages: m };
 }
 
-/** Лиды с сайта / pixel / формы (не WhatsApp, не клики). */
+/** Лиды: пиксель / формы (цель «Лиды»). */
 export function metaFormLeads(t: Pick<MetaTrafficTotals, "leads">): number {
   return Math.max(0, t.leads ?? 0);
 }
 
-/** Начатые переписки WhatsApp / Messenger. */
+/** Начатые переписки WhatsApp (цель «Вовлечённость» → написать в WA). */
 export function metaMessages(t: Pick<MetaTrafficTotals, "messages">): number {
   return Math.max(0, t.messages ?? 0);
 }
 
-/** Все конверсии Meta без кликов: сайт + WhatsApp. */
 export function metaConversionsTotal(t: Pick<MetaTrafficTotals, "leads" | "messages">): number {
   return metaFormLeads(t) + metaMessages(t);
 }

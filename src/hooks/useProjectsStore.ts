@@ -47,6 +47,18 @@ const toProject = (r: Row): Project => ({
   intakeToken: r.intake_token ?? undefined,
 });
 
+function describeProjectDeleteError(error: PostgrestError | null): string {
+  if (!error) return "Не удалось удалить проект";
+  const msg = error.message ?? "";
+  const code = error.code ?? "";
+  if (code === "42501" || /row-level security/i.test(msg) || /permission denied/i.test(msg)) {
+    return "Нет прав на удаление. Выполните scripts/lovable-projects-delete-fix.sql в Supabase.";
+  }
+  if (/foreign key|violates foreign key/i.test(msg)) {
+    return "Сначала отключите интеграции проекта или обратитесь к администратору.";
+  }
+  return msg || "Не удалось удалить проект";
+}
 function describeProjectDbError(error: PostgrestError | null, needsAuth: boolean): string {
   if (needsAuth) return "Войдите в аккаунт, чтобы создать проект";
   if (!error) return "Не удалось создать проект";
@@ -180,10 +192,29 @@ export function useProjectsStore() {
 
   const removeProject = useCallback(
     async (id: string) => {
-      await supabase.from("projects").delete().eq("id", id);
+      const uid = session?.user?.id ?? user?.id;
+      const target = projects.find((p) => p.id === id);
+      if (target?.isPrimary) {
+        throw new Error("Основной проект удалить нельзя");
+      }
+
+      const { data, error } = await supabase.from("projects").delete().eq("id", id).select("id");
+      if (error) throw new Error(describeProjectDeleteError(error));
+      if (!data?.length) {
+        throw new Error(describeProjectDeleteError(null));
+      }
+
+      if (activeId === id && uid) {
+        const remaining = projects.filter((p) => p.id !== id);
+        const next = remaining.find((p) => p.isPrimary) ?? remaining[0];
+        if (next) {
+          await supabase.from("user_active_project").upsert({ user_id: uid, project_id: next.id });
+          setActiveProjectEverywhere(next.id, true);
+        }
+      }
       await refetch();
     },
-    [refetch],
+    [refetch, projects, activeId, user?.id, session?.user?.id],
   );
 
   const setActive = useCallback(

@@ -263,15 +263,13 @@ function aggregate(rows: CdiRow[]): InsightsData {
   return { currency: "USD", totals, daily };
 }
 
+/** Старые CDI: messages иногда дублировались внутри leads. Не трогаем дни, где WA=0 — сайт ≠ WhatsApp. */
 function applyCdiLeadHeuristic(row: CdiRow) {
   const l = Number(row.leads) || 0;
   const m = Number(row.messages) || 0;
   if (m > 0 && l >= m) {
     row.leads = l - m;
     row.messages = m;
-  } else if (l > 0 && m === 0) {
-    row.leads = 0;
-    row.messages = l;
   }
 }
 

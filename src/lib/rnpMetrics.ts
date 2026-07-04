@@ -9,6 +9,7 @@ export type RnpColumnKey =
   | "messages"
   | "leads"
   | "cpl"
+  | "cpwa"
   | "qualified"
   | "cpql"
   | "kev"
@@ -24,15 +25,13 @@ export interface RnpColumnDef {
   label: string;
   short: string;
   help: string;
-  /** Auto from Meta, direct DB field, formula, or manual override field */
   kind: "meta" | "manual" | "formula" | "direct";
   manualField?:
     | "manual_qualified"
     | "manual_diagnostics"
     | "manual_sales"
     | "manual_revenue";
-  /** Write straight to column (spend, leads) — overwritable, sync may refresh from Meta */
-  directField?: "spend" | "leads";
+  directField?: "spend" | "leads" | "messages";
   format: (n: number) => string;
   pick: (d: DailyInsightRow | undefined) => number;
   total: (sums: RnpDaySums) => number;
@@ -68,25 +67,30 @@ function sumsFromDay(d: DailyInsightRow | undefined): RnpDaySums {
   };
 }
 
+/** Все конверсии Meta за день: WhatsApp + лиды сайта (не клики). */
+export function metaConvFromSums(s: Pick<RnpDaySums, "leads" | "messages">): number {
+  return Math.max(0, s.leads) + Math.max(0, s.messages);
+}
+
 export const RNP_COLUMN_GROUPS: Record<
   RnpColumnGroup,
   { label: string; headerClass: string }
 > = {
   ads: {
-    label: "Реклама",
-    headerClass: "bg-primary/10 text-primary border-primary/20",
+    label: "Реклама · Meta",
+    headerClass: "bg-sky-500/10 text-sky-800 border-sky-500/20",
   },
   crm: {
     label: "CRM",
-    headerClass: "bg-violet-50 text-violet-700 border-violet-200",
+    headerClass: "bg-violet-500/10 text-violet-800 border-violet-500/20",
   },
   funnel: {
     label: "КЭВ",
-    headerClass: "bg-amber-50 text-amber-800 border-amber-200",
+    headerClass: "bg-amber-500/10 text-amber-900 border-amber-500/20",
   },
   money: {
     label: "Продажи",
-    headerClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    headerClass: "bg-emerald-500/10 text-emerald-900 border-emerald-500/20",
   },
 };
 
@@ -94,9 +98,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "spend",
     group: "ads",
-    label: "Потрачено на маркетинг",
-    short: "Затраты",
-    help: "Расход за день в $. Подтягивается из Meta, можно скорректировать вручную.",
+    label: "Расход Meta",
+    short: "Расход",
+    help: "Расход за день из Meta. Можно скорректировать вручную.",
     kind: "direct",
     directField: "spend",
     format: fmtTenge,
@@ -108,7 +112,7 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "ads",
     label: "Клики",
     short: "Клики",
-    help: "Клики по объявлению. Это не лиды.",
+    help: "Клики по объявлению. Это не лиды и не сообщения.",
     kind: "meta",
     format: fmtNum,
     pick: (d) => d?.clicks ?? 0,
@@ -119,8 +123,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "ads",
     label: "WhatsApp",
     short: "WA",
-    help: "Начатые переписки WhatsApp / Messenger. Не лиды с сайта.",
-    kind: "meta",
+    help: "Кампании «Вовлечённость» → написать в WhatsApp. В Meta = «Начатая переписка».",
+    kind: "direct",
+    directField: "messages",
     format: fmtNum,
     pick: (d) => d?.messages ?? 0,
     total: (s) => s.messages,
@@ -128,9 +133,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "leads",
     group: "ads",
-    label: "Лиды с сайта",
-    short: "Лиды",
-    help: "Лиды с сайта (pixel) и лид-формы Meta. Без WhatsApp и кликов.",
+    label: "Лиды сайта",
+    short: "Сайт",
+    help: "Кампании с целью «Лиды» через пиксель / формы. В Meta = «Лиды с сайта».",
     kind: "direct",
     directField: "leads",
     format: fmtNum,
@@ -140,23 +145,41 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "cpl",
     group: "ads",
-    label: "Стоимость лида с сайта",
+    label: "CPL Meta",
     short: "CPL",
-    help: "Затраты ÷ лиды с сайта. WhatsApp считается отдельно.",
+    help: "Расход ÷ (WhatsApp + лиды сайта). Клики не входят.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {
       const s = sumsFromDay(d);
-      return s.leads > 0 ? s.spend / s.leads : 0;
+      const conv = metaConvFromSums(s);
+      return conv > 0 ? s.spend / conv : 0;
     },
-    total: (s) => (s.leads > 0 ? s.spend / s.leads : 0),
+    total: (s) => {
+      const conv = metaConvFromSums(s);
+      return conv > 0 ? s.spend / conv : 0;
+    },
+  },
+  {
+    key: "cpwa",
+    group: "ads",
+    label: "Цена WhatsApp",
+    short: "CP WA",
+    help: "Расход ÷ сообщения WhatsApp.",
+    kind: "formula",
+    format: fmtTenge,
+    pick: (d) => {
+      const s = sumsFromDay(d);
+      return s.messages > 0 ? s.spend / s.messages : 0;
+    },
+    total: (s) => (s.messages > 0 ? s.spend / s.messages : 0),
   },
   {
     key: "qualified",
     group: "crm",
     label: "Квал лиды",
     short: "Квал",
-    help: "Квалифицированные лиды — ввод вручную по дню.",
+    help: "Квалифицированные лиды CRM — ввод вручную по дню.",
     kind: "manual",
     manualField: "manual_qualified",
     format: fmtNum,
@@ -168,7 +191,7 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "crm",
     label: "Стоимость квал лида",
     short: "CPQL",
-    help: "Затраты ÷ квал лиды.",
+    help: "Расход ÷ квал лиды CRM.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {
@@ -194,7 +217,7 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
     group: "funnel",
     label: "Стоимость КЭВа",
     short: "CP КЭВ",
-    help: "Затраты ÷ КЭВ.",
+    help: "Расход ÷ КЭВ.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {
@@ -206,7 +229,7 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "sales",
     group: "money",
-    label: "Продажи из таргета",
+    label: "Продажи",
     short: "Продажи",
     help: "Количество продаж — ввод вручную.",
     kind: "manual",
@@ -218,9 +241,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "revenue",
     group: "money",
-    label: "Сумма оплат по таргету",
-    short: "Оплаты",
-    help: "Выручка от продаж из таргета — ввод вручную.",
+    label: "Выручка",
+    short: "Выручка",
+    help: "Сумма оплат — ввод вручную.",
     kind: "manual",
     manualField: "manual_revenue",
     format: fmtTenge,
@@ -230,23 +253,27 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "conv_lead_sale",
     group: "money",
-    label: "Конверсия лид → продажа",
+    label: "Конверсия Meta → продажа",
     short: "Конв.",
-    help: "Продажи ÷ лиды × 100%.",
+    help: "Продажи ÷ (WhatsApp + лиды сайта) × 100%.",
     kind: "formula",
     format: fmtPct,
     pick: (d) => {
       const s = sumsFromDay(d);
-      return s.leads > 0 ? (s.sales / s.leads) * 100 : 0;
+      const conv = metaConvFromSums(s);
+      return conv > 0 ? (s.sales / conv) * 100 : 0;
     },
-    total: (s) => (s.leads > 0 ? (s.sales / s.leads) * 100 : 0),
+    total: (s) => {
+      const conv = metaConvFromSums(s);
+      return conv > 0 ? (s.sales / conv) * 100 : 0;
+    },
   },
   {
     key: "cac",
     group: "money",
     label: "Стоимость клиента",
     short: "CAC",
-    help: "Затраты ÷ продажи.",
+    help: "Расход ÷ продажи.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {
@@ -258,7 +285,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
 ];
 
 export function aggregateRnpSums(days: DailyInsightRow[]): RnpDaySums {
-  const sums: RnpDaySums = { spend: 0, clicks: 0, messages: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0 };
+  const sums: RnpDaySums = {
+    spend: 0, clicks: 0, messages: 0, leads: 0, qualified: 0, kev: 0, sales: 0, revenue: 0,
+  };
   for (const d of days) {
     sums.spend += d.spend;
     sums.clicks += d.clicks;

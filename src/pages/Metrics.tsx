@@ -38,16 +38,12 @@ import {
   RNP_COLUMN_GROUPS,
   aggregateRnpSums,
   fmtTenge,
+  metaConvFromSums,
   type RnpColumnDef,
   type RnpColumnGroup,
 } from "@/lib/rnpMetrics";
-import { metaConversionsTotal } from "@/lib/metaAdsMetrics";
 import { isManualOverrideActive } from "@/lib/cdiManualOverride";
 
-const MONTHS_GEN_RU = [
-  "январь", "февраль", "март", "апрель", "май", "июнь",
-  "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
-];
 const WEEKDAYS_RU = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 const fmtNum = (n: number) => Math.round(n).toLocaleString("ru-RU");
 
@@ -148,20 +144,31 @@ const Metrics = () => {
     let n = 0;
     for (const { iso } of periodDays) {
       const d = dailyByDate.get(iso);
-      if (d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0)) n += 1;
+      if (
+        d &&
+        (d.spend > 0 ||
+          d.leads > 0 ||
+          d.messages > 0 ||
+          d.clicks > 0 ||
+          d.qualified > 0 ||
+          d.diagnostics > 0 ||
+          d.sales > 0)
+      ) {
+        n += 1;
+      }
     }
     return n;
   }, [periodDays, dailyByDate]);
 
   const monthProgress = daysInPeriod > 0 ? Math.round((filledDays / daysInPeriod) * 100) : 0;
   const totals = useMemo(() => aggregateRnpSums(data?.daily ?? []), [data]);
-  const metaConv = metaConversionsTotal(totals);
+  const metaConv = metaConvFromSums(totals);
 
   const upsertField = async (isoDate: string, patch: Record<string, number | null>) => {
     if (!selectedCabinet) return;
     const normalized: Record<string, number | null> = {};
     for (const [k, v] of Object.entries(patch)) {
-      if (k === "spend" || k === "leads") normalized[k] = v ?? 0;
+      if (k === "spend" || k === "leads" || k === "messages") normalized[k] = v ?? 0;
       else normalized[k] = v;
     }
     try {
@@ -185,6 +192,7 @@ const Metrics = () => {
           date: isoDate,
           spend: 0,
           leads: 0,
+          messages: 0,
           ...(normalized as Record<string, never>),
         });
         if (insErr) throw insErr;
@@ -315,31 +323,55 @@ const Metrics = () => {
         title="РНП · Таблица показателей"
         description={
           selectedCabinet
-            ? `${selectedCabinet.name} · ${filledDays}/${daysInPeriod} дн.`
+            ? `${selectedCabinet.name} · ${filledDays}/${daysInPeriod} дн. с данными`
             : "Выберите кабинет"
         }
         meta={
           <div className="hidden min-w-[180px] flex-col gap-1 sm:flex">
             <Progress value={monthProgress} className="h-2" />
             <span className="text-right text-[11px] font-medium text-primary">
-              {monthProgress}% месяца
+              {monthProgress}% периода
             </span>
           </div>
         }
       />
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={Wallet} label="Выручка" value={fmtTenge(totals.revenue)} sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "—"} tone="success" />
-        <KpiCard icon={BarChart3} label="Расходы" value={fmtTenge(totals.spend)} sub={`Клики ${fmtNum(totals.clicks)} · Сайт ${fmtNum(totals.leads)} · WA ${fmtNum(totals.messages)}`} tone="primary" />
-        <KpiCard icon={Target} label="КЭВ" value={fmtNum(totals.kev)} sub={`Продажи: ${totals.sales || "—"}`} tone="warning" />
-        <KpiCard icon={TrendingUp} label="CPL сайта" value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"} sub={totals.messages > 0 ? `WhatsApp ${fmtNum(totals.messages)}` : totals.sales > 0 ? `CAC ${fmtTenge(totals.spend / totals.sales)}` : "—"} tone="muted" />
+        <KpiCard
+          icon={Wallet}
+          label="Выручка"
+          value={fmtTenge(totals.revenue)}
+          sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "Оплаты CRM"}
+          tone="success"
+        />
+        <KpiCard
+          icon={BarChart3}
+          label="Расход Meta"
+          value={fmtTenge(totals.spend)}
+          sub={`Клики ${fmtNum(totals.clicks)} · WA ${fmtNum(totals.messages)} · Сайт ${fmtNum(totals.leads)}`}
+          tone="primary"
+        />
+        <KpiCard
+          icon={Target}
+          label="Конверсии Meta"
+          value={fmtNum(metaConv)}
+          sub={`${fmtNum(totals.messages)} WhatsApp · ${fmtNum(totals.leads)} сайт`}
+          tone="warning"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="CPL Meta"
+          value={metaConv > 0 ? fmtTenge(totals.spend / metaConv) : "—"}
+          sub={totals.sales > 0 ? `CAC ${fmtTenge(totals.spend / totals.sales)}` : "Расход ÷ (WA + сайт)"}
+          tone="muted"
+        />
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-card to-muted/20 p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <PeriodPicker range={period} onChange={setPeriod} showPresets showPresetBar />
           <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
-            <SelectTrigger className="h-11 min-w-[240px] rounded-lg border border-input bg-white">
+            <SelectTrigger className="h-11 min-w-[240px] rounded-xl border-border/70 bg-background">
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Выберите кабинет" />
             </SelectTrigger>
@@ -353,61 +385,70 @@ const Metrics = () => {
           </Select>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="h-11 gap-2 rounded-lg border-border bg-white" onClick={handleResync} disabled={resyncing || !canEdit}>
+          <Button
+            variant="outline"
+            className="h-11 gap-2 rounded-xl"
+            onClick={handleResync}
+            disabled={resyncing || !canEdit}
+          >
             {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Meta
+            Обновить Meta
           </Button>
-          <Button variant="outline" className="h-11 gap-2 rounded-lg border-border bg-white" onClick={handleExportCsv}>
+          <Button variant="outline" className="h-11 gap-2 rounded-xl" onClick={handleExportCsv}>
             <Download className="h-4 w-4" />
             CSV
           </Button>
         </div>
       </div>
 
+      <div className="mt-4 rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        <strong className="text-foreground">Лиды и WhatsApp — разные цели кампании.</strong> Лиды =
+        пиксель / цель «Лиды» (в Meta — «Лиды с сайта»). WhatsApp = вовлечённость → написать в
+        WA (в Meta — «Начатая переписка»). Клики не лиды.
+      </div>
+
       {canEdit && (
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-white px-4 py-2.5 text-[11px] text-muted-foreground shadow-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-2.5 text-[11px] text-muted-foreground shadow-sm">
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
             <Pencil className="h-3.5 w-3.5 text-primary" />
             Клик по ячейке → ввод · Enter сохранить · Esc отмена
           </span>
           <span className="hidden h-4 w-px bg-border sm:block" />
-          <span>Жёлтая рамка — ручная правка поверх CRM</span>
-          <span className="hidden h-4 w-px bg-border sm:block" />
-          <span>CPL, CPQL, CAC — считаются автоматически</span>
+          <span>CPL, CP WA, CPQL, CAC — автоматически</span>
         </div>
       )}
 
       {!canEdit && cabinets.length === 0 && (
-        <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+        <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           Добавьте рекламный кабинет в разделе «Управление рекламой».
         </div>
       )}
 
       {error && (
-        <div className="mt-4 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="mt-4 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>{error}</div>
         </div>
       )}
 
       {plan && (
-        <div className="mt-4 grid gap-2 rounded-lg border border-border bg-white p-4 shadow-sm sm:grid-cols-3">
+        <div className="mt-4 grid gap-2 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:grid-cols-3">
           <PlanFactRow label="Расходы" plan={plan.spend} fact={totals.spend} format={fmtTenge} />
-          <PlanFactRow label="Лиды" plan={plan.leads} fact={totals.leads} format={fmtNum} />
+          <PlanFactRow label="Лиды Meta" plan={plan.leads} fact={metaConv} format={fmtNum} />
           <PlanFactRow label="КЭВ" plan={plan.diagnostics} fact={totals.kev} format={fmtNum} />
           <PlanFactRow label="Продажи" plan={plan.sales} fact={totals.sales} format={fmtNum} />
           <PlanFactRow label="Выручка" plan={plan.revenue} fact={totals.revenue} format={fmtTenge} />
         </div>
       )}
 
-      <div className="meta-table-wrap mt-6">
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
         <div className="max-h-[min(70vh,720px)] overflow-auto">
-          <table className="w-full min-w-[1000px] border-collapse text-xs">
+          <table className="w-full min-w-[1100px] border-collapse text-xs">
             <thead className="sticky top-0 z-30">
-              <tr className="border-b border-border bg-secondary/40">
+              <tr className="border-b border-border/60 bg-muted/50">
                 <th
                   rowSpan={2}
-                  className="sticky left-0 z-40 min-w-[76px] border-r border-border bg-white px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                  className="sticky left-0 z-40 min-w-[80px] border-r border-border/50 bg-muted/80 px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground backdrop-blur"
                 >
                   Дата
                 </th>
@@ -416,7 +457,7 @@ const Metrics = () => {
                     key={group}
                     colSpan={span}
                     className={cn(
-                      "border-r border-border/40 px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wider",
+                      "border-r border-border/30 px-2 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider",
                       RNP_COLUMN_GROUPS[group].headerClass,
                     )}
                   >
@@ -424,13 +465,13 @@ const Metrics = () => {
                   </th>
                 ))}
               </tr>
-              <tr className="border-b border-border bg-white">
+              <tr className="border-b border-border/60 bg-card/95 backdrop-blur">
                 {RNP_COLUMNS.map((col) => (
                   <th
                     key={col.key}
                     title={col.help}
                     className={cn(
-                      "whitespace-nowrap px-1 py-2 text-right text-[9px] font-semibold uppercase tracking-wide",
+                      "whitespace-nowrap px-1.5 py-2 text-right text-[9px] font-semibold uppercase tracking-wide",
                       col.kind === "formula" ? "text-muted-foreground/70" : "text-muted-foreground",
                     )}
                   >
@@ -443,35 +484,44 @@ const Metrics = () => {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-border/60 bg-muted/20 font-semibold">
-                <td className="sticky left-0 z-20 border-r border-border/40 bg-muted/30 px-3 py-2 backdrop-blur">
+              <tr className="border-b border-border/50 bg-muted/30 font-semibold">
+                <td className="sticky left-0 z-20 border-r border-border/40 bg-muted/50 px-3 py-2.5 backdrop-blur">
                   Итого
                 </td>
                 {RNP_COLUMNS.map((def) => {
                   const v = def.total(totals);
                   return (
-                    <td key={def.key} className="px-1 py-2 text-right tabular-nums">
+                    <td key={def.key} className="px-1.5 py-2.5 text-right tabular-nums">
                       {v > 0 ? def.format(v) : <Dash />}
                     </td>
                   );
                 })}
               </tr>
 
-              {periodDays.map(({ day, iso, weekday }) => {
+              {periodDays.map(({ day, iso, weekday }, idx) => {
                 const d = dailyByDate.get(iso);
                 const isWeekend = weekday === "Сб" || weekday === "Вс";
-                const hasData = d && (d.spend > 0 || d.leads > 0 || d.qualified > 0 || d.diagnostics > 0 || d.sales > 0);
+                const hasData =
+                  d &&
+                  (d.spend > 0 ||
+                    d.leads > 0 ||
+                    d.messages > 0 ||
+                    d.clicks > 0 ||
+                    d.qualified > 0 ||
+                    d.diagnostics > 0 ||
+                    d.sales > 0);
                 return (
                   <tr
                     key={iso}
                     className={cn(
-                      "border-b border-border/15 transition-colors",
-                      isWeekend && "bg-muted/5",
-                      hasData && "bg-card/20",
-                      "hover:bg-primary/[0.03]",
+                      "border-b border-border/20 transition-colors",
+                      isWeekend && "bg-muted/10",
+                      idx % 2 === 1 && !isWeekend && "bg-muted/5",
+                      hasData && "bg-card/30",
+                      "hover:bg-primary/[0.04]",
                     )}
                   >
-                    <td className="sticky left-0 z-20 border-r border-border/40 bg-background/95 px-3 py-1 backdrop-blur">
+                    <td className="sticky left-0 z-20 border-r border-border/40 bg-background/95 px-3 py-1.5 backdrop-blur">
                       <span className="font-semibold tabular-nums">{String(day).padStart(2, "0")}</span>
                       <span className="ml-1 text-[10px] text-muted-foreground">{weekday}</span>
                     </td>
@@ -511,19 +561,29 @@ function KpiCard({
   tone: "success" | "primary" | "warning" | "muted";
 }) {
   const tones = {
-    success: "border-success/30 bg-success/5",
-    primary: "border-primary/30 bg-primary/5",
-    warning: "border-warning/30 bg-warning/5",
-    muted: "border-border bg-white",
+    success: "border-emerald-500/25 bg-gradient-to-b from-emerald-500/10 to-card",
+    primary: "border-sky-500/25 bg-gradient-to-b from-sky-500/10 to-card",
+    warning: "border-amber-500/25 bg-gradient-to-b from-amber-500/10 to-card",
+    muted: "border-border/70 bg-gradient-to-b from-card to-card/80",
+  };
+  const iconTone = {
+    success: "bg-emerald-500/12 text-emerald-600",
+    primary: "bg-sky-500/12 text-sky-600",
+    warning: "bg-amber-500/12 text-amber-700",
+    muted: "bg-muted text-muted-foreground",
   };
   return (
-    <div className={cn("meta-card p-4", tones[tone])}>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
+    <div className={cn("rounded-2xl border p-4 shadow-sm transition-shadow hover:shadow-md", tones[tone])}>
+      <div className="mb-3 flex items-center gap-2">
+        <span className={cn("grid h-8 w-8 place-items-center rounded-xl", iconTone[tone])}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
       </div>
-      <div className="mt-2 text-xl font-bold tabular-nums">{value}</div>
-      <div className="mt-1 text-[11px] text-muted-foreground">{sub}</div>
+      <div className="text-2xl font-bold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{sub}</div>
     </div>
   );
 }
