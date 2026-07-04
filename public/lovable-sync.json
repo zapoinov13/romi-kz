@@ -1,7 +1,7 @@
 {
-  "git_sha": "16fd20f",
-  "git_sha_full": "16fd20fdeadfb27e5a602c1ea0b2ad9f8805b4b1",
-  "updated_at": "2026-07-04T17:04:29+05:00",
-  "label": "feat: в аналитике продаж показывать название объявления Meta, не ad id",
+  "git_sha": "56b0cc1",
+  "git_sha_full": "56b0cc16b3d3a189269c4ebc7a3a0eaa32086070",
+  "updated_at": "2026-07-04T17:10:59+05:00",
+  "label": "fix: топ объявлений по имени креатива + ускорение аналитики продаж",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
