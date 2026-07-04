@@ -3,7 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Green API webhook ingress on Vercel (bypasses Supabase edge function token block).
- * Point Green API webhookUrl here: https://romi-kz.vercel.app/api/wa-webhook
+ * Green API webhookUrl: https://romi-kz.vercel.app/api/wa-webhook
+ * Forwards copy to bot_webhook_url (n8n) after CRM ingest.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
