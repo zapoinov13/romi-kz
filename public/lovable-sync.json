@@ -1,7 +1,7 @@
 {
-  "git_sha": "9d8a276",
-  "git_sha_full": "9d8a276fa8303149425bb5b0eb8ddc1586b40700",
-  "updated_at": "2026-07-04T15:36:41+05:00",
-  "label": "fix: таблица Ads на table-fixed — колонки ровно друг под другом",
+  "git_sha": "bcae025",
+  "git_sha_full": "bcae025ceca1d4a1a11daad8f87f75bd57cb918f",
+  "updated_at": "2026-07-04T15:47:12+05:00",
+  "label": "fix: период «Вчера» — данные из CDI/кампаний и автосинк",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
