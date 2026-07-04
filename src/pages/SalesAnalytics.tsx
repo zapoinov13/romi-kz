@@ -65,10 +65,13 @@ export default function SalesAnalytics() {
     setFilters(EMPTY_SALES_FILTERS);
   }, [since, until, cabinetId]);
 
-  const { rows, loading: leadsLoading, error: leadsError, overlayMissing } = useSalesAnalyticsLeads(
-    range,
-    cabinetId || null,
-  );
+  const {
+    rows,
+    loading: leadsLoading,
+    error: leadsError,
+    overlayMissing,
+    updateLead,
+  } = useSalesAnalyticsLeads(range, cabinetId || null);
   const {
     spend,
     adsFormLeads,
@@ -178,12 +181,8 @@ export default function SalesAnalytics() {
 
       <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <strong className="text-foreground">Лиды Meta и лиды CRM — разные числа.</strong> Из рекламы
-        (WhatsApp + сайт) до CRM доходят не все: в Meta одно количество, в таблице заявок — только те,
-        у кого есть имя и телефон. Квал, оплаты и выручка считаются только по CRM. Редактирование — в{" "}
-        <Link to="/crm" className="font-medium text-primary underline-offset-2 hover:underline">
-          CRM
-        </Link>
-        .
+        до CRM доходят не все. В таблице — только заявки с именем и телефоном. Квал, оплату, услугу и
+        сумму можно менять прямо здесь (сохраняется в CRM).
       </div>
 
       <SalesKpiCards kpi={kpi} cabinetName={cabinetName} loading={loading} />
@@ -222,8 +221,8 @@ export default function SalesAnalytics() {
         rows={filtered}
         services={activeServices}
         loading={loading}
-        editable={false}
-        onUpdate={async () => {}}
+        editable
+        onUpdate={updateLead}
       />
     </PageContainer>
   );

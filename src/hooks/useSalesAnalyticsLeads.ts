@@ -43,8 +43,13 @@ type OverlayRow = {
   amount: number | null;
 };
 
+export type SalesLeadUpdatePatch = Partial<
+  Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">
+>;
+
 function derivePaymentStatus(lead: LeadRow, stageKey: string | null): PaymentStatus | null {
-  if (lead.paid) return "paid";
+  if (lead.paid === true) return "paid";
+  if (lead.paid === false) return "unpaid";
   if (stageKey === "rejected") return "unpaid";
   return null;
 }
@@ -68,7 +73,7 @@ function mergeLead(
     isQualified: deriveQualified(lead, stageKey),
     paymentStatus: derivePaymentStatus(lead, stageKey),
     serviceId: lead.service_id ?? null,
-    amount: lead.amount != null && Number(lead.amount) > 0 ? Number(lead.amount) : null,
+    amount: lead.amount != null && Number.isFinite(Number(lead.amount)) ? Number(lead.amount) : null,
   };
 
   return {
@@ -88,12 +93,13 @@ function mergeLead(
     metaAdId: lead.meta_ad_id,
     utmContent: utm?.utm_content ?? utm?.content ?? null,
     channel: lead.channel,
+    // CRM — источник правды после ручного редактирования
     isQualified: fromCrm.isQualified ?? overlay?.is_qualified ?? null,
-    paymentStatus: fromCrm.paymentStatus ?? (
-      overlay?.payment_status === "paid" || overlay?.payment_status === "unpaid"
+    paymentStatus:
+      fromCrm.paymentStatus ??
+      (overlay?.payment_status === "paid" || overlay?.payment_status === "unpaid"
         ? (overlay.payment_status as PaymentStatus)
-        : null
-    ),
+        : null),
     serviceId: fromCrm.serviceId ?? overlay?.service_id ?? null,
     amount: fromCrm.amount ?? (overlay?.amount != null ? Number(overlay.amount) : null),
     createdAt,
@@ -116,18 +122,16 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     setLoading(true);
     setError(null);
 
-    let leadsQuery = supabase
-      .from("leads")
-      .select(
-        "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at, is_qualified, paid, amount, service_id, service, stage_id",
-      )
-      .eq("is_personal", false)
-      .or(`project_id.eq.${projectId},project_id.is.null`)
-      .order("created_at", { ascending: false })
-      .limit(3000);
-
     const [leadsRes, overlayRes, stagesRes] = await Promise.all([
-      leadsQuery,
+      supabase
+        .from("leads")
+        .select(
+          "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at, is_qualified, paid, amount, service_id, service, stage_id",
+        )
+        .eq("is_personal", false)
+        .or(`project_id.eq.${projectId},project_id.is.null`)
+        .order("created_at", { ascending: false })
+        .limit(3000),
       supabase
         .from("sales_analytics_leads")
         .select("id, lead_id, is_qualified, payment_status, service_id, amount")
@@ -177,5 +181,51 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
   useRealtimeTable("sales_analytics_leads", () => void load(), !!projectId);
   useRealtimeTable("sales_service_catalog", () => void load(), !!projectId);
 
-  return { rows, loading, error, overlayMissing, refresh: load };
+  const updateLead = useCallback(
+    async (leadId: string, patch: SalesLeadUpdatePatch) => {
+      const leadPatch: {
+        is_qualified?: boolean | null;
+        paid?: boolean | null;
+        service_id?: string | null;
+        amount?: number | null;
+      } = {};
+
+      if ("isQualified" in patch) leadPatch.is_qualified = patch.isQualified ?? null;
+      if ("paymentStatus" in patch) {
+        if (patch.paymentStatus === "paid") leadPatch.paid = true;
+        else if (patch.paymentStatus === "unpaid") leadPatch.paid = false;
+        else leadPatch.paid = null;
+      }
+      if ("serviceId" in patch) leadPatch.service_id = patch.serviceId ?? null;
+      if ("amount" in patch) {
+        leadPatch.amount =
+          patch.amount == null || !Number.isFinite(Number(patch.amount))
+            ? null
+            : Number(patch.amount);
+      }
+
+      if (Object.keys(leadPatch).length === 0) return;
+
+      // Оптимистично обновляем UI
+      setRows((prev) =>
+        prev.map((r) => (r.leadId === leadId ? { ...r, ...patch } : r)),
+      );
+
+      const { error: updErr } = await supabase
+        .from("leads")
+        .update(leadPatch)
+        .eq("id", leadId);
+
+      if (updErr) {
+        await load();
+        throw updErr;
+      }
+
+      // Триггер синхронизирует sales_analytics_leads; подтягиваем свежие данные
+      await load();
+    },
+    [load],
+  );
+
+  return { rows, loading, error, overlayMissing, refresh: load, updateLead };
 }
