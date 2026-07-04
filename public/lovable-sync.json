@@ -1,7 +1,7 @@
 {
-  "git_sha": "65fd069",
-  "git_sha_full": "65fd069a8228e34d5bd5397fdb05e985734ed94e",
-  "updated_at": "2026-07-04T22:35:05+05:00",
-  "label": "fix: WhatsApp bind status not showing after save (column grants + read fallback)",
+  "git_sha": "88d016c",
+  "git_sha_full": "88d016c81f184a70906d680789399c2a68162023",
+  "updated_at": "2026-07-04T22:43:29+05:00",
+  "label": "fix: WhatsApp CRM — webhook sync UI, pipeline bootstrap, token validation",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
