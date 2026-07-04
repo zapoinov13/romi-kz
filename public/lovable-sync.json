@@ -1,7 +1,7 @@
 {
-  "git_sha": "5e5d817",
-  "git_sha_full": "5e5d8173537bacf6777a83a40b00c5a0c1519c1b",
-  "updated_at": "2026-07-05T00:58:04+05:00",
-  "label": "fix(crm): guard useLeadChatSync when refresh prop is missing",
+  "git_sha": "ef44ff0",
+  "git_sha_full": "ef44ff0dc63cff6a84607c7311ceba4004afbf3b",
+  "updated_at": "2026-07-05T01:03:21+05:00",
+  "label": "fix(crm): remove noisy AI tips and simplify lead cards",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
