@@ -52,6 +52,13 @@ describe("salesAnalyticsMetrics", () => {
       buildSalesSourceLabel({
         metaAdId: "120212345678901234",
         campaign: "Кампания WA",
+        utm: { ad_name: "CTWA headline креатива" },
+      }),
+    ).toBe("CTWA headline креатива");
+    expect(
+      buildSalesSourceLabel({
+        metaAdId: "120212345678901234",
+        campaign: "Кампания WA",
       }),
     ).toBe("Объявление без названия");
   });

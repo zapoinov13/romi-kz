@@ -4,6 +4,8 @@ type UtmLike = {
   utm_content?: string | null;
   utm_source?: string | null;
   content?: string | null;
+  ad_name?: string | null;
+  headline?: string | null;
 } | null;
 
 /** Похоже на числовой Meta ad id, а не на название. */
@@ -28,6 +30,9 @@ export function buildSalesSourceLabel(input: {
   const utm = input.utm;
   const adName = input.adName?.trim();
   if (adName) return adName;
+
+  const utmAdName = utm?.ad_name?.trim() || utm?.headline?.trim() || "";
+  if (utmAdName && !looksLikeMetaAdId(utmAdName)) return utmAdName;
 
   const utmContent = utm?.utm_content?.trim() || utm?.content?.trim() || "";
   // utm_content часто = имя креатива, но не id и не имя кампании
@@ -63,7 +68,7 @@ export function filterSalesLeads(rows: SalesAnalyticsLead[], filters: SalesLeadF
     if (filters.serviceId && r.serviceId !== filters.serviceId) return false;
     if (filters.sourceQuery.trim()) {
       const q = filters.sourceQuery.trim().toLowerCase();
-      const src = (r.sourceLabel ?? r.metaAdId ?? r.utmContent ?? "").toLowerCase();
+      const src = (r.adName ?? r.sourceLabel ?? r.metaAdId ?? r.utmContent ?? "").toLowerCase();
       if (!src.includes(q)) return false;
     }
     if (filters.nameQuery.trim()) {

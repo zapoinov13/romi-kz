@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type { PaymentStatus, SalesAnalyticsLead } from "@/types/salesAnalytics";
 import { buildSalesSourceLabel, filterByCabinet } from "@/lib/salesAnalyticsMetrics";
+import {
+  extractMetaAdIdFromLead,
+  registerAdName,
+  resolveLeadAdName,
+  type AdNameMaps,
+} from "@/lib/salesAdName";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso } from "@/lib/periodRange";
 
@@ -61,25 +67,11 @@ function deriveQualified(lead: LeadRow, stageKey: string | null): boolean | null
   return null;
 }
 
-function resolveAdName(
-  lead: LeadRow,
-  adNameById: Map<string, string>,
-): string | null {
-  const adId = (lead.meta_ad_id ?? "").trim();
-  if (adId) {
-    const byId =
-      adNameById.get(adId) ||
-      adNameById.get(adId.replace(/^act_/i, ""));
-    if (byId) return byId;
-  }
-  return null;
-}
-
 function mergeLead(
   lead: LeadRow,
   stageKey: string | null,
   overlay: OverlayRow | undefined,
-  adNameById: Map<string, string>,
+  maps: AdNameMaps,
 ): SalesAnalyticsLead {
   const utm = lead.utm;
   const createdAt = lead.first_touch_at ?? lead.created_at;
@@ -90,7 +82,8 @@ function mergeLead(
     amount: lead.amount != null && Number.isFinite(Number(lead.amount)) ? Number(lead.amount) : null,
   };
 
-  const adName = resolveAdName(lead, adNameById);
+  const effectiveAdId = extractMetaAdIdFromLead(lead.meta_ad_id, utm, lead.phone);
+  const adName = resolveLeadAdName(effectiveAdId, utm, maps);
 
   return {
     id: overlay?.id ?? lead.id,
@@ -102,13 +95,13 @@ function mergeLead(
     adName,
     sourceLabel: buildSalesSourceLabel({
       adName,
-      metaAdId: lead.meta_ad_id,
+      metaAdId: effectiveAdId ?? lead.meta_ad_id,
       utm,
       campaign: lead.campaign,
       source: lead.source,
       channel: lead.channel,
     }),
-    metaAdId: lead.meta_ad_id,
+    metaAdId: effectiveAdId ?? lead.meta_ad_id,
     utmContent: utm?.utm_content ?? utm?.content ?? null,
     channel: lead.channel,
     isQualified: fromCrm.isQualified ?? overlay?.is_qualified ?? null,
@@ -133,6 +126,55 @@ async function loadStageMap(): Promise<Map<string, string>> {
   for (const s of (data ?? []) as StageRow[]) map.set(s.id, s.key);
   stagesCache = { at: now, map };
   return map;
+}
+
+async function loadAdNameMaps(projectId: string, adIds: string[]): Promise<AdNameMaps> {
+  const creatives = new Map<string, string>();
+  const campaigns = new Map<string, string>();
+  const uniqueIds = [...new Set(adIds.map((id) => id.trim()).filter(Boolean))];
+
+  for (let i = 0; i < uniqueIds.length; i += 100) {
+    const chunk = uniqueIds.slice(i, i + 100);
+    const [crRes, acRes] = await Promise.all([
+      supabase.from("meta_creatives").select("ad_id, name, headline").in("ad_id", chunk),
+      supabase.from("ad_campaigns").select("meta_ad_id, ad_name, headline").in("meta_ad_id", chunk),
+    ]);
+    for (const c of crRes.data ?? []) {
+      const label = (c.name ?? "").trim() || (c.headline ?? "").trim();
+      if (label) registerAdName(creatives, String(c.ad_id), label);
+    }
+    for (const ac of acRes.data ?? []) {
+      const id = (ac.meta_ad_id ?? "").trim();
+      const label = (ac.ad_name ?? "").trim() || (ac.headline ?? "").trim();
+      if (id && label) registerAdName(campaigns, id, label);
+    }
+  }
+
+  if (uniqueIds.length > 0) {
+    const { data: allCr } = await supabase
+      .from("meta_creatives")
+      .select("ad_id, name, headline")
+      .eq("project_id", projectId)
+      .limit(2000);
+    for (const c of allCr ?? []) {
+      const label = (c.name ?? "").trim() || (c.headline ?? "").trim();
+      if (label) registerAdName(creatives, String(c.ad_id), label);
+    }
+  }
+
+  return { creatives, campaigns };
+}
+
+function collectAdIds(leads: LeadRow[]): string[] {
+  const ids = new Set<string>();
+  for (const l of leads) {
+    const direct = (l.meta_ad_id ?? "").trim();
+    if (direct) ids.add(direct);
+    const utm = l.utm;
+    const content = (utm?.utm_content ?? utm?.content ?? "").trim();
+    if (content && /^\d{8,}$/.test(content)) ids.add(content);
+  }
+  return [...ids];
 }
 
 export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: string | null) {
@@ -204,32 +246,7 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     }
 
     const leadRows = (leadsRes.data ?? []) as LeadRow[];
-    const adIds = Array.from(
-      new Set(
-        leadRows
-          .map((l) => (l.meta_ad_id ?? "").trim())
-          .filter((id) => id.length > 0),
-      ),
-    );
-
-    const adNameById = new Map<string, string>();
-    if (adIds.length > 0) {
-      // Чанками по 100 — лимиты PostgREST .in()
-      for (let i = 0; i < adIds.length; i += 100) {
-        const chunk = adIds.slice(i, i + 100);
-        const { data: creatives } = await supabase
-          .from("meta_creatives")
-          .select("ad_id, name")
-          .in("ad_id", chunk);
-        for (const c of creatives ?? []) {
-          const name = (c.name ?? "").trim();
-          if (!name) continue;
-          const id = String(c.ad_id);
-          adNameById.set(id, name);
-          adNameById.set(id.replace(/^act_/i, ""), name);
-        }
-      }
-    }
+    const adNameMaps = await loadAdNameMaps(projectId, collectAdIds(leadRows));
 
     const merged = leadRows
       .map((lead) =>
@@ -237,7 +254,7 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
           lead,
           stageKeyById.get(lead.stage_id ?? "") ?? null,
           overlayByLead.get(lead.id),
-          adNameById,
+          adNameMaps,
         ),
       )
       .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);

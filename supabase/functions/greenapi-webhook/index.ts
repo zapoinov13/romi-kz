@@ -421,10 +421,17 @@ async function attributionFromPhone(phone: string, projectId: string | null): Pr
   return null;
 }
 
-async function enrichFromCreative(adId: string): Promise<{ campaign_id: string | null; adset_id: string | null; cabinet_id: string | null; project_id: string | null }> {
+async function enrichFromCreative(adId: string): Promise<{
+  campaign_id: string | null;
+  adset_id: string | null;
+  cabinet_id: string | null;
+  project_id: string | null;
+  name: string | null;
+  headline: string | null;
+}> {
   const { data } = await admin
     .from("meta_creatives")
-    .select("campaign_id, adset_id, cabinet_id, project_id")
+    .select("campaign_id, adset_id, cabinet_id, project_id, name, headline")
     .eq("ad_id", adId)
     .maybeSingle();
   return {
@@ -432,6 +439,46 @@ async function enrichFromCreative(adId: string): Promise<{ campaign_id: string |
     adset_id: (data as { adset_id?: string | null } | null)?.adset_id ?? null,
     cabinet_id: data?.cabinet_id ?? null,
     project_id: data?.project_id ?? null,
+    name: (data as { name?: string | null } | null)?.name ?? null,
+    headline: (data as { headline?: string | null } | null)?.headline ?? null,
+  };
+}
+
+function resolveCreativeLabel(attribution?: CtwaAttribution, creative?: { name: string | null; headline: string | null }): string | null {
+  const fromCtwa = attribution?.headline?.trim();
+  if (fromCtwa) return fromCtwa;
+  const fromCreative = creative?.name?.trim() || creative?.headline?.trim();
+  return fromCreative || null;
+}
+
+function buildLeadUtm(attribution?: CtwaAttribution, creativeLabel?: string | null): Record<string, string> | null {
+  if (!attribution?.meta_ad_id && !creativeLabel) return null;
+  const adName = creativeLabel?.trim() || null;
+  const utm: Record<string, string> = {
+    utm_source: "meta",
+    utm_medium: "ctwa",
+  };
+  if (attribution?.meta_campaign_id) utm.utm_campaign = attribution.meta_campaign_id;
+  if (attribution?.meta_ad_id) utm.utm_content = attribution.meta_ad_id;
+  if (attribution?.meta_adset_id) utm.utm_term = attribution.meta_adset_id;
+  if (adName) {
+    utm.ad_name = adName;
+    utm.headline = adName;
+  }
+  return utm;
+}
+
+async function buildAttributionLeadPatch(attribution?: CtwaAttribution): Promise<Record<string, unknown>> {
+  if (!attribution?.meta_ad_id) return {};
+  const enriched = await enrichFromCreative(attribution.meta_ad_id);
+  const creativeLabel = resolveCreativeLabel(attribution, enriched);
+  const utm = buildLeadUtm(attribution, creativeLabel);
+  return {
+    meta_ad_id: attribution.meta_ad_id,
+    meta_adset_id: attribution.meta_adset_id,
+    meta_campaign_id: attribution.meta_campaign_id,
+    click_id: attribution.click_id ?? null,
+    ...(utm ? { utm } : {}),
   };
 }
 
@@ -472,12 +519,8 @@ async function findOrCreateLead(
   if (existing && existing.length > 0) {
     const row = existing[0] as { id: string; meta_ad_id: string | null };
     if (attribution?.meta_ad_id) {
-      await admin.from("leads").update({
-        meta_ad_id: attribution.meta_ad_id,
-        meta_adset_id: attribution.meta_adset_id,
-        meta_campaign_id: attribution.meta_campaign_id,
-        click_id: attribution.click_id ?? null,
-      }).eq("id", row.id);
+      const patch = await buildAttributionLeadPatch(attribution);
+      await admin.from("leads").update(patch).eq("id", row.id);
     }
     return row.id;
   }
@@ -492,12 +535,8 @@ async function findOrCreateLead(
   const match = (recent ?? []).find((l) => digits(l.phone) === d) as { id: string; meta_ad_id: string | null } | undefined;
   if (match) {
     if (attribution?.meta_ad_id) {
-      await admin.from("leads").update({
-        meta_ad_id: attribution.meta_ad_id,
-        meta_adset_id: attribution.meta_adset_id,
-        meta_campaign_id: attribution.meta_campaign_id,
-        click_id: attribution.click_id ?? null,
-      }).eq("id", match.id);
+      const patch = await buildAttributionLeadPatch(attribution);
+      await admin.from("leads").update(patch).eq("id", match.id);
     }
     return match.id;
   }
@@ -564,6 +603,8 @@ async function findOrCreateLead(
     ownerId = (proj as { created_by?: string | null } | null)?.created_by ?? null;
   }
 
+  const attrPatch = attribution?.meta_ad_id ? await buildAttributionLeadPatch(attribution) : {};
+
   const { data: created, error } = await admin
     .from("leads")
     .insert({
@@ -577,10 +618,9 @@ async function findOrCreateLead(
       stage_id: stage.stage_id,
       created_by: ownerId,
       assigned_to: ownerId,
-      meta_ad_id: attribution?.meta_ad_id ?? null,
       meta_adset_id: metaAdsetId,
       meta_campaign_id: metaCampaignId,
-      click_id: attribution?.click_id ?? null,
+      ...attrPatch,
     })
     .select("id")
     .single();

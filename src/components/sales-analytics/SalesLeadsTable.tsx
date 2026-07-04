@@ -104,10 +104,15 @@ export function SalesLeadsTable({ rows, services, loading, editable = true, onUp
                     {r.phone}
                   </td>
                   <td
-                    className="max-w-[200px] truncate px-3.5 py-2.5 text-muted-foreground"
-                    title={r.sourceLabel ?? ""}
+                    className="max-w-[240px] truncate px-3.5 py-2.5 font-medium text-foreground/90"
+                    title={
+                      [r.adName ?? r.sourceLabel, r.metaAdId ? `ID: ${r.metaAdId}` : null]
+                        .filter(Boolean)
+                        .join(" · ") || undefined
+                    }
                   >
-                    {r.sourceLabel ?? "—"}
+                    {r.adName ??
+                      (r.sourceLabel && r.sourceLabel !== "—" ? r.sourceLabel : "—")}
                   </td>
                   <td className="px-3.5 py-2.5">
                     {editable ? (
