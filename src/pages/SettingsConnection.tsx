@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, QrCode, Phone, CheckCircle2, XCircle, LogOut, RefreshCw, Circle } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle2, XCircle, RefreshCw, Circle, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { getCrmWebhookUrl, isValidBotWebhookUrl, WHATSAPP_SETUP_STEPS } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -21,8 +19,6 @@ type GreenResp<T = unknown> = {
 };
 
 type StateData = { stateInstance?: string };
-type QrData = { type?: "qrCode" | "alreadyLogged" | "error"; message?: string };
-type CodeData = { status?: boolean; code?: string };
 
 const STATE_LABELS: Record<string, { label: string; tone: "success" | "warning" | "muted" | "danger" }> = {
   authorized: { label: "Авторизован", tone: "success" },
@@ -37,9 +33,15 @@ const callProxy = async <T = unknown,>(
   action: "status" | "qr" | "getCode" | "logout" | "settings" | "setWebhook",
   body?: Record<string, unknown>,
   projectId?: string | null,
+  cabinetId?: string | null,
 ): Promise<GreenResp<T>> => {
   const { data, error } = await supabase.functions.invoke("greenapi-proxy", {
-    body: { action, ...(projectId ? { project_id: projectId } : {}), ...(body ?? {}) },
+    body: {
+      action,
+      ...(projectId ? { project_id: projectId } : {}),
+      ...(cabinetId ? { cabinet_id: cabinetId } : {}),
+      ...(body ?? {}),
+    },
   });
   if (error) throw new Error(error.message);
   return data as GreenResp<T>;
@@ -135,17 +137,10 @@ export function GreenApiConnectionPanel({
   const [waRow, setWaRow] = useState<WaBindRow | null>(null);
   const [waLoading, setWaLoading] = useState(true);
   const [webhookOk, setWebhookOk] = useState(false);
+  const [webhookEnsuring, setWebhookEnsuring] = useState(false);
   const [state, setState] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState(false);
-  const [qrOpen, setQrOpen] = useState(false);
-  const [qrImage, setQrImage] = useState<string | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
-  const [qrMsg, setQrMsg] = useState<string | null>(null);
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState<string | null>(null);
-  const [codeLoading, setCodeLoading] = useState(false);
-  const [logoutLoading, setLogoutLoading] = useState(false);
-  const pollRef = useRef<number | null>(null);
+  const webhookAutoTried = useRef(false);
 
   const refreshWaRow = useCallback(async () => {
     if (!projectId || !cabinetId) {
@@ -180,15 +175,16 @@ export function GreenApiConnectionPanel({
     }
     setLoadingState(true);
     try {
-      const r = await callProxy<StateData>("status", undefined, projectId);
+      const r = await callProxy<StateData>("status", undefined, projectId, cabinetId);
       const s = (r.data as StateData)?.stateInstance ?? null;
       setState(s);
+      await refreshWaRow();
     } catch (e) {
       toast.error("Не удалось получить статус", { description: (e as Error).message });
     } finally {
       setLoadingState(false);
     }
-  }, [projectId, waRow?.api_token_present, waRow?.id_instance]);
+  }, [projectId, cabinetId, waRow?.api_token_present, waRow?.id_instance, refreshWaRow]);
 
   useEffect(() => {
     void refreshWaRow();
@@ -198,94 +194,62 @@ export function GreenApiConnectionPanel({
     void refreshState();
   }, [refreshState]);
 
-  const fetchQr = useCallback(async () => {
-    setQrLoading(true);
-    setQrMsg(null);
-    try {
-      const r = await callProxy<QrData>("qr", undefined, projectId);
-      const d = r.data as QrData;
-      if (d?.type === "qrCode" && d.message) {
-        setQrImage(`data:image/png;base64,${d.message}`);
-      } else if (d?.type === "alreadyLogged") {
-        setQrImage(null);
-        setQrMsg("Устройство уже подключено");
-        setQrOpen(false);
-        toast.success("WhatsApp подключён");
-        refreshState();
-      } else {
-        setQrMsg(d?.message ?? "Не удалось получить QR-код");
-      }
-    } catch (e) {
-      setQrMsg((e as Error).message);
-    } finally {
-      setQrLoading(false);
-    }
-  }, [refreshState, projectId]);
+  const isBound = !!(waRow?.id_instance && waRow?.api_token_present);
 
-  // Polling every 20s when modal is open
+  const ensureWebhookSetup = useCallback(async (silent = false) => {
+    if (!projectId || !cabinetId || !waRow?.id_instance || !waRow?.api_token_present) {
+      return false;
+    }
+    setWebhookEnsuring(true);
+    try {
+      const result = await ensureCrmWebhook(projectId, cabinetId);
+      if (result.matched) {
+        setWebhookOk(true);
+        await refreshWaRow();
+        if (!silent) toast.success("Webhook CRM подключён — сообщения идут в CRM");
+        return true;
+      }
+      if (result.ok && !result.matched) {
+        setWebhookOk(false);
+        if (!silent) {
+          toast.warning("Webhook прописан, но проверка не прошла", {
+            description: result.error ?? "Попробуйте обновить статус",
+          });
+        }
+        return false;
+      }
+      setWebhookOk(false);
+      if (!silent) {
+        toast.error("Не удалось настроить webhook", { description: result.error });
+      }
+      return false;
+    } finally {
+      setWebhookEnsuring(false);
+    }
+  }, [projectId, cabinetId, waRow?.id_instance, waRow?.api_token_present, refreshWaRow]);
+
   useEffect(() => {
-    if (!qrOpen) {
-      if (pollRef.current) {
-        window.clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      return;
-    }
-    fetchQr();
-    pollRef.current = window.setInterval(fetchQr, 20000);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    };
-  }, [qrOpen, fetchQr]);
+    webhookAutoTried.current = false;
+    setWebhookOk(false);
+  }, [projectId, cabinetId, waRow?.id_instance]);
 
-  const handleGetCode = async () => {
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 8 || digits.length > 15) {
-      toast.error("Введите номер в международном формате (только цифры)");
-      return;
-    }
-    setCodeLoading(true);
-    setCode(null);
-    try {
-      const r = await callProxy<CodeData>("getCode", { phoneNumber: digits }, projectId);
-      const d = r.data as CodeData;
-      if (d?.status && d.code) {
-        setCode(d.code);
-        toast.success("Код получен. Введите его в WhatsApp.");
-      } else {
-        toast.error("Не удалось получить код. Возможно, инстанс уже авторизован.");
-      }
-    } catch (e) {
-      toast.error("Ошибка запроса", { description: (e as Error).message });
-    } finally {
-      setCodeLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!isBound || webhookOk || webhookEnsuring || webhookAutoTried.current) return;
+    webhookAutoTried.current = true;
+    void ensureWebhookSetup(true);
+  }, [isBound, webhookOk, webhookEnsuring, ensureWebhookSetup]);
 
-  const handleLogout = async () => {
-    setLogoutLoading(true);
-    try {
-      await callProxy("logout", undefined, projectId);
-      toast.success("Вы вышли из WhatsApp");
-      setCode(null);
-      await refreshState();
-    } catch (e) {
-      toast.error("Ошибка выхода", { description: (e as Error).message });
-    } finally {
-      setLogoutLoading(false);
-    }
-  };
+  const handleAfterBind = useCallback(async () => {
+    await refreshWaRow();
+    await refreshState();
+    await ensureWebhookSetup(false);
+  }, [refreshWaRow, refreshState, ensureWebhookSetup]);
 
   const stateMeta = state ? STATE_LABELS[state] : null;
   const isAuthed = state === "authorized";
-  const isBound = !!(waRow?.id_instance && waRow?.api_token_present);
-  const crmUrl = getCrmWebhookUrl();
   const setupSteps = {
     bind: isBound,
-    auth: isAuthed,
-    webhook: webhookOk,
-    bot: !!(waRow?.bot_webhook_url?.trim()),
+    webhook: webhookOk || !!waRow?.webhook_url,
   };
 
   return (
@@ -306,7 +270,9 @@ export function GreenApiConnectionPanel({
           </>
         )}
 
-        <WhatsAppSetupChecklist steps={setupSteps} loading={waLoading} />
+        {!embedded && (
+          <WhatsAppSetupChecklist steps={setupSteps} loading={waLoading} />
+        )}
 
         <WhatsappProjectBindCard
           projectId={projectId}
@@ -315,33 +281,49 @@ export function GreenApiConnectionPanel({
           cabinetName={cabinetName}
           row={waRow}
           loading={waLoading}
+          embedded={embedded}
           onRefresh={refreshWaRow}
-          onBound={async () => {
-            await refreshWaRow();
-            await refreshState();
-          }}
+          onBound={handleAfterBind}
         />
 
-        <WebhookCard
-          projectId={projectId}
-          crmUrl={crmUrl}
-          row={waRow}
-          onWebhookStatus={setWebhookOk}
-          onRefresh={refreshWaRow}
-        />
+        {isBound && (
+          <div className={cn(
+            "flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground",
+            embedded ? "mt-4" : "mt-6",
+          )}>
+            {webhookEnsuring ? (
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            ) : webhookOk || waRow?.webhook_url ? (
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 shrink-0" />
+            )}
+            {webhookEnsuring
+              ? "Настраиваем webhook CRM…"
+              : webhookOk || waRow?.webhook_url
+                ? "Webhook CRM подключён — входящие WhatsApp попадают в CRM и аналитику продаж"
+                : "Webhook CRM настроится автоматически"}
+          </div>
+        )}
 
         {/* Status Card */}
-        <Card className="mt-8 border-border bg-card">
+        <Card className={cn("border-border bg-card", embedded ? "mt-4" : "mt-8")}>
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
             <div>
-              <CardTitle className="text-lg">Текущий статус</CardTitle>
-              <CardDescription>Состояние инстанса Green API</CardDescription>
+              <CardTitle className="text-lg">
+                {embedded ? "Статус WhatsApp" : "Текущий статус"}
+              </CardTitle>
+              <CardDescription>
+                {embedded
+                  ? "Авторизация WhatsApp — в Green API Console"
+                  : "Состояние инстанса Green API"}
+              </CardDescription>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={refreshState}
-              disabled={loadingState}
+              disabled={loadingState || !isBound}
               className="gap-2"
             >
               {loadingState ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -355,7 +337,7 @@ export function GreenApiConnectionPanel({
               ) : (
                 <XCircle className="h-6 w-6 text-muted-foreground" />
               )}
-              <div>
+              <div className="min-w-0 flex-1">
                 <Badge
                   variant="outline"
                   className={cn(
@@ -366,141 +348,36 @@ export function GreenApiConnectionPanel({
                     (!stateMeta || stateMeta.tone === "muted") && "border-border bg-muted text-muted-foreground",
                   )}
                 >
-                  {stateMeta?.label ?? state ?? "Неизвестно"}
+                  {stateMeta?.label ?? state ?? (isBound ? "Неизвестно" : "Не привязан")}
                 </Badge>
+                {waRow?.phone ? (
+                  <p className="mt-1.5 text-sm font-semibold text-foreground">{waRow.phone}</p>
+                ) : null}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {isAuthed
-                    ? "WhatsApp подключён и готов к работе"
-                    : "Авторизуйтесь одним из способов ниже"}
+                    ? "WhatsApp авторизован — входящие попадают в CRM"
+                    : isBound
+                      ? (
+                        <>
+                          Авторизуйте WhatsApp в{" "}
+                          <a
+                            href="https://console.green-api.com"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+                          >
+                            Green API Console
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                          {" "}(QR-код на стороне Green API)
+                        </>
+                      )
+                      : "Сначала привяжите idInstance и токен"}
                 </p>
               </div>
-              {isAuthed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto text-destructive hover:text-destructive"
-                  onClick={handleLogout}
-                  disabled={logoutLoading}
-                >
-                  {logoutLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <LogOut className="h-4 w-4" />
-                  )}
-                  Отвязать
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
-
-        {/* Auth Methods */}
-        <Card className="mt-6 border-border bg-card">
-          <CardHeader>
-            <CardTitle className="text-lg">Шаг 2 — Авторизовать WhatsApp</CardTitle>
-            <CardDescription>
-              После шага 1 отсканируйте QR или получите код по номеру. Без авторизации сообщения не пойдут.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="qr" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="qr" className="gap-2">
-                  <QrCode className="h-4 w-4" />
-                  QR-код
-                </TabsTrigger>
-                <TabsTrigger value="phone" className="gap-2">
-                  <Phone className="h-4 w-4" />
-                  По номеру
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="qr" className="mt-6 space-y-4">
-                <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Откройте WhatsApp на телефоне</li>
-                  <li>Меню → «Связанные устройства» → «Привязка устройства»</li>
-                  <li>Нажмите «Получить QR-код» и отсканируйте его</li>
-                </ol>
-                <Button
-                  size="lg"
-                  onClick={() => setQrOpen(true)}
-                  disabled={isAuthed}
-                  className="gap-2"
-                >
-                  <QrCode className="h-4 w-4" />
-                  Получить QR-код
-                </Button>
-                {isAuthed && (
-                  <p className="text-xs text-muted-foreground">
-                    Сначала отвяжите текущий аккаунт, чтобы получить новый QR.
-                  </p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="phone" className="mt-6 space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Номер телефона</label>
-                  <Input
-                    placeholder="77001234567"
-                    inputMode="numeric"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                    maxLength={15}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Международный формат без «+» и «00» (только цифры).
-                  </p>
-                </div>
-                <Button onClick={handleGetCode} disabled={codeLoading || isAuthed} className="gap-2">
-                  {codeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-                  Получить код
-                </Button>
-
-                {code && (
-                  <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Код авторизации
-                    </p>
-                    <p className="mt-2 font-mono text-4xl font-bold tracking-[0.4em] text-primary">
-                      {code}
-                    </p>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      Введите код в WhatsApp: «Связанные устройства» → «Привязка устройства» → «Привязка по номеру телефона». Код действителен ~2,5 минуты.
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Сканируйте QR-код</DialogTitle>
-            <DialogDescription>
-              Откройте WhatsApp → Связанные устройства → Привязка устройства. Код обновляется каждые 20 секунд.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid place-items-center py-4">
-            <div className="relative grid h-[280px] w-[280px] place-items-center overflow-hidden rounded-2xl border border-border bg-white">
-              {qrLoading && !qrImage && (
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              )}
-              {qrImage && (
-                <img src={qrImage} alt="WhatsApp QR" className="h-full w-full object-contain" />
-              )}
-              {!qrLoading && !qrImage && qrMsg && (
-                <p className="px-4 text-center text-sm text-muted-foreground">{qrMsg}</p>
-              )}
-            </div>
-          </div>
-          <Button variant="outline" onClick={fetchQr} disabled={qrLoading} className="gap-2">
-            {qrLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Обновить QR
-          </Button>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };
@@ -509,20 +386,19 @@ function WhatsAppSetupChecklist({
   steps,
   loading,
 }: {
-  steps: { bind: boolean; auth: boolean; webhook: boolean; bot: boolean };
+  steps: { bind: boolean; webhook: boolean };
   loading: boolean;
 }) {
-  const values = [steps.bind, steps.auth, steps.webhook, steps.bot];
+  const values = [steps.bind, steps.webhook];
   return (
     <Card className="mt-6 border-primary/20 bg-primary/5">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Чек-лист подключения</CardTitle>
-        <CardDescription>Шаги 1–3 обязательны для CRM. Шаг 4 — если нужен n8n-бот.</CardDescription>
+        <CardDescription>После привязки инстанса webhook настраивается автоматически.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {WHATSAPP_SETUP_STEPS.map((step, i) => {
           const done = values[i];
-          const optional = step.id === "bot";
           return (
             <div key={step.id} className="flex items-start gap-2 text-sm">
               {loading ? (
@@ -533,219 +409,12 @@ function WhatsAppSetupChecklist({
                 <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
               )}
               <div>
-                <span className="font-medium">
-                  {i + 1}. {step.title}
-                  {optional ? " (опционально)" : ""}
-                </span>
+                <span className="font-medium">{i + 1}. {step.title}</span>
                 <p className="text-xs text-muted-foreground">{step.hint}</p>
               </div>
             </div>
           );
         })}
-      </CardContent>
-    </Card>
-  );
-}
-
-function WebhookCard({
-  projectId,
-  crmUrl,
-  row,
-  onWebhookStatus,
-  onRefresh,
-}: {
-  projectId: string | null;
-  crmUrl: string;
-  row: WaBindRow | null;
-  onWebhookStatus: (ok: boolean) => void;
-  onRefresh: () => Promise<void>;
-}) {
-  const [current, setCurrent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [botUrl, setBotUrl] = useState("");
-  const [botSaving, setBotSaving] = useState(false);
-
-  useEffect(() => {
-    setBotUrl(row?.bot_webhook_url ?? "");
-  }, [row?.bot_webhook_url]);
-
-  const checkSettings = useCallback(async () => {
-    if (!projectId || !row?.id_instance) {
-      setCurrent(null);
-      onWebhookStatus(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data } = await supabase.functions.invoke("greenapi-proxy", {
-        body: { action: "settings", project_id: projectId },
-      });
-      const s = (data as { data?: { webhookUrl?: string } } | null)?.data;
-      const live = s?.webhookUrl ?? "";
-      setCurrent(live);
-      const matched = !!live && live.replace(/\/+$/, "") === crmUrl.replace(/\/+$/, "");
-      onWebhookStatus(matched);
-    } catch {
-      setCurrent(null);
-      onWebhookStatus(!!row?.webhook_url && row.webhook_url.replace(/\/+$/, "") === crmUrl.replace(/\/+$/, ""));
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, row?.id_instance, row?.webhook_url, crmUrl, onWebhookStatus]);
-
-  useEffect(() => {
-    void checkSettings();
-  }, [checkSettings]);
-
-  const setupWebhook = async () => {
-    if (!projectId) {
-      toast.error("Выберите активный проект");
-      return;
-    }
-    if (!row?.id_instance || !row?.api_token_present) {
-      toast.error("Сначала привяжите idInstance и apiToken к проекту");
-      return;
-    }
-    setSaving(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("greenapi-proxy", {
-        body: { action: "setWebhook", webhookUrl: crmUrl, project_id: projectId },
-      });
-      const ok = !error && (data as { ok?: boolean } | null)?.ok !== false;
-      if (ok) {
-        toast.success("Webhook CRM прописан в Green API");
-        await checkSettings();
-        await onRefresh();
-      } else {
-        const detail = (data as { data?: { message?: string } } | null)?.data?.message
-          ?? (error as { message?: string } | null)?.message
-          ?? JSON.stringify((data as { data?: unknown })?.data ?? error);
-        toast.error("Не удалось настроить webhook", {
-          description: `${detail}. Проверьте шаг 1: idInstance + apiToken привязаны к проекту.`,
-        });
-      }
-    } catch (e) {
-      toast.error("Ошибка", { description: (e as Error).message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveBotUrl = async () => {
-    if (!projectId) return;
-    if (!row?.id_instance) {
-      toast.error("Сначала выполните шаг 1 — привяжите idInstance к проекту");
-      return;
-    }
-    const trimmed = botUrl.trim();
-    if (trimmed && !isValidBotWebhookUrl(trimmed)) {
-      toast.error("URL бота должен начинаться с https://");
-      return;
-    }
-    setBotSaving(true);
-    try {
-      const payload = { bot_webhook_url: trimmed || null };
-      const { error: rpcError } = await supabase.rpc("save_whatsapp_bot_webhook" as never, {
-        p_project_id: projectId,
-        p_bot_webhook_url: trimmed || null,
-      } as never);
-      if (rpcError) {
-        const missingFn = /save_whatsapp_bot_webhook/i.test(rpcError.message);
-        if (!missingFn) throw rpcError;
-        const { error: updError } = await supabase
-          .from("whatsapp_config")
-          .update(payload)
-          .eq("project_id", projectId);
-        if (updError) {
-          throw new Error(
-            `${updError.message}. Выполните scripts/apply-whatsapp-setup.sql в Supabase SQL Editor.`,
-          );
-        }
-      }
-      toast.success(trimmed ? "URL n8n-бота сохранён" : "Пересылка в n8n отключена");
-      await onRefresh();
-    } catch (e) {
-      toast.error("Не удалось сохранить", { description: (e as Error).message });
-    } finally {
-      setBotSaving(false);
-    }
-  };
-
-  const matched = current && current.replace(/\/+$/, "") === crmUrl.replace(/\/+$/, "");
-
-  return (
-    <Card className="mt-6 border-border bg-card">
-      <CardHeader>
-        <CardTitle className="text-lg">Шаг 3 — Webhook CRM (обязательно)</CardTitle>
-        <CardDescription>
-          Green API принимает только один webhook URL. Он должен указывать на CRM — тогда все сообщения попадают в лиды и чаты.
-          Не вставляйте сюда n8n: для бота есть отдельное поле ниже.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-2">
-          <code className="flex-1 break-all rounded-md bg-muted px-3 py-2 text-xs">{crmUrl}</code>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(crmUrl);
-              toast.success("CRM URL скопирован");
-            }}
-          >
-            Копировать
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-          <div className="flex items-center gap-2 text-xs">
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-            ) : matched ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
-            )}
-            <span className="text-muted-foreground">
-              {loading
-                ? "Проверка…"
-                : matched
-                  ? "Green API → CRM настроено"
-                  : current
-                    ? `В Green API другой URL: ${current || "(пусто)"}`
-                    : "Webhook не настроен — сообщения не попадут в CRM"}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={checkSettings} disabled={loading}>
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              Проверить
-            </Button>
-            <Button size="sm" onClick={setupWebhook} disabled={saving || !row?.api_token_present}>
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              Настроить в Green API
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-2 border-t border-border/60 pt-4">
-          <p className="text-xs font-medium text-muted-foreground">
-            Шаг 4 — URL n8n-бота (опционально)
-          </p>
-          <Input
-            value={botUrl}
-            onChange={(e) => setBotUrl(e.target.value)}
-            placeholder="https://n8n.zapoinov.com/webhook/whatsapp-bot"
-          />
-          <p className="text-[11px] text-muted-foreground">
-            Копия каждого события Green API уходит на этот URL после записи в CRM. В Green API Console webhook остаётся CRM URL выше.
-          </p>
-          <Button size="sm" variant="outline" onClick={saveBotUrl} disabled={botSaving || !projectId}>
-            {botSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Сохранить URL бота
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
@@ -758,6 +427,7 @@ export function WhatsappProjectBindCard({
   cabinetName,
   row,
   loading,
+  embedded = false,
   onRefresh,
   onBound,
 }: {
@@ -767,6 +437,7 @@ export function WhatsappProjectBindCard({
   cabinetName: string | null;
   row: WaBindRow | null;
   loading: boolean;
+  embedded?: boolean;
   onRefresh: () => Promise<void>;
   onBound?: () => Promise<void>;
 }) {
@@ -779,27 +450,29 @@ export function WhatsappProjectBindCard({
   const [saving, setSaving] = useState(false);
 
   const refreshAll = useCallback(async () => {
-    const { data } = await supabase
-      .from("whatsapp_config_safe")
-      .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url");
-    const list = (data ?? []) as WaBindRow[];
-    setRows(list);
-    const cabinetIds = Array.from(new Set(list.map((r) => r.cabinet_id).filter(Boolean))) as string[];
-    if (cabinetIds.length > 0) {
-      const { data: cabs } = await supabase
-        .from("ad_cabinets_safe" as any)
-        .select("id, name")
-        .in("id", cabinetIds);
-      const map = new Map<string, string>();
-      for (const c of cabs ?? []) {
-        map.set(String((c as { id: string }).id), String((c as { name: string }).name));
+    if (!embedded) {
+      const { data } = await supabase
+        .from("whatsapp_config_safe")
+        .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url");
+      const list = (data ?? []) as WaBindRow[];
+      setRows(list);
+      const cabinetIds = Array.from(new Set(list.map((r) => r.cabinet_id).filter(Boolean))) as string[];
+      if (cabinetIds.length > 0) {
+        const { data: cabs } = await supabase
+          .from("ad_cabinets_safe" as any)
+          .select("id, name")
+          .in("id", cabinetIds);
+        const map = new Map<string, string>();
+        for (const c of cabs ?? []) {
+          map.set(String((c as { id: string }).id), String((c as { name: string }).name));
+        }
+        setCabinetNames(map);
+      } else {
+        setCabinetNames(new Map());
       }
-      setCabinetNames(map);
-    } else {
-      setCabinetNames(new Map());
     }
     await onRefresh();
-  }, [onRefresh]);
+  }, [onRefresh, embedded]);
 
   useEffect(() => { void refreshAll(); }, [refreshAll]);
 
@@ -859,21 +532,10 @@ export function WhatsappProjectBindCard({
       });
       if (error) throw error;
       toast.success(`WhatsApp ${idInstance} → «${cabinetName ?? "кабинет"}»`, {
-        description: "Дальше: авторизуйте WA и настройте webhook CRM.",
+        description: "Webhook CRM настраивается автоматически…",
       });
       await refreshAll();
       await onBound?.();
-      // Авто-прописка CRM webhook сразу после привязки
-      try {
-        const { data } = await supabase.functions.invoke("greenapi-proxy", {
-          body: { action: "setWebhook", webhookUrl: getCrmWebhookUrl(), project_id: projectId },
-        });
-        if ((data as { ok?: boolean } | null)?.ok) {
-          toast.success("Webhook CRM автоматически прописан в Green API");
-        }
-      } catch {
-        /* пользователь настроит вручную на шаге 3 */
-      }
     } catch (e) {
       toast.error("Не удалось привязать", { description: (e as Error).message });
     } finally {
@@ -891,17 +553,31 @@ export function WhatsappProjectBindCard({
       : null;
 
   return (
-    <Card className="mt-6 border-border bg-card">
+    <Card className={cn("border-border bg-card", embedded ? "mt-0" : "mt-6")}>
       <CardHeader>
-        <CardTitle className="text-lg">Шаг 1 — Привязать Green API</CardTitle>
+        <CardTitle className="text-lg">
+          {embedded ? "Данные Green API" : "Шаг 1 — Привязать Green API"}
+        </CardTitle>
         <CardDescription>
-          Скопируйте из{" "}
-          <a href="https://console.green-api.com" target="_blank" rel="noreferrer" className="underline">
-            Green API Console
-          </a>{" "}
-          idInstance и apiTokenInstance. Номер будет привязан к кабинету{" "}
-          <strong>{cabinetName ?? "—"}</strong> (проект <strong>{projectName ?? "—"}</strong>).
-          Сообщения попадут в CRM этого проекта с атрибуцией к кабинету.
+          {embedded ? (
+            <>
+              idInstance и apiToken из{" "}
+              <a href="https://console.green-api.com" target="_blank" rel="noreferrer" className="underline">
+                Green API Console
+              </a>
+              . Кабинет: <strong>{cabinetName ?? "—"}</strong>
+            </>
+          ) : (
+            <>
+              Скопируйте из{" "}
+              <a href="https://console.green-api.com" target="_blank" rel="noreferrer" className="underline">
+                Green API Console
+              </a>{" "}
+              idInstance и apiTokenInstance. Номер будет привязан к кабинету{" "}
+              <strong>{cabinetName ?? "—"}</strong> (проект <strong>{projectName ?? "—"}</strong>).
+              Сообщения попадут в CRM этого проекта с атрибуцией к кабинету.
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -947,7 +623,7 @@ export function WhatsappProjectBindCard({
                   placeholder="https://api.green-api.com"
                 />
               </div>
-              {currentRow?.id ? (
+              {currentRow?.id && !embedded ? (
                 <div className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-muted/30 p-3">
                   <div className="text-xs">
                     <p className="font-medium text-foreground">Только заявки с рекламы Meta (CTWA)</p>
@@ -996,7 +672,7 @@ export function WhatsappProjectBindCard({
               </div>
             </div>
 
-            {rows.length > 0 && (
+            {rows.length > 0 && !embedded && (
               <div>
                 <p className="mb-1.5 text-xs font-medium text-muted-foreground">
                   Все привязки в системе

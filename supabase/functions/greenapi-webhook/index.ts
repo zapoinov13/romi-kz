@@ -67,6 +67,13 @@ function chatIdToPhone(chatId: string | undefined | null): string {
   return d ? `+${d}` : "";
 }
 
+/** Green API getWaSettings returns `{ wid: "77051234567@c.us", ... }`. */
+function widToPhone(wid: unknown): string | null {
+  const s = String(wid ?? "").replace(/\D/g, "");
+  if (s.length < 8) return null;
+  return `+${s}`;
+}
+
 function extractText(messageData: Record<string, unknown> | undefined): string {
   if (!messageData) return "";
   const td = messageData.textMessageData as { textMessage?: string } | undefined;
@@ -638,6 +645,29 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
         if (isAuth) patch.connected_at = new Date().toISOString();
+        if (isAuth) {
+          const { data: cfg } = await admin
+            .from("whatsapp_config")
+            .select("api_token, api_url")
+            .eq("id_instance", String(idi))
+            .maybeSingle();
+          const token = (cfg as { api_token?: string | null } | null)?.api_token?.trim();
+          if (token) {
+            const baseUrl =
+              (cfg as { api_url?: string | null } | null)?.api_url?.trim()
+              || "https://api.green-api.com";
+            try {
+              const res = await fetch(
+                `${baseUrl.replace(/\/+$/, "")}/waInstance${idi}/getWaSettings/${token}`,
+              );
+              const ws = await res.json().catch(() => null) as { wid?: string } | null;
+              const phone = widToPhone(ws?.wid);
+              if (phone) patch.phone = phone;
+            } catch {
+              /* best-effort */
+            }
+          }
+        }
         await admin
           .from("whatsapp_config")
           .update(patch)

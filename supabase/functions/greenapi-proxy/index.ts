@@ -70,6 +70,7 @@ async function getUserId(req: Request): Promise<string | null> {
 async function resolveCreds(
   req: Request,
   bodyProjectId: string | null,
+  bodyCabinetId: string | null,
 ): Promise<Creds | { error: string; status: number }> {
   // SECURITY: always require a valid JWT — no anonymous access regardless of body.
   const userId = await getUserId(req);
@@ -102,11 +103,34 @@ async function resolveCreds(
       return { error: "Forbidden", status: 403 };
     }
 
-    const { data: row } = await admin
-      .from("whatsapp_config")
-      .select("id, project_id, id_instance, api_token, api_url")
-      .eq("project_id", projectId)
-      .maybeSingle();
+    type WaRow = {
+      id: string;
+      project_id: string | null;
+      id_instance: string | null;
+      api_token: string | null;
+      api_url: string | null;
+    };
+
+    let row: WaRow | null = null;
+
+    if (bodyCabinetId) {
+      const { data } = await admin
+        .from("whatsapp_config")
+        .select("id, project_id, id_instance, api_token, api_url")
+        .eq("cabinet_id", bodyCabinetId)
+        .maybeSingle();
+      row = data as WaRow | null;
+    }
+
+    if (!row?.id_instance) {
+      const { data } = await admin
+        .from("whatsapp_config")
+        .select("id, project_id, id_instance, api_token, api_url")
+        .eq("project_id", projectId)
+        .is("cabinet_id", null)
+        .maybeSingle();
+      row = data as WaRow | null;
+    }
 
     if (row?.id_instance) {
       const baseUrlOrErr = resolveGreenApiBaseUrl(row.api_url);
@@ -234,7 +258,12 @@ Deno.serve(async (req) => {
         ? body.project_id
         : null;
 
-    const credsOrErr = await resolveCreds(req, projectId);
+    const cabinetId =
+      typeof body.cabinet_id === "string" && body.cabinet_id
+        ? body.cabinet_id
+        : null;
+
+    const credsOrErr = await resolveCreds(req, projectId, cabinetId);
     if ("error" in credsOrErr) {
       return json({ error: credsOrErr.error, code: "NO_CREDENTIALS" }, credsOrErr.status);
     }
@@ -302,16 +331,43 @@ Deno.serve(async (req) => {
         const defaultUrl = SUPABASE_URL
           ? `${SUPABASE_URL.replace(/\/+$/, "")}/functions/v1/greenapi-webhook`
           : "";
-        const webhookUrl = String(body.webhookUrl || defaultUrl).trim();
-        if (!webhookUrl.startsWith("http")) {
+        const baseWebhookUrl = String(body.webhookUrl || defaultUrl).trim();
+        if (!baseWebhookUrl.startsWith("http")) {
           return json({ error: "Invalid webhook URL" }, 400);
         }
+
+        const ENV_WEBHOOK_TOKEN = Deno.env.get("GREENAPI_WEBHOOK_TOKEN") ?? "";
+        let webhookToken = ENV_WEBHOOK_TOKEN.trim() || null;
+        if (creds.rowId) {
+          const { data: row } = await admin
+            .from("whatsapp_config")
+            .select("webhook_token")
+            .eq("id", creds.rowId)
+            .maybeSingle();
+          const stored = (row as { webhook_token?: string | null } | null)?.webhook_token?.trim();
+          if (stored) {
+            webhookToken = stored;
+          } else if (!webhookToken) {
+            webhookToken = crypto.randomUUID();
+            await admin.from("whatsapp_config").update({
+              webhook_token: webhookToken,
+              updated_at: new Date().toISOString(),
+            }).eq("id", creds.rowId);
+          }
+        }
+
+        const urlObj = new URL(baseWebhookUrl.split("?")[0]);
+        if (webhookToken) {
+          urlObj.searchParams.set("token", webhookToken);
+        }
+        const webhookUrl = urlObj.toString();
+
         const r = await callGreen(creds, "setSettings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             webhookUrl,
-            webhookUrlToken: "",
+            webhookUrlToken: webhookToken ?? "",
             outgoingWebhook: "yes",
             outgoingMessageWebhook: "yes",
             outgoingAPIMessageWebhook: "yes",
