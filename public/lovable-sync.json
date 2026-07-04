@@ -1,7 +1,7 @@
 {
-  "git_sha": "a27fb53",
-  "git_sha_full": "a27fb53c49eb472b72b4c3a614da1540f2184056",
-  "updated_at": "2026-07-04T22:25:16+05:00",
-  "label": "fix: WhatsApp bind works on prod before Lovable SQL migration",
+  "git_sha": "03b73f1",
+  "git_sha_full": "03b73f1e15464e0bf850def8e2f23f55e46f5e79",
+  "updated_at": "2026-07-04T22:30:51+05:00",
+  "label": "feat: n8n bot webhook URL field — CRM receives events, forwards copy to n8n",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
