@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendMetaGapRows,
+  buildSalesSourceLabel,
   computeSalesKpi,
   computeTopCreatives,
   filterByCabinet,
@@ -30,6 +31,22 @@ const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
 });
 
 describe("salesAnalyticsMetrics", () => {
+  it("sourceLabel предпочитает название объявления, не ad id", () => {
+    expect(
+      buildSalesSourceLabel({
+        adName: "Имплант акция",
+        metaAdId: "120212345678901234",
+        utm: { utm_content: "120212345678901234" },
+      }),
+    ).toBe("Имплант акция");
+    expect(
+      buildSalesSourceLabel({
+        metaAdId: "120212345678901234",
+        utm: { utm_content: "Креатив сторис" },
+      }),
+    ).toBe("Креатив сторис");
+  });
+
   it("считает KPI: CPL по Meta, квал по CRM", () => {
     const rows = [
       lead({ id: "1", leadId: "1", isQualified: true, paymentStatus: "paid", amount: 100_000 }),

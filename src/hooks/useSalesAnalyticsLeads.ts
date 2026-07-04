@@ -66,6 +66,7 @@ function mergeLead(
   lead: LeadRow,
   stageKey: string | null,
   overlay?: OverlayRow,
+  adNameById?: Map<string, string>,
 ): SalesAnalyticsLead {
   const utm = lead.utm;
   const createdAt = lead.first_touch_at ?? lead.created_at;
@@ -76,6 +77,12 @@ function mergeLead(
     amount: lead.amount != null && Number.isFinite(Number(lead.amount)) ? Number(lead.amount) : null,
   };
 
+  const adId = (lead.meta_ad_id ?? "").trim();
+  const adName =
+    (adId && adNameById?.get(adId)) ||
+    (adId && adNameById?.get(adId.replace(/^act_/i, ""))) ||
+    null;
+
   return {
     id: overlay?.id ?? lead.id,
     projectId: lead.project_id ?? "",
@@ -84,6 +91,7 @@ function mergeLead(
     name: lead.name?.trim() || "—",
     phone: lead.phone?.trim() || "—",
     sourceLabel: buildSalesSourceLabel({
+      adName,
       metaAdId: lead.meta_ad_id,
       utm,
       campaign: lead.campaign,
@@ -162,9 +170,40 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
       }
     }
 
-    const merged = ((leadsRes.data ?? []) as LeadRow[])
+    const leadRows = (leadsRes.data ?? []) as LeadRow[];
+    const adIds = Array.from(
+      new Set(
+        leadRows
+          .map((l) => (l.meta_ad_id ?? "").trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+
+    const adNameById = new Map<string, string>();
+    if (adIds.length > 0) {
+      let creativesQ = supabase
+        .from("meta_creatives")
+        .select("ad_id, name")
+        .in("ad_id", adIds);
+      if (projectId) creativesQ = creativesQ.or(`project_id.eq.${projectId},project_id.is.null`);
+      const { data: creatives } = await creativesQ;
+      for (const c of creatives ?? []) {
+        const name = (c.name ?? "").trim();
+        if (!name) continue;
+        const id = String(c.ad_id);
+        adNameById.set(id, name);
+        adNameById.set(id.replace(/^act_/i, ""), name);
+      }
+    }
+
+    const merged = leadRows
       .map((lead) =>
-        mergeLead(lead, stageKeyById.get(lead.stage_id ?? "") ?? null, overlayByLead.get(lead.id)),
+        mergeLead(
+          lead,
+          stageKeyById.get(lead.stage_id ?? "") ?? null,
+          overlayByLead.get(lead.id),
+          adNameById,
+        ),
       )
       .filter((lead) => inDateRange(lead.createdAt, since, until))
       .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);

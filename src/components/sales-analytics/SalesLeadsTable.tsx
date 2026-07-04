@@ -68,7 +68,7 @@ export function SalesLeadsTable({ rows, services, loading, editable = true, onUp
                 "Дата",
                 "Имя",
                 "Номер",
-                "UTM / Креатив",
+                "Объявление",
                 "Квал",
                 "Оплата",
                 "Услуга",

@@ -6,7 +6,20 @@ type UtmLike = {
   content?: string | null;
 } | null;
 
+/** Похоже на числовой Meta ad id, а не на название. */
+export function looksLikeMetaAdId(value: string | null | undefined): boolean {
+  const v = (value ?? "").trim();
+  if (!v) return false;
+  return /^\d{8,}$/.test(v) || /^act_\d+/i.test(v);
+}
+
+/**
+ * Подпись источника для таблицы.
+ * Приоритет: название объявления Meta → UTM (если не id) → кампания → канал.
+ * Числовой ad_id показываем только если имени нет.
+ */
 export function buildSalesSourceLabel(input: {
+  adName?: string | null;
   metaAdId?: string | null;
   utm?: UtmLike;
   campaign?: string | null;
@@ -14,15 +27,23 @@ export function buildSalesSourceLabel(input: {
   channel?: string | null;
 }): string {
   const utm = input.utm;
-  return (
-    input.metaAdId?.trim() ||
-    utm?.utm_content?.trim() ||
-    utm?.content?.trim() ||
-    input.campaign?.trim() ||
-    input.source?.trim() ||
-    input.channel?.trim() ||
-    "—"
-  );
+  const adName = input.adName?.trim();
+  if (adName) return adName;
+
+  const utmContent = utm?.utm_content?.trim() || utm?.content?.trim() || "";
+  if (utmContent && !looksLikeMetaAdId(utmContent)) return utmContent;
+
+  const campaign = input.campaign?.trim();
+  if (campaign) return campaign;
+
+  const source = input.source?.trim();
+  if (source && !looksLikeMetaAdId(source)) return source;
+
+  const channel = input.channel?.trim();
+  if (channel) return channel;
+
+  if (utmContent) return utmContent;
+  return input.metaAdId?.trim() || "—";
 }
 
 function digits(s: string) {
