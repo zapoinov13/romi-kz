@@ -1,7 +1,7 @@
 {
-  "git_sha": "5162c73",
-  "git_sha_full": "5162c739b688ec46ccc5a0b5e0eabae5ee1302a2",
-  "updated_at": "2026-07-04T09:06:51Z",
-  "label": "Убрал пустоту в авто-колонке",
+  "git_sha": "e3f960d",
+  "git_sha_full": "e3f960d43b2053d2ff11a504e3328cab88e9e36a",
+  "updated_at": "2026-07-04T15:07:08+05:00",
+  "label": "fix: WhatsApp в messages, лиды сайта в leads — на чтении и в sync",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
