@@ -1,7 +1,7 @@
 {
-  "git_sha": "e1d6c74",
-  "git_sha_full": "e1d6c74a75eb39513143f7839a8f77db8e11739c",
-  "updated_at": "2026-07-04T15:22:43+05:00",
-  "label": "feat: колонки Ads — расходы, клики, ватсап, лиды сайта, стоимость лида",
+  "git_sha": "9776e2d",
+  "git_sha_full": "9776e2da898bc05bf91bea5d0a3568a5d37f30a7",
+  "updated_at": "2026-07-04T15:29:07+05:00",
+  "label": "fix: ровные колонки Ads и кнопка «Обновить»",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
