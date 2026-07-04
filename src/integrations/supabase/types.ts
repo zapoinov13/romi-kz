@@ -1879,6 +1879,7 @@ export type Database = {
           manual_qualified: number | null
           manual_revenue: number | null
           manual_sales: number | null
+          messages: number
           project_id: string | null
           provider: string
           revenue: number
@@ -1908,6 +1909,7 @@ export type Database = {
           manual_qualified?: number | null
           manual_revenue?: number | null
           manual_sales?: number | null
+          messages?: number
           project_id?: string | null
           provider?: string
           revenue?: number
@@ -1937,6 +1939,7 @@ export type Database = {
           manual_qualified?: number | null
           manual_revenue?: number | null
           manual_sales?: number | null
+          messages?: number
           project_id?: string | null
           provider?: string
           revenue?: number
@@ -5692,6 +5695,7 @@ export type Database = {
         Args: { p_bot_webhook_url: string; p_project_id: string }
         Returns: undefined
       }
+      seed_demo_project: { Args: { p_project_name?: string }; Returns: Json }
       user_can_access_project: {
         Args: { _project_id: string }
         Returns: boolean
