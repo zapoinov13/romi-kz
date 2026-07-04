@@ -1,7 +1,7 @@
 {
-  "git_sha": "cdc8c92",
-  "git_sha_full": "cdc8c92acba9e200f9734457584a791fd47e3ac9",
-  "updated_at": "2026-07-04T08:59:09Z",
-  "label": "Исправил отображение и логику",
+  "git_sha": "5162c73",
+  "git_sha_full": "5162c739b688ec46ccc5a0b5e0eabae5ee1302a2",
+  "updated_at": "2026-07-04T09:06:51Z",
+  "label": "Убрал пустоту в авто-колонке",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
