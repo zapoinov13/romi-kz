@@ -1,7 +1,7 @@
 {
-  "git_sha": "1fa1ae9",
-  "git_sha_full": "1fa1ae9e29f627392c15d9bc74043ce77ebebdd1",
-  "updated_at": "2026-07-05T00:44:57+05:00",
-  "label": "fix(whatsapp): phonebook labels + load chats for project leads",
+  "git_sha": "361b524",
+  "git_sha_full": "361b524a4cdd2c5ab671bb02917da3ffb03acfa5",
+  "updated_at": "2026-07-05T00:47:29+05:00",
+  "label": "fix(crm): live WhatsApp chat without page refresh",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
