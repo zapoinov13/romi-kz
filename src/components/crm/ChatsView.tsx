@@ -27,7 +27,7 @@ interface ChatsViewProps {
   chats: ChatMessage[];
   whatsapp: WhatsAppConfig;
   onSend: (leadId: string, text: string) => void;
-  onRefreshLeadChats: (leadId: string) => void;
+  onRefreshLeadChats?: (leadId: string) => void;
   onConnectWhatsApp: () => void;
 }
 

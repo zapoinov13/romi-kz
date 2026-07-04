@@ -34,7 +34,7 @@ interface Props {
   onTogglePin: (id: string) => void;
   onAssign: (id: string, assigneeId?: string) => void;
   onSendMessage: (id: string, text: string) => void;
-  onRefreshLeadChats: (leadId: string) => void;
+  onRefreshLeadChats?: (leadId: string) => void;
   onMarkCall: (id: string, opts?: { direction?: "outgoing" | "incoming"; status?: "answered" | "missed"; durationSec?: number; note?: string }) => void;
   onLogCallAttempt?: (id: string, info: { provider: string; ok: boolean; phone?: string; warning?: string; error?: string }) => void;
   onMarkPaid: (id: string, method: PaymentMethod, amount: number, opts?: { note?: string }) => void;

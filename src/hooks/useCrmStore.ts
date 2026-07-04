@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { fetchPendingAdvances, markAdvanceDone } from "@/integrations/clientConfig/client";
 import { markAutoMoved } from "@/lib/autoMoveTracker";
+import { CRM_REFRESH_LEAD_CHATS } from "@/lib/crmChatRefresh";
 import { findLeadIdByPhone } from "@/lib/leadPhone";
 import { useWhatsAppConfig } from "@/hooks/useWhatsAppConfig";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
@@ -374,6 +375,15 @@ export function useCrmStore() {
       );
     }
   }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const leadId = (e as CustomEvent<{ leadId?: string }>).detail?.leadId;
+      if (leadId) void refreshLeadChats(leadId);
+    };
+    window.addEventListener(CRM_REFRESH_LEAD_CHATS, handler);
+    return () => window.removeEventListener(CRM_REFRESH_LEAD_CHATS, handler);
+  }, [refreshLeadChats]);
 
   useEffect(() => { void refetchStages(); }, [refetchStages]);
   useEffect(() => { void refetchLeads(); }, [refetchLeads]);
