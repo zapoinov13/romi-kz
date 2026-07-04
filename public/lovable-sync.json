@@ -1,7 +1,7 @@
 {
-  "git_sha": "03b73f1",
-  "git_sha_full": "03b73f1e15464e0bf850def8e2f23f55e46f5e79",
-  "updated_at": "2026-07-04T22:30:51+05:00",
-  "label": "feat: n8n bot webhook URL field — CRM receives events, forwards copy to n8n",
+  "git_sha": "65fd069",
+  "git_sha_full": "65fd069a8228e34d5bd5397fdb05e985734ed94e",
+  "updated_at": "2026-07-04T22:35:05+05:00",
+  "label": "fix: WhatsApp bind status not showing after save (column grants + read fallback)",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
