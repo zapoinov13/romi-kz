@@ -1,7 +1,7 @@
 {
-  "git_sha": "20ab533",
-  "git_sha_full": "20ab533f562db7c263a372543467661816019c78",
-  "updated_at": "2026-07-04T16:37:07+05:00",
-  "label": "fix: лиды Meta и лиды CRM раздельно, без общего тотала",
+  "git_sha": "8516d54",
+  "git_sha_full": "8516d54fa1d10da19088edb35c5bfb40a8516629",
+  "updated_at": "2026-07-04T16:50:54+05:00",
+  "label": "feat: ручное редактирование квала, оплаты, услуги и суммы в аналитике продаж",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
