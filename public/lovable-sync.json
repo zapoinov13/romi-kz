@@ -1,7 +1,7 @@
 {
-  "git_sha": "5b76d7c",
-  "git_sha_full": "5b76d7c1c533eb5f24bcbf30c21402a8e315fdaf",
-  "updated_at": "2026-07-04T21:49:36+05:00",
-  "label": "feat: Green API WhatsApp bind to project + ad cabinet",
+  "git_sha": "cbe8a00",
+  "git_sha_full": "cbe8a00c415f910a3e0199dffaf992073d34cb13",
+  "updated_at": "2026-07-04T22:05:50+05:00",
+  "label": "fix: Green API auto webhook, cabinet creds, simplified WhatsApp UI",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
