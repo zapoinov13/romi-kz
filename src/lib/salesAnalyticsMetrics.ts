@@ -58,26 +58,51 @@ export function filterSalesLeads(rows: SalesAnalyticsLead[], filters: SalesLeadF
   });
 }
 
+export type SalesMetaInput = {
+  formLeads?: number;
+  messages?: number;
+  /** Если задано — используется как metaLeads (формы + WhatsApp). */
+  conversions?: number;
+};
+
+/**
+ * KPI: расход и CPL — по Meta; квал / оплаты / выручка — по CRM с контактами.
+ */
 export function computeSalesKpi(
   rows: SalesAnalyticsLead[],
   spend: number,
-  rnpLeads?: number,
+  meta?: number | SalesMetaInput,
 ): SalesKpi {
   const realRows = rows.filter((r) => !r.isSynthetic);
   const crmLeads = realRows.length;
-  const totalLeads = rnpLeads != null ? Math.max(crmLeads, rnpLeads) : rows.length;
+
+  let adsFormLeads = 0;
+  let adsMessages = 0;
+  let metaLeads = 0;
+  if (typeof meta === "number") {
+    metaLeads = Math.max(0, meta);
+  } else if (meta) {
+    adsFormLeads = Math.max(0, meta.formLeads ?? 0);
+    adsMessages = Math.max(0, meta.messages ?? 0);
+    metaLeads = Math.max(0, meta.conversions ?? adsFormLeads + adsMessages);
+  }
+
   const qualifiedYes = realRows.filter((r) => r.isQualified === true).length;
   const paid = realRows.filter((r) => r.paymentStatus === "paid");
   const paidClients = paid.length;
   const revenue = paid.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
   return {
-    totalLeads,
     spend,
-    cpl: totalLeads > 0 ? spend / totalLeads : 0,
-    cac: paidClients > 0 ? spend / paidClients : 0,
-    qualifiedRate: totalLeads > 0 ? (qualifiedYes / totalLeads) * 100 : 0,
+    metaLeads,
+    adsMessages,
+    adsFormLeads,
+    crmLeads,
+    cpl: metaLeads > 0 ? spend / metaLeads : 0,
+    qualifiedYes,
+    qualifiedRate: crmLeads > 0 ? (qualifiedYes / crmLeads) * 100 : 0,
     paidClients,
+    cac: paidClients > 0 ? spend / paidClients : 0,
     revenue,
     roas: spend > 0 ? (revenue / spend) * 100 : 0,
     avgCheck: paidClients > 0 ? revenue / paidClients : 0,
@@ -139,7 +164,8 @@ export function monthBounds(monthKey: string): { since: string; until: string } 
 
 export function filterByCabinet(rows: SalesAnalyticsLead[], cabinetId: string | null): SalesAnalyticsLead[] {
   if (!cabinetId) return rows;
-  return rows.filter((r) => !r.cabinetId || r.cabinetId === cabinetId);
+  // Только лиды этого кабинета (без «сирот» без cabinet_id — иначе раздувают каждый кабинет).
+  return rows.filter((r) => r.cabinetId === cabinetId);
 }
 
 /** Лид показываем в таблице только с реальным именем и телефоном (из CRM). */

@@ -3,6 +3,7 @@ import {
   appendMetaGapRows,
   computeSalesKpi,
   computeTopCreatives,
+  filterByCabinet,
   filterDisplayableSalesLeads,
   filterSalesLeads,
   hasLeadContact,
@@ -29,13 +30,14 @@ const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
 });
 
 describe("salesAnalyticsMetrics", () => {
-  it("computes KPI with ROAS and avg check", () => {
+  it("считает KPI: CPL по Meta, квал по CRM", () => {
     const rows = [
       lead({ id: "1", leadId: "1", isQualified: true, paymentStatus: "paid", amount: 100_000 }),
       lead({ id: "2", leadId: "2", isQualified: false, paymentStatus: "unpaid" }),
     ];
-    const kpi = computeSalesKpi(rows, 50_000);
-    expect(kpi.totalLeads).toBe(2);
+    const kpi = computeSalesKpi(rows, 50_000, { formLeads: 1, messages: 1, conversions: 2 });
+    expect(kpi.crmLeads).toBe(2);
+    expect(kpi.metaLeads).toBe(2);
     expect(kpi.cpl).toBe(25_000);
     expect(kpi.paidClients).toBe(1);
     expect(kpi.revenue).toBe(100_000);
@@ -43,6 +45,15 @@ describe("salesAnalyticsMetrics", () => {
     expect(kpi.qualifiedRate).toBe(50);
     expect(kpi.roas).toBe(200);
     expect(kpi.avgCheck).toBe(100_000);
+  });
+
+  it("квал % только от CRM, даже если Meta больше", () => {
+    const rows = [lead({ id: "1", leadId: "1", isQualified: true })];
+    const kpi = computeSalesKpi(rows, 100_000, 15);
+    expect(kpi.metaLeads).toBe(15);
+    expect(kpi.crmLeads).toBe(1);
+    expect(kpi.cpl).toBeCloseTo(100_000 / 15);
+    expect(kpi.qualifiedRate).toBe(100);
   });
 
   it("filters by qualified and payment", () => {
@@ -54,11 +65,13 @@ describe("salesAnalyticsMetrics", () => {
     expect(f).toHaveLength(1);
   });
 
-  it("uses rnp leads when higher than crm", () => {
-    const rows = [lead({ id: "1", leadId: "1" })];
-    const kpi = computeSalesKpi(rows, 100_000, 15);
-    expect(kpi.totalLeads).toBe(15);
-    expect(kpi.cpl).toBeCloseTo(100_000 / 15);
+  it("кабинет строго по cabinet_id", () => {
+    const rows = [
+      lead({ id: "1", leadId: "1", cabinetId: "cab-1" }),
+      lead({ id: "2", leadId: "2", cabinetId: null }),
+      lead({ id: "3", leadId: "3", cabinetId: "cab-2" }),
+    ];
+    expect(filterByCabinet(rows, "cab-1")).toHaveLength(1);
   });
 
   it("appends meta gap rows (legacy helper)", () => {
@@ -78,5 +91,17 @@ describe("salesAnalyticsMetrics", () => {
     expect(hasLeadContact(rows[1])).toBe(false);
     expect(hasLeadContact(rows[2])).toBe(false);
     expect(filterDisplayableSalesLeads(rows)).toHaveLength(1);
+  });
+
+  it("топ креативов по выручке", () => {
+    const rows = [
+      lead({ id: "1", leadId: "1", metaAdId: "a", sourceLabel: "A", paymentStatus: "paid", amount: 200 }),
+      lead({ id: "2", leadId: "2", metaAdId: "a", sourceLabel: "A", paymentStatus: "paid", amount: 100 }),
+      lead({ id: "3", leadId: "3", metaAdId: "b", sourceLabel: "B", paymentStatus: "unpaid" }),
+    ];
+    const top = computeTopCreatives(rows, 2);
+    expect(top[0].key).toBe("a");
+    expect(top[0].revenue).toBe(300);
+    expect(top[0].sales).toBe(2);
   });
 });

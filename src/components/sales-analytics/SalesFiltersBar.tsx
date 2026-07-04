@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -6,23 +7,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SalesLeadFilters, SalesService } from "@/types/salesAnalytics";
+import {
+  EMPTY_SALES_FILTERS,
+  type SalesLeadFilters,
+  type SalesService,
+} from "@/types/salesAnalytics";
 
 type Props = {
   filters: SalesLeadFilters;
   onChange: (patch: Partial<SalesLeadFilters>) => void;
+  onReset?: () => void;
   services: SalesService[];
   monthSince: string;
   monthUntil: string;
 };
 
+function filtersActive(f: SalesLeadFilters): boolean {
+  return (
+    f.dateFrom != null ||
+    f.dateTo != null ||
+    f.qualified !== "all" ||
+    f.payment !== "all" ||
+    f.serviceId != null ||
+    f.sourceQuery.trim() !== "" ||
+    f.nameQuery.trim() !== "" ||
+    f.phoneQuery.trim() !== ""
+  );
+}
+
 export function SalesFiltersBar({
   filters,
   onChange,
+  onReset,
   services,
   monthSince,
   monthUntil,
 }: Props) {
+  const active = filtersActive(filters);
   return (
     <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border/60 bg-card/50 p-3">
       <div className="flex flex-col gap-1">
@@ -115,6 +136,16 @@ export function SalesFiltersBar({
           onChange={(e) => onChange({ phoneQuery: e.target.value })}
         />
       </div>
+      {active && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9 text-xs text-muted-foreground"
+          onClick={() => (onReset ? onReset() : onChange({ ...EMPTY_SALES_FILTERS }))}
+        >
+          Сбросить
+        </Button>
+      )}
     </div>
   );
 }

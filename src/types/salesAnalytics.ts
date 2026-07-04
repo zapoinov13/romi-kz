@@ -51,14 +51,25 @@ export const EMPTY_SALES_FILTERS: SalesLeadFilters = {
   phoneQuery: "",
 };
 
+/** KPI аналитики продаж: Meta и CRM раздельно. */
 export type SalesKpi = {
-  totalLeads: number;
   spend: number;
+  /** Конверсии Meta: WhatsApp + лиды сайта */
+  metaLeads: number;
+  adsMessages: number;
+  adsFormLeads: number;
+  /** Лиды в CRM с именем и телефоном */
+  crmLeads: number;
+  /** spend ÷ metaLeads */
   cpl: number;
-  cac: number;
+  qualifiedYes: number;
+  /** qualifiedYes ÷ crmLeads */
   qualifiedRate: number;
   paidClients: number;
+  /** spend ÷ paidClients */
+  cac: number;
   revenue: number;
+  /** revenue ÷ spend × 100 */
   roas: number;
   avgCheck: number;
 };

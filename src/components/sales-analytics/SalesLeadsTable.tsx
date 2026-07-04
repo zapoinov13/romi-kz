@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SalesAnalyticsLead, SalesService } from "@/types/salesAnalytics";
+import { fmtMoney } from "@/lib/format";
 
 type Props = {
   rows: SalesAnalyticsLead[];
@@ -130,7 +131,9 @@ export function SalesLeadsTable({ rows, services, loading, editable = true, onUp
                     onSave={(amount) => void onUpdate(r.leadId, { amount })}
                   />
                 ) : (
-                  <span className="tabular-nums">{r.amount != null ? `$${r.amount}` : "—"}</span>
+                  <span className="tabular-nums">
+                    {r.amount != null ? fmtMoney(r.amount) : "—"}
+                  </span>
                 )}
               </td>
             </tr>

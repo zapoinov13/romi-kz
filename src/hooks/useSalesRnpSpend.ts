@@ -14,12 +14,20 @@ export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | n
   const actId = cabinet ? resolveCabinetActId(cabinet) : null;
   const { data, loading, error } = useMetaInsightsRange(actId, range, !!actId);
 
+  const adsFormLeads = data?.totals.leads ?? 0;
+  const adsMessages = data?.totals.messages ?? 0;
+  const metaLeads = metaConversionsTotal({
+    leads: adsFormLeads,
+    messages: adsMessages,
+  });
+
   return {
     spend: data?.totals.spend ?? 0,
-    rnpLeads: metaConversionsTotal({
-      leads: data?.totals.leads ?? 0,
-      messages: data?.totals.messages ?? 0,
-    }),
+    adsFormLeads,
+    adsMessages,
+    metaLeads,
+    /** @deprecated используйте metaLeads */
+    rnpLeads: metaLeads,
     currency: data?.currency ?? "USD",
     cabinetName: cabinet?.name ?? null,
     actId,
