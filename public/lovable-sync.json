@@ -1,7 +1,7 @@
 {
-  "git_sha": "2f69f54",
-  "git_sha_full": "2f69f545451f33e7a8e666e1835c82a4ef367ecf",
-  "updated_at": "2026-07-04T15:53:42+05:00",
-  "label": "security: полный lockdown секретных колонок и SECURITY DEFINER",
+  "git_sha": "287fc8f",
+  "git_sha_full": "287fc8fc12aa226ed30567ebbd0d9517553d9b8a",
+  "updated_at": "2026-07-04T16:05:55+05:00",
+  "label": "feat: выбор блоков доступа при добавлении сотрудника",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
