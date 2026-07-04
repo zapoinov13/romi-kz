@@ -14,9 +14,8 @@ export function looksLikeMetaAdId(value: string | null | undefined): boolean {
 }
 
 /**
- * Подпись источника для таблицы.
- * Приоритет: название объявления Meta → UTM (если не id) → кампания → канал.
- * Числовой ad_id показываем только если имени нет.
+ * Подпись объявления/креатива для таблицы и топов.
+ * Не подставляем название кампании — только объявление Meta.
  */
 export function buildSalesSourceLabel(input: {
   adName?: string | null;
@@ -31,10 +30,11 @@ export function buildSalesSourceLabel(input: {
   if (adName) return adName;
 
   const utmContent = utm?.utm_content?.trim() || utm?.content?.trim() || "";
+  // utm_content часто = имя креатива, но не id и не имя кампании
   if (utmContent && !looksLikeMetaAdId(utmContent)) return utmContent;
 
-  const campaign = input.campaign?.trim();
-  if (campaign) return campaign;
+  // Есть привязка к объявлению, но имени ещё нет в meta_creatives
+  if (input.metaAdId?.trim()) return "Объявление без названия";
 
   const source = input.source?.trim();
   if (source && !looksLikeMetaAdId(source)) return source;
@@ -42,8 +42,7 @@ export function buildSalesSourceLabel(input: {
   const channel = input.channel?.trim();
   if (channel) return channel;
 
-  if (utmContent) return utmContent;
-  return input.metaAdId?.trim() || "—";
+  return "—";
 }
 
 function digits(s: string) {
@@ -133,22 +132,42 @@ export function computeSalesKpi(
   };
 }
 
+/**
+ * Топ именно объявлений (креативов) Meta — группировка по ad_id,
+ * подпись = название объявления, не кампании.
+ */
 export function computeTopCreatives(rows: SalesAnalyticsLead[], limit = 3): TopCreativeRow[] {
   const map = new Map<string, TopCreativeRow>();
   for (const r of rows) {
-    const key = r.metaAdId || r.utmContent || r.sourceLabel || "—";
-    const label = r.sourceLabel || r.metaAdId || r.utmContent || "—";
-    const cur = map.get(key) ?? { key, label, leads: 0, sales: 0, revenue: 0, conversion: 0 };
+    const adId = (r.metaAdId ?? "").trim();
+    if (!adId) continue;
+
+    const adName = (r.adName ?? "").trim();
+    const label =
+      adName ||
+      (r.sourceLabel && r.sourceLabel !== "Объявление без названия" && !looksLikeMetaAdId(r.sourceLabel)
+        ? r.sourceLabel
+        : "Объявление без названия");
+
+    const cur = map.get(adId) ?? {
+      key: adId,
+      label,
+      leads: 0,
+      sales: 0,
+      revenue: 0,
+      conversion: 0,
+    };
+    if (adName) cur.label = adName;
     cur.leads += 1;
     if (r.paymentStatus === "paid") {
       cur.sales += 1;
       cur.revenue += Number(r.amount) || 0;
     }
-    map.set(key, cur);
+    map.set(adId, cur);
   }
   return Array.from(map.values())
     .map((x) => ({ ...x, conversion: x.leads > 0 ? (x.sales / x.leads) * 100 : 0 }))
-    .sort((a, b) => b.revenue - a.revenue)
+    .sort((a, b) => b.revenue - a.revenue || b.leads - a.leads)
     .slice(0, limit);
 }
 
@@ -236,6 +255,7 @@ export function appendMetaGapRows(
     name: `Лид Meta (${i + 1})`,
     phone: "—",
     sourceLabel: "Meta Ads · РНП",
+    adName: null,
     metaAdId: null,
     utmContent: null,
     channel: "meta",

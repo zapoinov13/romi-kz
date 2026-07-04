@@ -19,6 +19,7 @@ const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
   name: "Test",
   phone: "+77001234567",
   sourceLabel: "ad_123",
+  adName: "Креатив тест",
   metaAdId: "123",
   utmContent: null,
   channel: "whatsapp",
@@ -31,20 +32,28 @@ const lead = (patch: Partial<SalesAnalyticsLead>): SalesAnalyticsLead => ({
 });
 
 describe("salesAnalyticsMetrics", () => {
-  it("sourceLabel предпочитает название объявления, не ad id", () => {
+  it("sourceLabel предпочитает название объявления, не ad id и не кампанию", () => {
     expect(
       buildSalesSourceLabel({
         adName: "Имплант акция",
         metaAdId: "120212345678901234",
+        campaign: "Кампания WA",
         utm: { utm_content: "120212345678901234" },
       }),
     ).toBe("Имплант акция");
     expect(
       buildSalesSourceLabel({
         metaAdId: "120212345678901234",
+        campaign: "Кампания WA",
         utm: { utm_content: "Креатив сторис" },
       }),
     ).toBe("Креатив сторис");
+    expect(
+      buildSalesSourceLabel({
+        metaAdId: "120212345678901234",
+        campaign: "Кампания WA",
+      }),
+    ).toBe("Объявление без названия");
   });
 
   it("считает KPI: CPL по Meta, квал по CRM", () => {
@@ -110,15 +119,50 @@ describe("salesAnalyticsMetrics", () => {
     expect(filterDisplayableSalesLeads(rows)).toHaveLength(1);
   });
 
-  it("топ креативов по выручке", () => {
+  it("топ креативов — по ad_id и названию объявления, не кампании", () => {
     const rows = [
-      lead({ id: "1", leadId: "1", metaAdId: "a", sourceLabel: "A", paymentStatus: "paid", amount: 200 }),
-      lead({ id: "2", leadId: "2", metaAdId: "a", sourceLabel: "A", paymentStatus: "paid", amount: 100 }),
-      lead({ id: "3", leadId: "3", metaAdId: "b", sourceLabel: "B", paymentStatus: "unpaid" }),
+      lead({
+        id: "1",
+        leadId: "1",
+        metaAdId: "111",
+        adName: "Креатив A",
+        sourceLabel: "Кампания X",
+        paymentStatus: "paid",
+        amount: 200,
+      }),
+      lead({
+        id: "2",
+        leadId: "2",
+        metaAdId: "111",
+        adName: "Креатив A",
+        sourceLabel: "Кампания X",
+        paymentStatus: "paid",
+        amount: 100,
+      }),
+      lead({
+        id: "3",
+        leadId: "3",
+        metaAdId: "222",
+        adName: "Креатив B",
+        sourceLabel: "Кампания X",
+        paymentStatus: "unpaid",
+      }),
+      lead({
+        id: "4",
+        leadId: "4",
+        metaAdId: null,
+        adName: null,
+        sourceLabel: "Кампания X",
+        paymentStatus: "paid",
+        amount: 999,
+      }),
     ];
-    const top = computeTopCreatives(rows, 2);
-    expect(top[0].key).toBe("a");
+    const top = computeTopCreatives(rows, 3);
+    expect(top).toHaveLength(2);
+    expect(top[0].key).toBe("111");
+    expect(top[0].label).toBe("Креатив A");
     expect(top[0].revenue).toBe(300);
     expect(top[0].sales).toBe(2);
+    expect(top[1].label).toBe("Креатив B");
   });
 });

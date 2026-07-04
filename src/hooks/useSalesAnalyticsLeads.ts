@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import type { PaymentStatus, SalesAnalyticsLead } from "@/types/salesAnalytics";
-import {
-  buildSalesSourceLabel,
-  filterByCabinet,
-  inDateRange,
-} from "@/lib/salesAnalyticsMetrics";
+import { buildSalesSourceLabel, filterByCabinet } from "@/lib/salesAnalyticsMetrics";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso } from "@/lib/periodRange";
 
@@ -47,6 +42,10 @@ export type SalesLeadUpdatePatch = Partial<
   Pick<SalesAnalyticsLead, "isQualified" | "paymentStatus" | "serviceId" | "amount">
 >;
 
+/** Кэш стадий пайплайна — почти не меняются. */
+let stagesCache: { at: number; map: Map<string, string> } | null = null;
+const STAGES_TTL_MS = 5 * 60_000;
+
 function derivePaymentStatus(lead: LeadRow, stageKey: string | null): PaymentStatus | null {
   if (lead.paid === true) return "paid";
   if (lead.paid === false) return "unpaid";
@@ -62,11 +61,25 @@ function deriveQualified(lead: LeadRow, stageKey: string | null): boolean | null
   return null;
 }
 
+function resolveAdName(
+  lead: LeadRow,
+  adNameById: Map<string, string>,
+): string | null {
+  const adId = (lead.meta_ad_id ?? "").trim();
+  if (adId) {
+    const byId =
+      adNameById.get(adId) ||
+      adNameById.get(adId.replace(/^act_/i, ""));
+    if (byId) return byId;
+  }
+  return null;
+}
+
 function mergeLead(
   lead: LeadRow,
   stageKey: string | null,
-  overlay?: OverlayRow,
-  adNameById?: Map<string, string>,
+  overlay: OverlayRow | undefined,
+  adNameById: Map<string, string>,
 ): SalesAnalyticsLead {
   const utm = lead.utm;
   const createdAt = lead.first_touch_at ?? lead.created_at;
@@ -77,11 +90,7 @@ function mergeLead(
     amount: lead.amount != null && Number.isFinite(Number(lead.amount)) ? Number(lead.amount) : null,
   };
 
-  const adId = (lead.meta_ad_id ?? "").trim();
-  const adName =
-    (adId && adNameById?.get(adId)) ||
-    (adId && adNameById?.get(adId.replace(/^act_/i, ""))) ||
-    null;
+  const adName = resolveAdName(lead, adNameById);
 
   return {
     id: overlay?.id ?? lead.id,
@@ -90,6 +99,7 @@ function mergeLead(
     cabinetId: lead.cabinet_id,
     name: lead.name?.trim() || "—",
     phone: lead.phone?.trim() || "—",
+    adName,
     sourceLabel: buildSalesSourceLabel({
       adName,
       metaAdId: lead.meta_ad_id,
@@ -101,7 +111,6 @@ function mergeLead(
     metaAdId: lead.meta_ad_id,
     utmContent: utm?.utm_content ?? utm?.content ?? null,
     channel: lead.channel,
-    // CRM — источник правды после ручного редактирования
     isQualified: fromCrm.isQualified ?? overlay?.is_qualified ?? null,
     paymentStatus:
       fromCrm.paymentStatus ??
@@ -114,6 +123,18 @@ function mergeLead(
   };
 }
 
+async function loadStageMap(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (stagesCache && now - stagesCache.at < STAGES_TTL_MS) {
+    return stagesCache.map;
+  }
+  const { data } = await supabase.from("pipeline_stages").select("id, key");
+  const map = new Map<string, string>();
+  for (const s of (data ?? []) as StageRow[]) map.set(s.id, s.key);
+  stagesCache = { at: now, map };
+  return map;
+}
+
 export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: string | null) {
   const { activeId: projectId } = useProjectsStore();
   const [rows, setRows] = useState<SalesAnalyticsLead[]>([]);
@@ -121,6 +142,7 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
   const [error, setError] = useState<string | null>(null);
   const [overlayMissing, setOverlayMissing] = useState(false);
   const { since, until } = dateRangeToIso(range);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     if (!projectId) {
@@ -130,21 +152,37 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     setLoading(true);
     setError(null);
 
-    const [leadsRes, overlayRes, stagesRes] = await Promise.all([
-      supabase
-        .from("leads")
-        .select(
-          "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at, is_qualified, paid, amount, service_id, service, stage_id",
-        )
-        .eq("is_personal", false)
-        .or(`project_id.eq.${projectId},project_id.is.null`)
-        .order("created_at", { ascending: false })
-        .limit(3000),
-      supabase
-        .from("sales_analytics_leads")
-        .select("id, lead_id, is_qualified, payment_status, service_id, amount")
-        .eq("project_id", projectId),
-      supabase.from("pipeline_stages").select("id, key"),
+    const sinceTs = `${since}T00:00:00`;
+    const untilTs = `${until}T23:59:59.999`;
+
+    let leadsQ = supabase
+      .from("leads")
+      .select(
+        "id, project_id, name, phone, meta_ad_id, utm, campaign, source, channel, cabinet_id, created_at, first_touch_at, is_qualified, paid, amount, service_id, service, stage_id",
+      )
+      .eq("is_personal", false)
+      .or(`project_id.eq.${projectId},project_id.is.null`)
+      .gte("created_at", sinceTs)
+      .lte("created_at", untilTs)
+      .order("created_at", { ascending: false })
+      .limit(1500);
+
+    if (cabinetId) leadsQ = leadsQ.eq("cabinet_id", cabinetId);
+
+    let overlayQ = supabase
+      .from("sales_analytics_leads")
+      .select("id, lead_id, is_qualified, payment_status, service_id, amount")
+      .eq("project_id", projectId)
+      .gte("created_at", sinceTs)
+      .lte("created_at", untilTs)
+      .limit(1500);
+
+    if (cabinetId) overlayQ = overlayQ.eq("cabinet_id", cabinetId);
+
+    const [leadsRes, overlayRes, stageKeyById] = await Promise.all([
+      leadsQ,
+      overlayQ,
+      loadStageMap(),
     ]);
 
     if (leadsRes.error) {
@@ -152,11 +190,6 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
       setRows([]);
       setLoading(false);
       return;
-    }
-
-    const stageKeyById = new Map<string, string>();
-    for (const s of (stagesRes.data ?? []) as StageRow[]) {
-      stageKeyById.set(s.id, s.key);
     }
 
     const overlayByLead = new Map<string, OverlayRow>();
@@ -181,18 +214,20 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
 
     const adNameById = new Map<string, string>();
     if (adIds.length > 0) {
-      let creativesQ = supabase
-        .from("meta_creatives")
-        .select("ad_id, name")
-        .in("ad_id", adIds);
-      if (projectId) creativesQ = creativesQ.or(`project_id.eq.${projectId},project_id.is.null`);
-      const { data: creatives } = await creativesQ;
-      for (const c of creatives ?? []) {
-        const name = (c.name ?? "").trim();
-        if (!name) continue;
-        const id = String(c.ad_id);
-        adNameById.set(id, name);
-        adNameById.set(id.replace(/^act_/i, ""), name);
+      // Чанками по 100 — лимиты PostgREST .in()
+      for (let i = 0; i < adIds.length; i += 100) {
+        const chunk = adIds.slice(i, i + 100);
+        const { data: creatives } = await supabase
+          .from("meta_creatives")
+          .select("ad_id, name")
+          .in("ad_id", chunk);
+        for (const c of creatives ?? []) {
+          const name = (c.name ?? "").trim();
+          if (!name) continue;
+          const id = String(c.ad_id);
+          adNameById.set(id, name);
+          adNameById.set(id.replace(/^act_/i, ""), name);
+        }
       }
     }
 
@@ -205,7 +240,6 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
           adNameById,
         ),
       )
-      .filter((lead) => inDateRange(lead.createdAt, since, until))
       .filter((lead) => filterByCabinet([lead], cabinetId).length > 0);
 
     setRows(merged);
@@ -216,9 +250,35 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
     void load();
   }, [load]);
 
-  useRealtimeTable("leads", () => void load(), !!projectId);
-  useRealtimeTable("sales_analytics_leads", () => void load(), !!projectId);
-  useRealtimeTable("sales_service_catalog", () => void load(), !!projectId);
+  // Debounced realtime — не дёргаем полный reload на каждый чих
+  useEffect(() => {
+    if (!projectId) return;
+    const schedule = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => {
+        void load();
+      }, 400);
+    };
+
+    const channel = supabase
+      .channel(`sales-analytics-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leads" },
+        schedule,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sales_analytics_leads" },
+        schedule,
+      )
+      .subscribe();
+
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      void supabase.removeChannel(channel);
+    };
+  }, [projectId, load]);
 
   const updateLead = useCallback(
     async (leadId: string, patch: SalesLeadUpdatePatch) => {
@@ -245,10 +305,11 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
 
       if (Object.keys(leadPatch).length === 0) return;
 
-      // Оптимистично обновляем UI
-      setRows((prev) =>
-        prev.map((r) => (r.leadId === leadId ? { ...r, ...patch } : r)),
-      );
+      let snapshot: SalesAnalyticsLead[] = [];
+      setRows((cur) => {
+        snapshot = cur;
+        return cur.map((r) => (r.leadId === leadId ? { ...r, ...patch } : r));
+      });
 
       const { error: updErr } = await supabase
         .from("leads")
@@ -256,14 +317,11 @@ export function useSalesAnalyticsLeads(range: ReportPeriodRange, cabinetId: stri
         .eq("id", leadId);
 
       if (updErr) {
-        await load();
+        setRows(snapshot);
         throw updErr;
       }
-
-      // Триггер синхронизирует sales_analytics_leads; подтягиваем свежие данные
-      await load();
     },
-    [load],
+    [],
   );
 
   return { rows, loading, error, overlayMissing, refresh: load, updateLead };

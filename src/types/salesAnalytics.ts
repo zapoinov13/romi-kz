@@ -17,6 +17,8 @@ export type SalesAnalyticsLead = {
   name: string;
   phone: string;
   sourceLabel: string | null;
+  /** Название объявления Meta (креатив), не кампания */
+  adName: string | null;
   metaAdId: string | null;
   utmContent: string | null;
   channel: string | null;

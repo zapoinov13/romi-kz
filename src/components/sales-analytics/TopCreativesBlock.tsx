@@ -17,8 +17,8 @@ export function TopCreativesBlock({ items }: Props) {
           <Megaphone className="h-4 w-4" />
         </span>
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Топ креативов</h3>
-          <p className="text-[11px] text-muted-foreground">По выручке за период</p>
+          <h3 className="text-sm font-semibold text-foreground">Топ объявлений</h3>
+          <p className="text-[11px] text-muted-foreground">Креативы Meta · по выручке</p>
         </div>
       </div>
 
