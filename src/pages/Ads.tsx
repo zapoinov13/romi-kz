@@ -184,7 +184,7 @@ const Ads = () => {
 
         {/* Table header — desktop */}
         {filtered.length > 0 && (
-          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_auto] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
+          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_180px] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
             <div>Кабинет</div>
             <div className="text-right">Расход</div>
             <div className="text-right">Клики</div>
