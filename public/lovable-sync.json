@@ -1,7 +1,7 @@
 {
-  "git_sha": "361b524",
-  "git_sha_full": "361b524a4cdd2c5ab671bb02917da3ffb03acfa5",
-  "updated_at": "2026-07-05T00:47:29+05:00",
-  "label": "fix(crm): live WhatsApp chat without page refresh",
+  "git_sha": "03fc5b5",
+  "git_sha_full": "03fc5b52cee448b20050a8d79658008821f9192b",
+  "updated_at": "2026-07-05T00:56:21+05:00",
+  "label": "fix(whatsapp): sync lead name from Green API getContactInfo",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
