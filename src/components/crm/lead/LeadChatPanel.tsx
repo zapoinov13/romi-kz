@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CheckCheck, Plus, Send, X, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing,
+  CheckCheck, Plus, Send, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing,
   FileText,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ export function LeadChatPanel({ lead, chats, whatsappConnected, stageTitle, onSe
   const [filter, setFilter] = useState<Filter>("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { items: quickReplies, add: addReply, remove: removeReply } = useQuickReplies();
+  const { add: addReply } = useQuickReplies();
 
   const sorted = useMemo(
     () => [...chats].sort((a, b) => a.at.localeCompare(b.at)),
@@ -179,30 +179,24 @@ export function LeadChatPanel({ lead, chats, whatsappConnected, stageTitle, onSe
           onPick={(text, key) => {
             setDraft(text);
             inputRef.current?.focus();
-            // store template key on next send via wrapping onSend call below
             (inputRef.current as HTMLInputElement & { dataset: DOMStringMap } | null)
               ?.setAttribute("data-template-key", key);
           }}
           trigger={
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/60 px-2.5 py-0.5 text-[11px] font-medium hover:bg-secondary"
+              className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/50"
             >
               <FileText className="h-3 w-3" /> Шаблоны
             </button>
           }
         />
-        {quickReplies.map((q, i) => (
-          <span key={i} className="group inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/60 pl-2.5 pr-1 py-0.5 text-[11px]">
-            <button onClick={() => setDraft(q)} className="max-w-[180px] truncate text-left">{q}</button>
-            <button onClick={() => removeReply(i)} className="opacity-0 transition-opacity group-hover:opacity-100" title="Удалить">
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
         {draft.trim() && (
-          <button onClick={() => addReply(draft)} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20">
-            <Plus className="h-3 w-3" /> в шаблоны
+          <button
+            onClick={() => addReply(draft)}
+            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/50"
+          >
+            <Plus className="h-3 w-3" /> Сохранить черновик
           </button>
         )}
       </div>

@@ -1,10 +1,10 @@
 import { memo, useSyncExternalStore, type DragEvent, type MouseEvent } from "react";
-import { Bot, Phone, Sparkles, Star, Tag } from "lucide-react";
+import { Bot, Clock, Phone, Star, Tag, User } from "lucide-react";
 import { subscribeAutoMoved, isRecentlyAutoMoved, getAutoMovedSnapshot } from "@/lib/autoMoveTracker";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Lead } from "@/types/crm";
-import { leadSlaMinutes, recommendationFor, slaTone } from "@/hooks/useCrmAnalytics";
+import { leadSlaMinutes, slaTone } from "@/hooks/useCrmAnalytics";
 import { resolveLeadSource } from "@/lib/leadSource";
 
 interface LeadCardProps {
@@ -27,14 +27,6 @@ function timeAgo(iso: string) {
   if (h < 24) return `${h} ч`;
   const d = Math.floor(h / 24);
   return `${d} д`;
-}
-
-import { classifyQuality, QUALITY_LABEL, QUALITY_BADGE_CLS } from "@/lib/quality";
-
-function scoreColor(score: number) {
-  if (score >= 75) return "text-success";
-  if (score >= 50) return "text-warning";
-  return "text-muted-foreground";
 }
 
 function LeadCardImpl({
@@ -72,9 +64,8 @@ function LeadCardImpl({
   const sla = leadSlaMinutes(lead);
   const tone = slaTone(sla);
   const showSlaTimer = highlightSla || (!lead.firstResponseAt && (lead.stageId === "new" || lead.stageId === "no_answer"));
-  const rec = recommendationFor(lead.aiScore);
+  const sourceMeta = resolveLeadSource(lead);
 
-  // Бейдж «🤖 авто» — если лид недавно был автоматически передвинут n8n-WA-анализом
   useSyncExternalStore(subscribeAutoMoved, getAutoMovedSnapshot, getAutoMovedSnapshot);
   const autoMoved = isRecentlyAutoMoved(lead.id);
 
@@ -85,10 +76,14 @@ function LeadCardImpl({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        "group relative w-full shrink-0 rounded-xl border bg-card/80 p-3 pb-9 text-left transition-shadow hover:shadow-md",
+        "group relative w-full shrink-0 rounded-lg border bg-card p-3 pb-8 text-left shadow-sm transition-colors",
         selectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
-        selected ? "border-primary ring-2 ring-primary/30" : lead.pinned ? "border-primary/40 ring-1 ring-primary/20" : "border-border/60 hover:border-primary/50",
-        showSlaTimer && tone === "bad" && "ring-1 ring-destructive/40",
+        selected
+          ? "border-primary ring-1 ring-primary/25"
+          : lead.pinned
+            ? "border-primary/30"
+            : "border-border/70 hover:border-border hover:bg-muted/20",
+        showSlaTimer && tone === "bad" && "border-destructive/40",
       )}
     >
       {selectMode && (
@@ -96,119 +91,79 @@ function LeadCardImpl({
           <Checkbox checked={selected} aria-label={`Выбрать ${lead.name}`} />
         </div>
       )}
-      {showSlaTimer && (
-        <div className="mb-2 flex">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums shadow-sm",
-              tone === "good" && "bg-success text-success-foreground",
-              tone === "warn" && "bg-warning text-background",
-              tone === "bad" && "bg-destructive text-destructive-foreground animate-pulse",
-            )}
-            title="Время без ответа"
-          >
-            ⏱ {sla} мин
-          </span>
-        </div>
-      )}
 
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {lead.pinned && <Star className="h-3 w-3 shrink-0 fill-primary text-primary" />}
             {autoMoved && (
               <span
-                className="inline-flex items-center gap-0.5 rounded-md bg-primary/15 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary"
-                title="Лид авто-перенесён по результату WA-анализа"
+                className="inline-flex items-center gap-0.5 rounded border border-border/60 bg-muted/40 px-1 py-px text-[9px] font-medium uppercase tracking-wide text-muted-foreground"
+                title="Лид автоматически перенесён по WA-анализу"
               >
                 <Bot className="h-2.5 w-2.5" />
                 авто
               </span>
             )}
-            <div className="truncate text-sm font-semibold text-foreground">{lead.name}</div>
+            <div className="truncate text-sm font-medium text-foreground">{lead.name}</div>
           </div>
-          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Phone className="h-3 w-3" />
-            <span className="truncate">{lead.phone}</span>
+          <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <Phone className="h-3 w-3 shrink-0" />
+            <span className="truncate tabular-nums">{lead.phone}</span>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-0.5">
+
+        {showSlaTimer && (
           <span
             className={cn(
-              "flex items-center gap-0.5 rounded-md bg-secondary/60 px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-              scoreColor(lead.aiScore),
+              "inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+              tone === "good" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+              tone === "warn" && "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+              tone === "bad" && "border-destructive/40 bg-destructive/10 text-destructive",
             )}
-            title="AI-скоринг качества лида (0–100)"
+            title="Время без ответа"
           >
-            <Sparkles className="h-2.5 w-2.5" />
-            {lead.aiScore}
+            <Clock className="h-3 w-3" />
+            {sla} мин
           </span>
-          {(() => {
-            const cat = classifyQuality(lead.aiScore, lead.stageId);
-            return (
-              <span
-                className={cn("rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide", QUALITY_BADGE_CLS[cat])}
-                title="Категория качества"
-              >
-                {QUALITY_LABEL[cat]}
-              </span>
-            );
-          })()}
-        </div>
+        )}
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        {(() => {
-          const meta = resolveLeadSource(lead);
-          const Icon = meta.Icon;
-          return (
-            <span
-              className={cn(
-                "inline-flex min-w-0 items-center gap-1 rounded-md bg-secondary/60 px-1.5 py-0.5 text-[10px] font-medium",
-                meta.cls,
-              )}
-              title={`Источник: ${meta.label}${lead.channel ? ` · канал: ${lead.channel}` : ""}`}
-            >
-              <Icon className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">{meta.label}</span>
-            </span>
-          );
-        })()}
-        <span className="shrink-0 font-mono text-xs font-semibold text-foreground">
+      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border/50 pt-2">
+        <span
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1 text-[11px] font-medium",
+            sourceMeta.cls,
+          )}
+          title={`Источник: ${sourceMeta.label}${lead.channel ? ` · ${lead.channel}` : ""}`}
+        >
+          <sourceMeta.Icon className="h-3 w-3 shrink-0 opacity-70" />
+          <span className="truncate">{sourceMeta.label}</span>
+        </span>
+        <span className="shrink-0 text-xs font-medium tabular-nums text-foreground">
           {lead.amount > 0 ? `${lead.amount.toLocaleString("ru-RU")} $` : "—"}
         </span>
       </div>
 
-      <div
-        className={cn(
-          "mt-2 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
-          rec.level === "hot" && "bg-destructive/15 text-destructive",
-          rec.level === "warm" && "bg-warning/15 text-warning",
-          rec.level === "cold" && "bg-secondary/60 text-muted-foreground",
-        )}
-      >
-        <span>{rec.emoji}</span>
-        {rec.label}
-      </div>
-
       {(lead.utm?.campaign || lead.utm?.source) && (
         <div
-          className="mt-2 flex items-center gap-1 truncate text-[10px] text-primary/80"
+          className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground"
           title={`utm_source: ${lead.utm?.source ?? "—"} · utm_campaign: ${lead.utm?.campaign ?? "—"}`}
         >
-          <Tag className="h-2.5 w-2.5 shrink-0" />
+          <Tag className="h-3 w-3 shrink-0 opacity-60" />
           <span className="truncate">{lead.utm?.campaign ?? lead.utm?.source}</span>
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-        <span>Активность: {timeAgo(lead.lastActivityAt)}</span>
+      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>Активность · {timeAgo(lead.lastActivityAt)}</span>
         {assigneeName ? (
-          <span className="truncate rounded bg-secondary/60 px-1.5 py-0.5 font-medium text-foreground/70">
-            👤 {assigneeName}
+          <span className="inline-flex max-w-[45%] items-center gap-1 truncate">
+            <User className="h-3 w-3 shrink-0 opacity-60" />
+            <span className="truncate">{assigneeName}</span>
           </span>
         ) : (
-          <span className="text-muted-foreground/70">не назначен</span>
+          <span className="text-muted-foreground/60">не назначен</span>
         )}
       </div>
 
@@ -228,7 +183,7 @@ function LeadCardImpl({
             }
           }}
           className={cn(
-            "absolute bottom-2 right-2 grid h-6 w-6 cursor-pointer place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100",
+            "absolute bottom-2 right-2 grid h-6 w-6 cursor-pointer place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100",
             lead.pinned && "text-primary opacity-100",
           )}
           title={lead.pinned ? "Открепить" : "Закрепить"}

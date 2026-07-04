@@ -109,7 +109,7 @@ export function NewLeadDialog({
       source,
       stageId,
       amount: Number(amount) || 0,
-      aiScore: Math.floor(40 + Math.random() * 50),
+      aiScore: 0,
       note: note.trim() || undefined,
       utm: Object.keys(utm).length ? utm : undefined,
       channel,
@@ -124,7 +124,7 @@ export function NewLeadDialog({
         <DialogHeader>
           <DialogTitle>Новый лид</DialogTitle>
           <DialogDescription>
-            Добавьте клиента в воронку. AI-скоринг будет рассчитан автоматически.
+            Добавьте клиента в воронку.
           </DialogDescription>
         </DialogHeader>
 

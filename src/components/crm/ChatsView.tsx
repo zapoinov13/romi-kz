@@ -12,13 +12,10 @@ import {
   Phone,
   CheckCheck,
   Sparkles,
-  Plus,
-  X,
 } from "lucide-react";
 import type { ChatMessage, Lead, LeadStage, WhatsAppConfig } from "@/types/crm";
 import { resolveLeadSource } from "@/lib/leadSource";
 import { getStageIcon, stageColorClasses } from "./StageIcon";
-import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { AiSuggestButton } from "./AiSuggestButton";
 
 interface ChatsViewProps {
@@ -45,7 +42,6 @@ export function ChatsView({
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const isMobile = useIsMobile();
-  const { items: quickReplies, add: addReply, remove: removeReply } = useQuickReplies();
 
   useLeadChatSync(activeLeadId, !!activeLeadId, onRefreshLeadChats);
 
@@ -335,29 +331,8 @@ export function ChatsView({
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              {/* Quick replies + AI */}
-              <div className="flex flex-col gap-2 border-t border-border/60 px-3 py-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {quickReplies.map((q, i) => (
-                    <span key={i} className="group inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/60 pl-2.5 pr-1 py-0.5 text-[11px]">
-                      <button onClick={() => setDraft(q)} className="max-w-[180px] truncate text-left">
-                        {q}
-                      </button>
-                      <button onClick={() => removeReply(i)} className="opacity-0 transition-opacity group-hover:opacity-100" title="Удалить">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                  {draft.trim() && (
-                    <button
-                      onClick={() => { addReply(draft); }}
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
-                      title="Сохранить как шаблон"
-                    >
-                      <Plus className="h-3 w-3" /> в шаблоны
-                    </button>
-                  )}
-                </div>
+              {/* AI-подсказка */}
+              <div className="border-t border-border/60 px-3 py-2">
                 <AiSuggestButton
                   messages={activeChats.map((c) => ({ fromMe: c.fromMe, text: c.text }))}
                   stage={stageTitle}
