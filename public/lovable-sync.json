@@ -1,7 +1,7 @@
 {
-  "git_sha": "88d016c",
-  "git_sha_full": "88d016c81f184a70906d680789399c2a68162023",
-  "updated_at": "2026-07-04T22:43:29+05:00",
-  "label": "fix: WhatsApp CRM — webhook sync UI, pipeline bootstrap, token validation",
+  "git_sha": "5eaa00f",
+  "git_sha_full": "5eaa00f8ce36f0dfa8f8eb3c8884ba6b8a617118",
+  "updated_at": "2026-07-04T22:53:08+05:00",
+  "label": "fix: WhatsApp CRM webhook token sync + block CRM URL in n8n field",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
