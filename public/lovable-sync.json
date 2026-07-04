@@ -1,7 +1,7 @@
 {
-  "git_sha": "dc6ad04",
-  "git_sha_full": "dc6ad04498df45c221253f198cb74384f085f45d",
-  "updated_at": "2026-07-05T00:29:08+05:00",
-  "label": "fix(whatsapp): save outgoing messages in CRM dialog",
+  "git_sha": "913b72d",
+  "git_sha_full": "913b72d88c036c7dd404649a39f75212a2429401",
+  "updated_at": "2026-07-05T00:32:13+05:00",
+  "label": "fix(whatsapp): use WhatsApp profile name, not phone contact label",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
