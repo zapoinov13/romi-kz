@@ -36,7 +36,7 @@ describe("buildDashboardChannels", () => {
     const channels = buildDashboardChannels({
       leads: [mk({ source: "whatsapp" }), mk({ source: "whatsapp" })],
       totals: {
-        spend: 60_000, impressions: 9000, clicks: 180, adsLeads: 29, crmLeads: 2,
+        spend: 60_000, impressions: 9000, clicks: 180, adsLeads: 29, adsMessages: 0, crmLeads: 2,
         totalLeads: 29, visits: 1, sales: 0, revenue: 10_000,
         cpl: 2000, cpv: 0, cac: 0, ctr: 2, romi: -83, aov: 0,
         newFollowers: 0,
