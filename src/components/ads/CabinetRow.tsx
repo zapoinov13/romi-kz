@@ -185,11 +185,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
     messages: totals?.messages ?? 0,
   });
   const conversionsTotal = metaConversionsTotal({
-    spend: totals?.spend ?? 0,
-    clicks: totals?.clicks ?? 0,
     leads: totals?.leads ?? 0,
     messages: totals?.messages ?? 0,
   });
+
 
   const upsertManual = async (
     isoDate: string,
@@ -243,7 +242,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           : "meta-card hover:border-primary/30 hover:shadow-md",
       )}
     >
-      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
+      <div className="flex flex-col gap-3 p-3 lg:grid lg:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_auto] lg:items-center lg:gap-3">
         {/* Header row: icon + name + actions (always on one row on mobile) */}
         <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
           <span className={cn(
@@ -351,11 +350,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           </div>
         </div>
 
-        {/* Compact metrics — tap to expand on mobile */}
+        {/* Compact metrics — mobile: 2-col grid button; desktop: inline cells aligned to header */}
         <button
           type="button"
           onClick={onToggle}
-          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:w-auto lg:grid-cols-5 lg:border-0 lg:bg-transparent lg:p-0 lg:gap-4"
+          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:hidden"
         >
           <Metric
             label="Расход"
@@ -409,6 +408,33 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             }
           />
         </button>
+
+        {/* Desktop-only inline metric cells — right-aligned to match the table header columns */}
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block">
+          {formatMoney(totals?.spend ?? 0, currency)}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Клики по объявлениям Meta">
+          <span className="text-violet-400">{formatNumber(totals?.clicks ?? 0)}</span>
+          {cpc > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cpc, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Начатые переписки в WhatsApp / Messenger">
+          <span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>
+          {costPerMessage > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(costPerMessage, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Лиды через форму / сайт (без сообщений)">
+          <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>
+          {cplForms > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cplForms, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Показы объявлений">
+          <span className="text-blue-400">{formatNumber(totals?.impressions ?? 0)}</span>
+        </div>
+
 
         {/* Desktop-only action cluster (mobile actions live next to the name above) */}
         <div className="hidden items-center gap-1 self-center lg:flex">
