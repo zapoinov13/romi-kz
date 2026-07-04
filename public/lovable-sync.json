@@ -1,7 +1,7 @@
 {
-  "git_sha": "bcae025",
-  "git_sha_full": "bcae025ceca1d4a1a11daad8f87f75bd57cb918f",
-  "updated_at": "2026-07-04T15:47:12+05:00",
-  "label": "fix: период «Вчера» — данные из CDI/кампаний и автосинк",
+  "git_sha": "2f69f54",
+  "git_sha_full": "2f69f545451f33e7a8e666e1835c82a4ef367ecf",
+  "updated_at": "2026-07-04T15:53:42+05:00",
+  "label": "security: полный lockdown секретных колонок и SECURITY DEFINER",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
