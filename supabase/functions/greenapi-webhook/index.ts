@@ -141,7 +141,24 @@ async function getDefaultStage(
   return tryPipe(d4?.id);
 }
 
-type InstanceConfig = {
+function tokenFromAuthorization(header: string | null | undefined): string | null {
+  if (!header?.trim()) return null;
+  const h = header.trim();
+  if (/^Bearer\s+/i.test(h)) return h.replace(/^Bearer\s+/i, "").trim() || null;
+  if (/^Basic\s+/i.test(h)) return h.replace(/^Basic\s+/i, "").trim() || null;
+  return h;
+}
+
+function normalizeWebhookToken(t: string | null | undefined): string | null {
+  if (!t?.trim()) return null;
+  return t.trim().replace(/^Bearer\s+/i, "").replace(/^Basic\s+/i, "");
+}
+
+function tokensMatch(expected: string, presented: string): boolean {
+  const a = normalizeWebhookToken(expected);
+  const b = normalizeWebhookToken(presented);
+  return !!a && !!b && a === b;
+}
   projectId: string | null;
   cabinetId: string | null;
   ok: boolean;
@@ -181,13 +198,13 @@ async function projectFromInstance(
     botWebhookUrl: row.bot_webhook_url ?? null,
   };
   const expected = row.webhook_token?.trim() || Deno.env.get("GREENAPI_WEBHOOK_TOKEN")?.trim() || null;
-  const presented = presentedToken?.trim() || null;
+  const presented = normalizeWebhookToken(presentedToken);
 
   // No token configured yet — accept (setWebhook will add token soon).
   if (!expected) {
     return { ...base, ok: true };
   }
-  if (presented && presented === expected) {
+  if (presented && expected && tokensMatch(expected, presented)) {
     return { ...base, ok: true };
   }
 
@@ -557,15 +574,12 @@ Deno.serve(async (req) => {
 
   const instanceData = body.instanceData as { idInstance?: number } | undefined;
   const type = body.typeWebhook as string | undefined;
-  // Anti-spoof: Green API can append a configurable token to the webhook URL
-  // (?token=...) or send it in the body as `webhookUrlToken`. We compare it to
-  // the token stored per-instance in whatsapp_config.webhook_token (or to the
-  // global GREENAPI_WEBHOOK_TOKEN env). If the instance has a token configured
-  // and the presented one doesn't match — reject. Otherwise (no token set) we
-  // stay backwards-compatible and accept the call.
+  // Green API sends token via Authorization header, ?token= query, or body.webhookUrlToken.
   const url = new URL(req.url);
+  const authToken = tokenFromAuthorization(req.headers.get("Authorization"));
   const presentedToken =
     url.searchParams.get("token")
+    ?? authToken
     ?? (typeof body.webhookUrlToken === "string" ? body.webhookUrlToken as string : null)
     ?? (typeof body.token === "string" ? body.token as string : null);
   const instanceCfg = await projectFromInstance(instanceData?.idInstance, presentedToken);

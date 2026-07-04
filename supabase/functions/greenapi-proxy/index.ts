@@ -369,18 +369,15 @@ Deno.serve(async (req) => {
           }).eq("id", creds.rowId);
         }
 
-        const urlObj = new URL(baseWebhookUrl.split("?")[0]);
-        if (webhookToken) {
-          urlObj.searchParams.set("token", webhookToken);
-        }
-        const webhookUrl = urlObj.toString();
+        const webhookUrl = baseWebhookUrl.split("?")[0].replace(/\/+$/, "");
 
         const r = await callGreen(creds, "setSettings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             webhookUrl,
-            webhookUrlToken: webhookToken ?? "",
+            // Green API sends this in Authorization header, not in URL query.
+            webhookUrlToken: webhookToken ? `Bearer ${webhookToken}` : "",
             outgoingWebhook: "yes",
             outgoingMessageWebhook: "yes",
             outgoingAPIMessageWebhook: "yes",
@@ -397,6 +394,22 @@ Deno.serve(async (req) => {
           }).eq("id", creds.rowId);
         }
         return json({ ok: r.ok, status: r.status, data: r.data, webhookUrl });
+      }
+
+      case "alignManualWebhook": {
+        // User set webhook URL in Green API Console without token — drop ROMI token
+        // so greenapi-webhook accepts incoming notifications.
+        if (!creds.rowId) {
+          return json({ error: "No whatsapp_config row" }, 400);
+        }
+        const settings = await callGreen(creds, "getSettings");
+        const liveUrl = String((settings.data as { webhookUrl?: string } | null)?.webhookUrl ?? "").trim();
+        await admin.from("whatsapp_config").update({
+          webhook_token: null,
+          webhook_url: liveUrl || null,
+          updated_at: new Date().toISOString(),
+        }).eq("id", creds.rowId);
+        return json({ ok: true, aligned: true, webhookUrl: liveUrl });
       }
 
       case "sendMessage": {

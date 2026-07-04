@@ -74,7 +74,26 @@ export async function verifyCrmWebhook(
       || liveSettings?.incomingMessageWebhook === "yes";
     const urlBaseOk = !!live
       && live.replace(/\/+$/, "").split("?")[0] === crmUrl.replace(/\/+$/, "");
-    const tokenOk = live.includes("token=") || !!(liveSettings?.webhookUrlToken?.trim());
+    const gaToken = (liveSettings?.webhookUrlToken ?? "").trim();
+
+    // Green API Console: URL без ?token= — токен отдельным полем или пустой (ручная настройка).
+    if (urlBaseOk && incomingEnabled && !gaToken) {
+      const { error: alignError } = await supabase.functions.invoke("greenapi-proxy", {
+        body: { action: "alignManualWebhook", project_id: projectId, cabinet_id: cabinetId },
+      });
+      return {
+        ok: true,
+        matched: true,
+        incomingEnabled,
+        liveWebhookUrl: live,
+        error: alignError
+          ? "Webhook URL верный (настроен в Green API Console). Если CRM пустая — в Supabase SQL: UPDATE whatsapp_config SET webhook_token = NULL WHERE project_id = '"
+            + projectId + "';"
+          : undefined,
+      };
+    }
+
+    const tokenOk = !!gaToken;
     const matched = urlBaseOk && incomingEnabled && tokenOk;
     return {
       ok: true,
@@ -84,9 +103,9 @@ export async function verifyCrmWebhook(
       error: !urlBaseOk
         ? `Green API шлёт на: ${live || "—"} (нужен ROMI CRM webhook)`
         : !incomingEnabled
-          ? "incomingWebhook выключен в Green API"
+          ? "incomingWebhook выключен в Green API Console"
           : !tokenOk
-            ? "webhookUrlToken не прописан в Green API — нажмите «Синхронизировать webhook»"
+            ? "Укажите webhook в Green API Console или нажмите «Синхронизировать webhook»"
             : undefined,
     };
   } catch (e) {
