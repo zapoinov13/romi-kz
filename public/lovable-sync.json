@@ -1,7 +1,7 @@
 {
-  "git_sha": "8516d54",
-  "git_sha_full": "8516d54fa1d10da19088edb35c5bfb40a8516629",
-  "updated_at": "2026-07-04T16:50:54+05:00",
-  "label": "feat: ручное редактирование квала, оплаты, услуги и суммы в аналитике продаж",
+  "git_sha": "3a37384",
+  "git_sha_full": "3a37384f425c1fbfb85cb8fb751a7694c77f875f",
+  "updated_at": "2026-07-04T17:00:19+05:00",
+  "label": "style: современный дизайн аналитики продаж",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
