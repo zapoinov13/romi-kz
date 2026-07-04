@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ChevronDown,
@@ -116,10 +116,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
   const [syncing, setSyncing] = useState(false);
   const [kpiOpen, setKpiOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
+  const autoSyncKeys = useRef<Set<string>>(new Set());
 
-  const handleSync = async () => {
+  const handleSync = async (opts?: { silent?: boolean }) => {
     if (!cabinet.adAccountId && !cabinet.externalId) {
-      toast.error("Не указан Ad Account кабинета");
+      if (!opts?.silent) toast.error("Не указан Ad Account кабинета");
       return;
     }
     setSyncing(true);
@@ -130,20 +131,40 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
       if (err) throw err;
       const r = (resp?.results ?? [])[0];
       if (r?.ok) {
-        toast.success(
-          `Загружено: ${r.days} дн. · клики ${r.clicks ?? 0} · лиды сайта ${r.leads ?? 0} · WhatsApp ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
-        );
+        if (!opts?.silent) {
+          toast.success(
+            `Загружено: ${r.days} дн. · клики ${r.clicks ?? 0} · лиды сайта ${r.leads ?? 0} · WhatsApp ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
+          );
+        }
         refresh();
         onSynced?.();
-      } else {
+      } else if (!opts?.silent) {
         toast.error("Meta: " + (r?.error || "не удалось получить данные"));
       }
     } catch (e) {
-      toast.error((e as Error).message || "Ошибка синхронизации");
+      if (!opts?.silent) toast.error((e as Error).message || "Ошибка синхронизации");
     } finally {
       setSyncing(false);
     }
   };
+
+  // Если за выбранный период (вчера / день) данных нет — подтянуть из Meta один раз
+  useEffect(() => {
+    if (loading || syncing) return;
+    const key = `${cabinet.id}:${since}:${until}`;
+    const t = data?.totals;
+    const empty =
+      !t ||
+      ((t.spend ?? 0) === 0 &&
+        (t.clicks ?? 0) === 0 &&
+        (t.leads ?? 0) === 0 &&
+        (t.messages ?? 0) === 0 &&
+        (t.impressions ?? 0) === 0);
+    if (!empty || autoSyncKeys.current.has(key)) return;
+    autoSyncKeys.current.add(key);
+    void handleSync({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- только смена периода / ответ загрузки
+  }, [loading, data, since, until, cabinet.id]);
 
   const totals = data?.totals;
   const currency = data?.currency ?? cabinet.currency ?? "USD";

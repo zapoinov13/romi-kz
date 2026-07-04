@@ -6,7 +6,7 @@ import { dateRangeToIso } from "@/lib/periodRange";
 import { normalizeCdiRowsMetaMoney } from "@/lib/cdiCurrency";
 import { isManualOverrideActive, resolveCdiMetric } from "@/lib/cdiManualOverride";
 import {
-  fetchReclassifiedLeadSplit,
+  fetchCampaignDayMetrics,
   resolveCabinetIdsByActIds,
 } from "@/lib/metaCampaignSplit";
 
@@ -263,6 +263,31 @@ function aggregate(rows: CdiRow[]): InsightsData {
   return { currency: "USD", totals, daily };
 }
 
+function applyCdiLeadHeuristic(row: CdiRow) {
+  const l = Number(row.leads) || 0;
+  const m = Number(row.messages) || 0;
+  if (m > 0 && l >= m) {
+    row.leads = l - m;
+    row.messages = m;
+  } else if (l > 0 && m === 0) {
+    row.leads = 0;
+    row.messages = l;
+  }
+}
+
+function emptyCdiRow(date: string): CdiRow {
+  return {
+    date,
+    spend: 0,
+    impressions: 0,
+    clicks: 0,
+    leads: 0,
+    messages: 0,
+    revenue: 0,
+    currency: "USD",
+  };
+}
+
 async function fetchInsights(
   actIds: string[],
   since: string,
@@ -273,54 +298,69 @@ async function fetchInsights(
     return { currency: "USD", totals: EMPTY_TOTALS, daily: [] };
   }
   const ids = actIds.map(normalizeActId);
+  const cdiSelect =
+    "date, spend, impressions, clicks, leads, messages, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified";
+
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("date, spend, impressions, clicks, leads, messages, revenue, currency, crm_diagnostics, manual_diagnostics, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostic_revenue, manual_diagnostic_revenue, crm_qualified, manual_qualified")
+    .select(cdiSelect)
     .in("external_id", ids)
     .gte("date", since)
     .lte("date", until)
     .order("date", { ascending: true });
   if (projectId) q = q.eq("project_id", projectId);
-  const { data, error } = await q;
+  let { data, error } = await q;
   if (error) throw new Error(error.message);
-  const normalized = await normalizeCdiRowsMetaMoney((data ?? []) as CdiRow[]);
 
-  // Пересчёт WhatsApp / лиды сайта с уровня кампаний (destination / objective / имя).
-  // CDI часто хранит WA-переписки в leads — поправляем на чтении.
-  try {
-    const cabinetIds = await resolveCabinetIdsByActIds(ids, projectId);
-    const split = await fetchReclassifiedLeadSplit(cabinetIds, since, until, projectId);
-    const applyCdiHeuristic = (row: CdiRow) => {
-      const l = Number(row.leads) || 0;
-      const m = Number(row.messages) || 0;
-      if (m > 0 && l >= m) {
-        row.leads = l - m;
-        row.messages = m;
-      } else if (l > 0 && m === 0) {
-        // Старый sync клал WA-переписки в leads.
-        row.leads = 0;
-        row.messages = l;
-      }
-    };
-
-    if (split) {
-      for (const row of normalized) {
-        const day = split.byDate.get(row.date);
-        if (day) {
-          row.leads = day.leads;
-          row.messages = day.messages;
-        } else {
-          applyCdiHeuristic(row);
-        }
-      }
-    } else {
-      for (const row of normalized) applyCdiHeuristic(row);
-    }
-  } catch (e) {
-    console.warn("[useMetaInsights] campaign lead split failed", e);
+  // Фоллбэк: CDI без project_id (старые синки) — иначе «Вчера» даёт 0 при данных за месяц
+  if ((!data || data.length === 0) && projectId) {
+    const r2 = await supabase
+      .from("cabinet_daily_insights")
+      .select(cdiSelect)
+      .in("external_id", ids)
+      .gte("date", since)
+      .lte("date", until)
+      .order("date", { ascending: true });
+    if (r2.error) throw new Error(r2.error.message);
+    data = r2.data;
   }
 
-  return aggregate(normalized);
+  const normalized = await normalizeCdiRowsMetaMoney((data ?? []) as CdiRow[]);
+  for (const row of normalized) {
+    row.date = String(row.date).slice(0, 10);
+  }
+
+  // Кампании: лиды/WA + фоллбэк spend/clicks, если в CDI нет дня (часто «Вчера»)
+  try {
+    const cabinetIds = await resolveCabinetIdsByActIds(ids, projectId);
+    const campaignDays = await fetchCampaignDayMetrics(cabinetIds, since, until, projectId);
+    const byDate = new Map<string, CdiRow>();
+    for (const row of normalized) byDate.set(row.date, row);
+
+    for (const [date, camp] of campaignDays) {
+      const row = byDate.get(date) ?? emptyCdiRow(date);
+      // Лиды/WA всегда из кампаний (правильная классификация)
+      row.leads = camp.leads;
+      row.messages = camp.messages;
+      // Если CDI пустой по трафику — берём из кампаний
+      if (!(Number(row.spend) > 0) && camp.spend > 0) row.spend = camp.spend;
+      if (!(Number(row.impressions) > 0) && camp.impressions > 0) {
+        row.impressions = camp.impressions;
+      }
+      if (!(Number(row.clicks) > 0) && camp.clicks > 0) row.clicks = camp.clicks;
+      byDate.set(date, row);
+    }
+
+    for (const row of byDate.values()) {
+      if (!campaignDays.has(row.date)) applyCdiLeadHeuristic(row);
+    }
+
+    return aggregate(Array.from(byDate.values()));
+  } catch (e) {
+    console.warn("[useMetaInsights] campaign metrics failed", e);
+    for (const row of normalized) applyCdiLeadHeuristic(row);
+    return aggregate(normalized);
+  }
 }
 
 async function fetchInsightsMonth(

@@ -17,7 +17,7 @@ import {
 import { fetchMetaDashboard } from "@/hooks/useMetaDashboard";
 import type { MetaCreativeRow } from "@/hooks/useMetaStructure";
 import {
-  fetchReclassifiedLeadSplit,
+  fetchCampaignDayMetrics,
   resolveCabinetIdsByActIds,
 } from "@/lib/metaCampaignSplit";
 
@@ -227,25 +227,66 @@ async function fetchMetaForRange(
   const since = ymd(range.from);
   const until = ymd(range.to);
 
+  const cdiSelect =
+    "cabinet_id, external_id, date, spend, impressions, clicks, leads, messages, revenue, currency, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue";
   let q = supabase
     .from("cabinet_daily_insights")
-    .select("cabinet_id, external_id, date, spend, impressions, clicks, leads, messages, revenue, currency, crm_sales, manual_sales, crm_revenue, manual_revenue, crm_diagnostics, manual_diagnostics, crm_diagnostic_revenue, manual_diagnostic_revenue")
+    .select(cdiSelect)
     .in("external_id", ids)
     .gte("date", since)
     .lte("date", until);
-  // Изолируем по проекту, чтобы цифры совпадали с useDashboardData / useMonthlyAggregates,
-  // которые тоже фильтруют по project_id.
   if (projectId) q = q.eq("project_id", projectId);
-  const { data, error } = await q;
+  let { data, error } = await q;
   if (error) throw new Error(error.message);
 
-  const rows = await normalizeCdiRowsMetaMoney(data ?? []);
+  // Фоллбэк без project_id — иначе «Вчера» может быть пустым при данных за месяц
+  if ((!data || data.length === 0) && projectId) {
+    const r2 = await supabase
+      .from("cabinet_daily_insights")
+      .select(cdiSelect)
+      .in("external_id", ids)
+      .gte("date", since)
+      .lte("date", until);
+    if (r2.error) throw new Error(r2.error.message);
+    data = r2.data;
+  }
 
-  // WhatsApp vs лиды сайта — с уровня кампаний (или эвристика для старого CDI).
+  let rows = await normalizeCdiRowsMetaMoney(data ?? []);
+  for (const row of rows) {
+    row.date = String(row.date).slice(0, 10);
+  }
+
+  // Кампании: лиды/WA + дни без CDI (часто один день «Вчера»)
   try {
     const cabinetIds = await resolveCabinetIdsByActIds(ids, projectId);
-    const split = await fetchReclassifiedLeadSplit(cabinetIds, since, until, projectId);
-    const applyHeuristic = (row: (typeof rows)[number]) => {
+    const campaignDays = await fetchCampaignDayMetrics(cabinetIds, since, until, projectId);
+    type Row = (typeof rows)[number];
+    const byDate = new Map<string, Row>();
+    for (const row of rows) byDate.set(row.date, row);
+
+    for (const [date, camp] of campaignDays) {
+      const row = byDate.get(date) ?? ({
+        date,
+        spend: 0,
+        impressions: 0,
+        clicks: 0,
+        leads: 0,
+        messages: 0,
+        revenue: 0,
+        currency: "USD",
+      } as Row);
+      (row as { messages?: number }).messages = camp.messages;
+      row.leads = camp.leads;
+      if (!(Number(row.spend) > 0) && camp.spend > 0) row.spend = camp.spend;
+      if (!(Number(row.impressions) > 0) && camp.impressions > 0) {
+        row.impressions = camp.impressions;
+      }
+      if (!(Number(row.clicks) > 0) && camp.clicks > 0) row.clicks = camp.clicks;
+      byDate.set(date, row);
+    }
+
+    for (const row of byDate.values()) {
+      if (campaignDays.has(row.date)) continue;
       const l = Number(row.leads) || 0;
       const m = Number((row as { messages?: number }).messages) || 0;
       if (m > 0 && l >= m) {
@@ -255,22 +296,11 @@ async function fetchMetaForRange(
         row.leads = 0;
         (row as { messages?: number }).messages = l;
       }
-    };
-    if (split) {
-      for (const row of rows) {
-        const day = split.byDate.get(row.date);
-        if (day) {
-          row.leads = day.leads;
-          (row as { messages?: number }).messages = day.messages;
-        } else {
-          applyHeuristic(row);
-        }
-      }
-    } else {
-      for (const row of rows) applyHeuristic(row);
     }
+
+    rows = Array.from(byDate.values());
   } catch (e) {
-    console.warn("[useReportData] campaign lead split failed", e);
+    console.warn("[useReportData] campaign metrics failed", e);
   }
 
   const dailyAgg = new Map<string, { spend: number; leads: number; messages: number; revenue: number }>();
