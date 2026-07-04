@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, saveBotWebhookUrl, isValidBotWebhookUrl, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -293,6 +293,7 @@ export function GreenApiConnectionPanel({
                 </>
               ) : null}
               . Webhook CRM прописывается автоматически после привязки инстанса.
+              Если ИИ-бот уже в n8n — укажите его URL ниже: Green API шлёт события в ROMI, ROMI дублирует их в n8n.
             </p>
           </>
         )}
@@ -339,6 +340,15 @@ export function GreenApiConnectionPanel({
 
         {waLoadError && (
           <p className="mt-3 text-xs text-destructive">{waLoadError}</p>
+        )}
+
+        {isBound && projectId && (
+          <N8nBotWebhookCard
+            projectId={projectId}
+            savedUrl={waRow?.bot_webhook_url ?? ""}
+            onSaved={refreshWaRow}
+            embedded={embedded}
+          />
         )}
 
         {/* Status Card */}
@@ -431,6 +441,74 @@ export function GreenApiConnectionPanel({
     </>
   );
 };
+
+function N8nBotWebhookCard({
+  projectId,
+  savedUrl,
+  onSaved,
+  embedded,
+}: {
+  projectId: string;
+  savedUrl: string;
+  onSaved: () => Promise<void>;
+  embedded?: boolean;
+}) {
+  const [url, setUrl] = useState(savedUrl);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setUrl(savedUrl);
+  }, [savedUrl]);
+
+  const onSave = async () => {
+    const trimmed = url.trim();
+    if (trimmed && !isValidBotWebhookUrl(trimmed)) {
+      toast.error("Некорректный URL — нужен https, например n8n.zapoinov.com/webhook/…");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await saveBotWebhookUrl(projectId, trimmed);
+      if (error) throw error;
+      toast.success(trimmed ? "URL n8n-бота сохранён" : "Пересылка в n8n отключена");
+      await onSaved();
+    } catch (e) {
+      toast.error("Не удалось сохранить", { description: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className={cn("border-border bg-card", embedded ? "mt-4" : "mt-6")}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">ИИ-бот n8n (опционально)</CardTitle>
+        <CardDescription>
+          Green API принимает только один webhook. В консоли Green API указывается URL ROMI (CRM).
+          Сюда — URL вашего n8n-бота: ROMI сохранит лид в CRM и отправит туда же копию события.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://n8n.zapoinov.com/webhook/8bba7244-…"
+        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-muted-foreground">
+            {savedUrl
+              ? "Пересылка включена — бот получает те же события, что и CRM"
+              : "Оставьте пустым, если n8n-бот не нужен"}
+          </p>
+          <Button size="sm" onClick={onSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Сохранить
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function WhatsAppSetupChecklist({
   steps,

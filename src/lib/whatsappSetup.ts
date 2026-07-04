@@ -166,6 +166,22 @@ export type WhatsappConfigSafeRow = {
   webhook_url?: string | null;
 };
 
+/** Сохранить URL n8n/ИИ-бота — ROMI пересылает туда копию каждого webhook-события Green API. */
+export async function saveBotWebhookUrl(
+  projectId: string,
+  url: string,
+): Promise<{ error: { message: string } | null }> {
+  const trimmed = url.trim();
+  if (trimmed && !isValidBotWebhookUrl(trimmed)) {
+    return { error: { message: "URL должен быть https (например n8n.zapoinov.com/webhook/…)" } };
+  }
+  const { error } = await supabase.rpc("save_whatsapp_bot_webhook", {
+    p_project_id: projectId,
+    p_bot_webhook_url: trimmed,
+  });
+  return { error: error ?? null };
+}
+
 /** Prefer cabinet match, then legacy row without cabinet, then any project row. */
 export function pickWhatsappConfigRow(
   rows: WhatsappConfigSafeRow[],
