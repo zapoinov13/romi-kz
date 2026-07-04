@@ -26,11 +26,7 @@ import {
 } from "@/lib/metaAdsMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { manualValueForSave } from "@/lib/cdiManualOverride";
-import {
-  ADS_METRIC_CELL,
-  ADS_TABLE_GRID,
-  ADS_TABLE_PAD,
-} from "@/components/ads/adsTableLayout";
+import { ADS_TD_NUM } from "@/components/ads/adsTableLayout";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,276 +222,119 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
   const handleManualRevenue = (isoDate: string, v: number) =>
     upsertManual(isoDate, { manual_revenue: v });
 
-  return (
-    <article
-      className={cn(
-        "group transition-colors",
-        metaTable
-          ? "border-0 bg-white hover:bg-[hsl(var(--meta-header-bg))]"
-          : "meta-card hover:border-primary/30 hover:shadow-md",
-      )}
-    >
-      <div
-        className={`flex flex-col gap-3 p-3 lg:grid lg:items-center lg:gap-0 lg:py-2.5 ${ADS_TABLE_GRID} ${ADS_TABLE_PAD} lg:px-3`}
+  const menuItems = (
+    <>
+      <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+        <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
+        Обновить
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setKpiOpen(true)}>
+        <Target className="mr-2 h-4 w-4" />
+        Настроить KPI
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setAutomationOpen(true)}>
+        <Bot className="mr-2 h-4 w-4" />
+        Автоматизация
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onClick={() => {
+          navigator.clipboard.writeText(cabinet.externalId);
+          toast.success("ID скопирован");
+        }}
       >
-        {/* Header row: icon + name + actions (always on one row on mobile) */}
-        <div className="flex min-w-0 items-center gap-2.5 pr-3">
-          <span className={cn(
-            "grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors lg:h-9 lg:w-9",
-            cabinet.online ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground",
-          )}>
-            <Megaphone className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="truncate text-sm font-semibold text-primary hover:underline">{cabinet.name}</h3>
-              {cabinet.online ? (
-                <span className="inline-flex items-center gap-1.5 text-[12px] text-foreground">
-                  <span className="meta-status-dot meta-status-active" />
-                  Активно
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                  <span className="meta-status-dot meta-status-paused" />
-                  Выкл.
-                </span>
-              )}
-              <span className="hidden rounded-md bg-muted/30 px-1.5 py-0.5 text-[9px] uppercase text-muted-foreground sm:inline">
-                {cabinet.type}
-              </span>
-              {cabinet.type === "Агентский" && (
-                <span
-                  title="Агентский кабинет: данные не попадают в Дашборд / CRM / Аналитику"
-                  className="rounded-md bg-warning/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-warning"
-                >
-                  Только список
-                </span>
-              )}
-              <MetaAccountStatusInline actId={cabinet.externalId} compact className="w-full sm:w-auto" />
-              {loading && (
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            <div className="mt-0.5 hidden truncate font-mono text-[10px] text-muted-foreground/70 sm:block">
-              {cabinet.externalId}
-            </div>
-          </div>
+        <Copy className="mr-2 h-4 w-4" /> Скопировать ID
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => onToggleOnline(cabinet.id)}>
+        <Power className="mr-2 h-4 w-4" />
+        {cabinet.online ? "Поставить на паузу" : "Запустить"}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        className="text-destructive focus:text-destructive"
+        onClick={() => {
+          if (confirm(`Удалить кабинет «${cabinet.name}»?`)) {
+            onRemove(cabinet.id);
+            toast.success("Кабинет удалён");
+          }
+        }}
+      >
+        <Trash2 className="mr-2 h-4 w-4" /> Удалить
+      </DropdownMenuItem>
+    </>
+  );
 
-          {/* Mobile-only actions cluster next to the name to save vertical space */}
-          <div className="flex items-center gap-0.5 lg:hidden">
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncing}
-              aria-label="Обновить"
-              title="Обновить данные из Meta"
-              className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
-            >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  aria-label="Действия"
-                  className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={handleSync} disabled={syncing}>
-                  <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
-                  Обновить
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setKpiOpen(true)}>
-                  <Target className="mr-2 h-4 w-4" />
-                  Настроить KPI
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setAutomationOpen(true)}>
-                  <Bot className="mr-2 h-4 w-4" />
-                  Автоматизация
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    navigator.clipboard.writeText(cabinet.externalId);
-                    toast.success("ID скопирован");
-                  }}
-                >
-                  <Copy className="mr-2 h-4 w-4" /> Скопировать ID
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onToggleOnline(cabinet.id)}>
-                  <Power className="mr-2 h-4 w-4" />
-                  {cabinet.online ? "Поставить на паузу" : "Запустить"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => {
-                    if (confirm(`Удалить кабинет «${cabinet.name}»?`)) {
-                      onRemove(cabinet.id);
-                      toast.success("Кабинет удалён");
-                    }
-                  }}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Удалить
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+  const cabinetInfo = (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+          cabinet.online ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground",
+        )}
+      >
+        <Megaphone className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <h3 className="truncate text-sm font-semibold text-primary">{cabinet.name}</h3>
+          {cabinet.online ? (
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-foreground">
+              <span className="meta-status-dot meta-status-active" />
+              Активно
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+              <span className="meta-status-dot meta-status-paused" />
+              Выкл.
+            </span>
+          )}
+          {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
+        <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground/70">
+          {cabinet.externalId}
+        </div>
+      </div>
+    </div>
+  );
 
-        {/* Compact metrics — mobile: 2-col grid button; desktop: inline cells aligned to header */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:hidden"
-        >
-          <Metric
-            label="Расходы"
-            value={formatMoney(totals?.spend ?? 0, currency)}
-          />
-          <Metric
-            label="Клики"
-            value={
-              <span className="text-violet-400">
-                {formatNumber(totals?.clicks ?? 0)}
-              </span>
-            }
-          />
-          <Metric
-            label="Ватсап"
-            value={
-              <span className="text-sky-500">
-                {formatNumber(totals?.messages ?? 0)}
-              </span>
-            }
-          />
-          <Metric
-            label="Лиды с сайта"
-            value={
-              <span className="text-success">
-                {formatNumber(totals?.leads ?? 0)}
-              </span>
-            }
-          />
-          <Metric
-            label="Стоимость лида"
-            value={
-              <span className="text-primary">
-                {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
-              </span>
-            }
-          />
-        </button>
-
-        {/* Desktop-only metric cells — та же сетка, что у шапки */}
-        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Расход за период">
-          {formatMoney(totals?.spend ?? 0, currency)}
-        </div>
-        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Клики по объявлениям Meta">
-          <span className="text-violet-500">{formatNumber(totals?.clicks ?? 0)}</span>
-        </div>
-        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Начатые переписки WhatsApp">
-          <span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>
-        </div>
-        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Лиды с сайта / формы">
-          <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>
-        </div>
-        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Расход ÷ (ватсап + лиды с сайта)">
-          <span className="text-primary">
-            {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
-          </span>
-        </div>
-
-        {/* Desktop-only action cluster */}
-        <div className="hidden items-center justify-end gap-0.5 lg:flex">
+  const actionButtons = (
+    <div className="flex shrink-0 items-center justify-end gap-1">
+      <button
+        type="button"
+        onClick={handleSync}
+        disabled={syncing}
+        title="Обновить данные из Meta"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2.5 text-[11px] font-medium text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
+      >
+        {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        <span>Обновить</span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <button
             type="button"
-            onClick={handleSync}
-            disabled={syncing}
-            title="Обновить данные из Meta"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
-          >
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            <span>{syncing ? "…" : "Обновить"}</span>
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                aria-label="Действия"
-                className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={handleSync} disabled={syncing}>
-                <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
-                Обновить
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setKpiOpen(true)}>
-                <Target className="mr-2 h-4 w-4" />
-                Настроить KPI
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAutomationOpen(true)}>
-                <Bot className="mr-2 h-4 w-4" />
-                Автоматизация
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  navigator.clipboard.writeText(cabinet.externalId);
-                  toast.success("ID скопирован");
-                }}
-              >
-                <Copy className="mr-2 h-4 w-4" /> Скопировать ID
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onToggleOnline(cabinet.id)}>
-                <Power className="mr-2 h-4 w-4" />
-                {cabinet.online ? "Поставить на паузу" : "Запустить"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={() => {
-                  if (confirm(`Удалить кабинет «${cabinet.name}»?`)) {
-                    onRemove(cabinet.id);
-                    toast.success("Кабинет удалён");
-                  }
-                }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Удалить
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button
-            aria-label="Раскрыть"
-            onClick={onToggle}
+            aria-label="Действия"
             className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 transition-transform",
-                expanded && "rotate-180",
-              )}
-            />
+            <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
-        </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {menuItems}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <button
+        type="button"
+        aria-label="Раскрыть"
+        onClick={onToggle}
+        className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+      </button>
+    </div>
+  );
 
-        {/* Mobile expand hint — full-width chevron under metrics */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex h-7 items-center justify-center gap-1 rounded-md text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
-        >
-          {expanded ? "Свернуть" : "Подробнее"}
-          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
-        </button>
-      </div>
-
-
-      {expanded && (
+  const expandedPanel = (
         <div className="space-y-4 border-t border-border/60 p-3 sm:p-4 animate-fade-in-up">
           {cabinet.provider !== "instagram_organic" && (
             <CabinetCampaignsPanel cabinetId={cabinet.id} currency={currency} />
@@ -652,21 +491,115 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             Данные Meta подгружаются в реальном времени по дням выбранного месяца.
           </p>
         </div>
+  );
+
+  return (
+    <>
+      {/* Desktop: строка таблицы — колонки совпадают с <thead> */}
+      <tr className="hidden border-b border-[hsl(var(--meta-border))] bg-white hover:bg-[hsl(var(--meta-header-bg))]/80 lg:table-row">
+        <td className="px-3 py-3 align-middle">{cabinetInfo}</td>
+        <td className={ADS_TD_NUM}>{formatMoney(totals?.spend ?? 0, currency)}</td>
+        <td className={cn(ADS_TD_NUM, "text-violet-500")}>{formatNumber(totals?.clicks ?? 0)}</td>
+        <td className={cn(ADS_TD_NUM, "text-sky-500")}>{formatNumber(totals?.messages ?? 0)}</td>
+        <td className={cn(ADS_TD_NUM, "text-success")}>{formatNumber(totals?.leads ?? 0)}</td>
+        <td className={cn(ADS_TD_NUM, "text-primary")}>
+          {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
+        </td>
+        <td className="px-3 py-3 align-middle">
+          {actionButtons}
+          <CabinetKpiDialog
+            open={kpiOpen}
+            onOpenChange={setKpiOpen}
+            cabinetId={cabinet.id}
+            cabinetName={cabinet.name}
+          />
+          <CabinetAutomationDialog
+            open={automationOpen}
+            onOpenChange={setAutomationOpen}
+            cabinetId={cabinet.id}
+            cabinetName={cabinet.name}
+            currency={currency}
+          />
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="hidden lg:table-row">
+          <td colSpan={7} className="border-b border-[hsl(var(--meta-border))] bg-muted/10 p-0">
+            {expandedPanel}
+          </td>
+        </tr>
       )}
-      <CabinetKpiDialog
-        open={kpiOpen}
-        onOpenChange={setKpiOpen}
-        cabinetId={cabinet.id}
-        cabinetName={cabinet.name}
-      />
-      <CabinetAutomationDialog
-        open={automationOpen}
-        onOpenChange={setAutomationOpen}
-        cabinetId={cabinet.id}
-        cabinetName={cabinet.name}
-        currency={currency}
-      />
-    </article>
+
+      {/* Mobile: одна ячейка на всю ширину */}
+      <tr className="border-b border-[hsl(var(--meta-border))] bg-white lg:hidden">
+        <td colSpan={7} className="p-3">
+          <div className="flex items-start justify-between gap-2">
+            {cabinetInfo}
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={syncing}
+                aria-label="Обновить"
+                className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-60"
+              >
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Действия"
+                    className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {menuItems}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-3 grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left sm:grid-cols-3"
+          >
+            <Metric label="Расходы" value={formatMoney(totals?.spend ?? 0, currency)} />
+            <Metric
+              label="Клики"
+              value={<span className="text-violet-400">{formatNumber(totals?.clicks ?? 0)}</span>}
+            />
+            <Metric
+              label="Ватсап"
+              value={<span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>}
+            />
+            <Metric
+              label="Лиды с сайта"
+              value={<span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>}
+            />
+            <Metric
+              label="Стоимость лида"
+              value={
+                <span className="text-primary">
+                  {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
+                </span>
+              }
+            />
+          </button>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-2 flex h-7 w-full items-center justify-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+          >
+            {expanded ? "Свернуть" : "Подробнее"}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
+          </button>
+          {expanded && expandedPanel}
+        </td>
+      </tr>
+    </>
   );
 };
 

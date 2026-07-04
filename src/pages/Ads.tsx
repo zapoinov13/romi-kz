@@ -25,11 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCabinetsStore } from "@/hooks/useCabinetsStore";
-import {
-  ADS_HEADER_CELL,
-  ADS_TABLE_GRID,
-  ADS_TABLE_PAD,
-} from "@/components/ads/adsTableLayout";
+import { ADS_COL_WIDTHS, ADS_TH } from "@/components/ads/adsTableLayout";
 
 const SEARCH_THRESHOLD = 3;
 
@@ -187,36 +183,42 @@ const Ads = () => {
 
         <AlertsBanner />
 
-        {/* Table header — desktop (та же сетка, что у CabinetRow) */}
-        {filtered.length > 0 && (
-          <div
-            className={`meta-table-header hidden gap-0 border-b border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-header-bg))] lg:grid ${ADS_TABLE_GRID} ${ADS_TABLE_PAD}`}
-          >
-            <div className={`${ADS_HEADER_CELL} text-left`}>Кабинет</div>
-            <div className={ADS_HEADER_CELL}>Расходы</div>
-            <div className={ADS_HEADER_CELL}>Клики</div>
-            <div className={ADS_HEADER_CELL}>Ватсап</div>
-            <div className={ADS_HEADER_CELL}>Лиды с сайта</div>
-            <div className={ADS_HEADER_CELL}>Стоимость лида</div>
-            <div className={ADS_HEADER_CELL} aria-hidden />
-          </div>
-        )}
-
-        <div className="divide-y divide-[hsl(var(--meta-border))] bg-white">
-          {filtered.map((c) => (
-            <CabinetRow
-              key={`${c.id}-${period.from.getTime()}-${period.to.getTime()}-${refreshKey}`}
-              cabinet={c}
-              expanded={!!expanded[c.id]}
-              onToggle={() => toggleExpanded(c.id)}
-              period={period}
-              onToggleOnline={handleToggleOnline}
-              onRemove={removeCabinet}
-              metaTable
-            />
-          ))}
-          {filtered.length === 0 && (
-            <div className="relative overflow-hidden rounded-lg border border-dashed border-border bg-white p-12 text-center shadow-sm">
+        <div className="overflow-x-auto rounded-lg border border-[hsl(var(--meta-border))] bg-white">
+          {filtered.length > 0 ? (
+            <table className="w-full min-w-[880px] table-fixed border-collapse">
+              <colgroup>
+                {ADS_COL_WIDTHS.map((w) => (
+                  <col key={w} style={{ width: w }} />
+                ))}
+              </colgroup>
+              <thead className="hidden lg:table-header-group">
+                <tr className="border-b border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-header-bg))]">
+                  <th className={`${ADS_TH} text-left`}>Кабинет</th>
+                  <th className={`${ADS_TH} text-right`}>Расходы</th>
+                  <th className={`${ADS_TH} text-right`}>Клики</th>
+                  <th className={`${ADS_TH} text-right`}>Ватсап</th>
+                  <th className={`${ADS_TH} text-right`}>Лиды с сайта</th>
+                  <th className={`${ADS_TH} text-right`}>Стоимость лида</th>
+                  <th className={ADS_TH} aria-hidden />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <CabinetRow
+                    key={`${c.id}-${period.from.getTime()}-${period.to.getTime()}-${refreshKey}`}
+                    cabinet={c}
+                    expanded={!!expanded[c.id]}
+                    onToggle={() => toggleExpanded(c.id)}
+                    period={period}
+                    onToggleOnline={handleToggleOnline}
+                    onRemove={removeCabinet}
+                    metaTable
+                  />
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="relative overflow-hidden p-12 text-center">
               <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
               <div className="relative mx-auto mb-7 h-24 w-24">
                 <div className="absolute inset-0 scale-150 rounded-full bg-primary/15 blur-xl" />
