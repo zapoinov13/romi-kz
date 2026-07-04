@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLeadChatSync } from "@/hooks/useLeadChatSync";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ interface ChatsViewProps {
   chats: ChatMessage[];
   whatsapp: WhatsAppConfig;
   onSend: (leadId: string, text: string) => void;
+  onRefreshLeadChats: (leadId: string) => void;
   onConnectWhatsApp: () => void;
 }
 
@@ -35,6 +37,7 @@ export function ChatsView({
   chats,
   whatsapp,
   onSend,
+  onRefreshLeadChats,
   onConnectWhatsApp,
 }: ChatsViewProps) {
   const [activeStageId, setActiveStageId] = useState<string>("all");
@@ -43,6 +46,8 @@ export function ChatsView({
   const [draft, setDraft] = useState("");
   const isMobile = useIsMobile();
   const { items: quickReplies, add: addReply, remove: removeReply } = useQuickReplies();
+
+  useLeadChatSync(activeLeadId, !!activeLeadId, onRefreshLeadChats);
 
   const chatsByLeadId = useMemo(() => {
     const m = new Map<string, ChatMessage[]>();

@@ -55,6 +55,7 @@ const Crm = () => {
     markPersonal,
     moveLead,
     sendMessage,
+    refreshLeadChats,
     togglePin,
     assignLead,
     setRejectReason,
@@ -368,6 +369,7 @@ const Crm = () => {
                 chats={chats}
                 whatsapp={whatsapp}
                 onSend={sendMessage}
+                onRefreshLeadChats={refreshLeadChats}
                 onConnectWhatsApp={() => setWaOpen(true)}
               />
             )}
@@ -436,6 +438,7 @@ const Crm = () => {
         onTogglePin={togglePin}
         onAssign={assignLead}
         onSendMessage={(id, text) => sendMessage(id, text)}
+        onRefreshLeadChats={refreshLeadChats}
         onMarkCall={(id, opts) => {
           markCall(id, opts);
           toast.success(

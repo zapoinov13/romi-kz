@@ -18,6 +18,7 @@ import { LeadTasksTab } from "./lead/LeadTasksTab";
 import { LeadProfileTab } from "./lead/LeadProfileTab";
 import { LeadLogTab } from "./lead/LeadLogTab";
 import { LeadCommentsTab, type InternalComment } from "./lead/LeadCommentsTab";
+import { useLeadChatSync } from "@/hooks/useLeadChatSync";
 
 interface Props {
   lead: Lead | null;
@@ -33,6 +34,7 @@ interface Props {
   onTogglePin: (id: string) => void;
   onAssign: (id: string, assigneeId?: string) => void;
   onSendMessage: (id: string, text: string) => void;
+  onRefreshLeadChats: (leadId: string) => void;
   onMarkCall: (id: string, opts?: { direction?: "outgoing" | "incoming"; status?: "answered" | "missed"; durationSec?: number; note?: string }) => void;
   onLogCallAttempt?: (id: string, info: { provider: string; ok: boolean; phone?: string; warning?: string; error?: string }) => void;
   onMarkPaid: (id: string, method: PaymentMethod, amount: number, opts?: { note?: string }) => void;
@@ -51,13 +53,15 @@ interface Props {
 
 export function LeadDetailSheet({
   lead, stages, members, chats, whatsapp, open, onOpenChange,
-  onUpdate, onDelete, onMarkPersonal, onTogglePin, onAssign, onSendMessage,
+  onUpdate, onDelete, onMarkPersonal, onTogglePin, onAssign, onSendMessage, onRefreshLeadChats,
   onMarkCall, onLogCallAttempt, onMarkPaid, onSetVisit, onAddTask, onToggleTask, onRemoveTask, onRequestReject, onRequestPay, onRequestDiagnostic,
   busySlots,
 }: Props) {
   const isMobile = useIsMobile();
   const [tab, setTab] = useState("deal");
   const [comments, setComments] = useState<InternalComment[]>([]);
+
+  useLeadChatSync(lead?.id, open, onRefreshLeadChats);
 
   useEffect(() => {
     if (!lead?.id || !open) {

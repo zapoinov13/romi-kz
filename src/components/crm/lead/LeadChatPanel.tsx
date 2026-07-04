@@ -68,9 +68,11 @@ export function LeadChatPanel({ lead, chats, whatsappConnected, stageTitle, onSe
     return { all: sorted.length, calls, msgs };
   }, [sorted]);
 
+  const lastMessageKey = sorted.length > 0 ? sorted[sorted.length - 1]?.id : "";
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [filtered.length]);
+    bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [lastMessageKey, filtered.length]);
 
   useEffect(() => {
     if (focusToken) inputRef.current?.focus();

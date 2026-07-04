@@ -134,6 +134,9 @@ function commToChat(r: CommRow): ChatMessage | null {
   };
 }
 
+const COMM_SELECT =
+  "id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at";
+
 function leadRowToFrontIndexed(
   r: LeadRow,
   idToKey: Map<string, string>,
@@ -302,7 +305,7 @@ export function useCrmStore() {
     if (leadIds.length > 0) {
       const { data: commData } = await supabase
         .from("communications")
-        .select("id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at")
+        .select(COMM_SELECT)
         .in("lead_id", leadIds)
         .order("created_at", { ascending: true })
         .limit(10000);
@@ -346,6 +349,31 @@ export function useCrmStore() {
     const commsAsc = commRows.filter((c) => visibleIds.has(c.lead_id));
     setChats(commsAsc.map(commToChat).filter((c): c is ChatMessage => c !== null));
   }, [stageIdMap.idToKey, projectId]);
+
+  /** Reload messages for one lead (live chat sync). */
+  const refreshLeadChats = useCallback(async (leadId: string) => {
+    const { data } = await supabase
+      .from("communications")
+      .select(COMM_SELECT)
+      .eq("lead_id", leadId)
+      .order("created_at", { ascending: true });
+    if (!data) return;
+    const fresh = (data as CommRow[])
+      .map(commToChat)
+      .filter((c): c is ChatMessage => c !== null);
+    setChats((prev) => {
+      const others = prev.filter((c) => c.leadId !== leadId);
+      return [...others, ...fresh].sort((a, b) => a.at.localeCompare(b.at));
+    });
+    const lastAt = fresh[fresh.length - 1]?.at;
+    if (lastAt) {
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId ? { ...l, lastActivityAt: lastAt } : l,
+        ),
+      );
+    }
+  }, []);
 
   useEffect(() => { void refetchStages(); }, [refetchStages]);
   useEffect(() => { void refetchLeads(); }, [refetchLeads]);
@@ -836,10 +864,33 @@ export function useCrmStore() {
       external_id: externalId,
     };
     // Use upsert on external_id to avoid duplicate when the webhook arrives first
+    let inserted: CommRow | null = null;
     if (externalId) {
-      await supabase.from("communications").upsert(insert, { onConflict: "external_id", ignoreDuplicates: true });
+      const { data } = await supabase
+        .from("communications")
+        .upsert(insert, { onConflict: "external_id", ignoreDuplicates: false })
+        .select(COMM_SELECT)
+        .maybeSingle();
+      inserted = (data as CommRow | null) ?? null;
     } else {
-      await supabase.from("communications").insert(insert);
+      const { data } = await supabase
+        .from("communications")
+        .insert(insert)
+        .select(COMM_SELECT)
+        .single();
+      inserted = (data as CommRow | null) ?? null;
+    }
+    const chat = inserted ? commToChat(inserted) : null;
+    if (chat) {
+      setChats((prev) => {
+        if (prev.some((c) => c.id === chat.id)) return prev;
+        return [...prev, chat].sort((a, b) => a.at.localeCompare(b.at));
+      });
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === leadId ? { ...l, lastActivityAt: chat.at } : l,
+        ),
+      );
     }
   }, [user?.id, leads]);
 
@@ -1048,6 +1099,7 @@ export function useCrmStore() {
     markPersonal,
     moveLead,
     sendMessage,
+    refreshLeadChats,
     togglePin,
     assignLead,
     setRejectReason,
@@ -1061,7 +1113,7 @@ export function useCrmStore() {
   }), [
     stages, leads, chats, whatsapp, setWhatsapp,
     addStage, renameStage, removeStage, moveStage,
-    addLead, updateLead, removeLead, removeLeads, markPersonal, moveLead, sendMessage,
+    addLead, updateLead, removeLead, removeLeads, markPersonal, moveLead, sendMessage, refreshLeadChats,
     togglePin, assignLead, setRejectReason,
     markCall, logCallAttempt, markPaid, setVisit,
     addTask, toggleTask, removeTask,
