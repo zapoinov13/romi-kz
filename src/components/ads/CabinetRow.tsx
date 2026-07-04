@@ -243,7 +243,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           : "meta-card hover:border-primary/30 hover:shadow-md",
       )}
     >
-      <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:gap-4">
+      <div className="flex flex-col gap-3 p-3 lg:grid lg:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_auto] lg:items-center lg:gap-3">
         {/* Header row: icon + name + actions (always on one row on mobile) */}
         <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
           <span className={cn(
