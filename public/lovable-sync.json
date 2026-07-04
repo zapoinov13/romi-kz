@@ -1,7 +1,7 @@
 {
-  "git_sha": "16bcb17",
-  "git_sha_full": "16bcb17993cf6975528e97cd6b7c91f74bad8297",
-  "updated_at": "2026-07-04T22:12:46+05:00",
-  "label": "fix: find WhatsApp bind across project cabinets, clearer status",
+  "git_sha": "2898a2e",
+  "git_sha_full": "2898a2ef61fa16a3623c2908d16c11d6bc4ea1a2",
+  "updated_at": "2026-07-04T22:15:54+05:00",
+  "label": "chore: disable JWT verify for greenapi-webhook in config.toml",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
