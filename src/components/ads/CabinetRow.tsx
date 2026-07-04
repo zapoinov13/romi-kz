@@ -351,11 +351,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           </div>
         </div>
 
-        {/* Compact metrics — tap to expand on mobile */}
+        {/* Compact metrics — mobile: 2-col grid button; desktop: inline cells aligned to header */}
         <button
           type="button"
           onClick={onToggle}
-          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:w-auto lg:grid-cols-5 lg:border-0 lg:bg-transparent lg:p-0 lg:gap-4"
+          className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:hidden"
         >
           <Metric
             label="Расход"
@@ -409,6 +409,33 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             }
           />
         </button>
+
+        {/* Desktop-only inline metric cells — right-aligned to match the table header columns */}
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block">
+          {formatMoney(totals?.spend ?? 0, currency)}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Клики по объявлениям Meta">
+          <span className="text-violet-400">{formatNumber(totals?.clicks ?? 0)}</span>
+          {cpc > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cpc, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Начатые переписки в WhatsApp / Messenger">
+          <span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>
+          {costPerMessage > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(costPerMessage, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Лиды через форму / сайт (без сообщений)">
+          <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>
+          {cplForms > 0 && (
+            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cplForms, currency)}</div>
+          )}
+        </div>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Показы объявлений">
+          <span className="text-blue-400">{formatNumber(totals?.impressions ?? 0)}</span>
+        </div>
+
 
         {/* Desktop-only action cluster (mobile actions live next to the name above) */}
         <div className="hidden items-center gap-1 self-center lg:flex">
