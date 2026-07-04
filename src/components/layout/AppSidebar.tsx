@@ -125,8 +125,8 @@ export function AppSidebar() {
             className={cn(
               "group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
               active
-                ? "bg-white text-primary shadow-sm ring-1 ring-border/80"
-                : "text-foreground/75 hover:bg-white/70 hover:text-foreground",
+                ? "glass-surface text-primary shadow-sm ring-1 ring-border/50"
+                : "text-foreground/75 hover:bg-white/45 hover:text-foreground hover:backdrop-blur-md",
             )}
           >
             <span
@@ -147,10 +147,19 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border/80 bg-[hsl(var(--sidebar-background))]">
-      <SidebarHeader className="gap-3 border-b border-border/60 px-3 py-3.5">
-        <div className={cn("flex items-center", collapsed ? "justify-center" : "px-0.5")}>
+    <Sidebar
+      collapsible="icon"
+      variant="floating"
+      className="border-none bg-transparent [&_[data-sidebar=sidebar]]:glass-sidebar"
+    >
+      <SidebarHeader className="gap-3 border-b border-border/40 px-3 py-3.5">
+        <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
           <RomiLogo size={collapsed ? "sm" : "md"} />
+          {!collapsed && (
+            <span className="text-[13px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+              Agency
+            </span>
+          )}
         </div>
         <ProjectSwitcher collapsed={collapsed} />
       </SidebarHeader>
@@ -174,7 +183,7 @@ export function AppSidebar() {
         })}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/60 px-2.5 py-2.5">
+      <SidebarFooter className="border-t border-border/40 px-2.5 py-2.5">
         <SidebarMenu className="gap-1">
           {system.filter(canSee).map((item) => renderItem(item))}
         </SidebarMenu>

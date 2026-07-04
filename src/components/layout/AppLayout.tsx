@@ -17,12 +17,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <ContentFactoryGalleryProvider>
       <SidebarProvider defaultOpen={true}>
-        <div className="flex min-h-svh w-full bg-white">
+        <div className="flex min-h-svh w-full app-shell-bg">
           <AppSidebar />
-          <SidebarInset className="flex min-w-0 flex-1 flex-col bg-white">
+          <SidebarInset className="flex min-w-0 flex-1 flex-col bg-transparent">
             <PublishUpdateBanner />
             <MetaTopBar />
-            <main className="mobile-main min-w-0 flex-1 overflow-x-hidden bg-[hsl(var(--meta-bg))]">
+            <main className="mobile-main min-w-0 flex-1 overflow-x-hidden bg-transparent">
               {children}
             </main>
             <MobileBottomNav />

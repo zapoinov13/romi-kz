@@ -29,7 +29,7 @@ export function MetaTopBar({ onRefresh, refreshing, updatedLabel = "Обновл
   const title = resolveTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-40 flex h-[52px] shrink-0 items-center gap-2 border-b border-[hsl(var(--meta-border))] bg-white px-2 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-4">
+    <header className="glass-nav sticky top-0 z-40 flex h-[52px] shrink-0 items-center gap-2 px-2 pt-[env(safe-area-inset-top)] sm:gap-3 sm:px-4">
       <SidebarTrigger
         className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-[hsl(var(--meta-header-bg))]"
         aria-label="Меню"

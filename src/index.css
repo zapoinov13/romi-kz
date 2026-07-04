@@ -71,6 +71,15 @@
     --meta-header-bg: 220 14% 96%;
     --meta-table-header: 220 14% 96%;
     --meta-create: 103 56% 44%;
+
+    /* Apple-style glass surfaces */
+    --glass-bg: 0 0% 100% / 0.68;
+    --glass-bg-strong: 0 0% 100% / 0.82;
+    --glass-border: 220 12% 88% / 0.55;
+    --glass-blur: 20px;
+    --app-bg-gradient: radial-gradient(ellipse 90% 60% at 0% -20%, hsl(214 100% 97% / 0.95), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, hsl(220 20% 94% / 0.9), transparent 50%),
+      linear-gradient(180deg, hsl(220 16% 97%) 0%, hsl(220 14% 95%) 100%);
   }
 
   .dark {
@@ -120,7 +129,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, Inter, ui-sans-serif, system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Helvetica, Arial, Inter, ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -133,16 +142,58 @@
 }
 
 @layer components {
+  .app-shell-bg {
+    background: var(--app-bg-gradient);
+    background-attachment: fixed;
+  }
+
+  .glass-panel {
+    background: hsl(var(--glass-bg-strong));
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow:
+      0 1px 2px hsl(220 9% 12% / 0.04),
+      0 8px 32px hsl(220 9% 12% / 0.07),
+      inset 0 1px 0 hsl(0 0% 100% / 0.65);
+  }
+
+  .glass-surface {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(14px) saturate(165%);
+    -webkit-backdrop-filter: blur(14px) saturate(165%);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 1px 3px hsl(220 9% 12% / 0.05);
+  }
+
+  .glass-nav {
+    background: hsl(var(--glass-bg-strong));
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border-bottom: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 1px 0 hsl(0 0% 100% / 0.5);
+  }
+
+  .glass-sidebar {
+    background: hsl(var(--glass-bg-strong)) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid hsl(var(--glass-border)) !important;
+    box-shadow:
+      0 4px 24px hsl(220 9% 12% / 0.08),
+      inset 0 1px 0 hsl(0 0% 100% / 0.7);
+  }
+
   .meta-card {
-    @apply rounded-lg border border-border bg-card shadow-card;
+    @apply glass-surface rounded-xl;
   }
 
   .meta-toolbar {
-    @apply flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-sm;
+    @apply glass-surface flex flex-wrap items-center gap-2 rounded-xl p-2;
   }
 
   .meta-table-wrap {
-    @apply overflow-hidden rounded-lg border border-border bg-card shadow-card;
+    @apply glass-surface overflow-hidden rounded-xl;
   }
 
   .meta-nav-active {

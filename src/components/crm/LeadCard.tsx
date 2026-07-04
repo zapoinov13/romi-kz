@@ -76,7 +76,7 @@ function LeadCardImpl({
       onDragStart={handleDragStart}
       onClick={handleClick}
       className={cn(
-        "group relative w-full shrink-0 rounded-lg border bg-card p-3 pb-8 text-left shadow-sm transition-colors",
+        "group relative w-full shrink-0 glass-surface rounded-xl p-3 pb-8 text-left transition-all duration-200",
         selectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
         selected
           ? "border-primary ring-1 ring-primary/25"
