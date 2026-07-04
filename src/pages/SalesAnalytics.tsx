@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, Download, ListChecks, Loader2 } from "lucide-react";
+import { BarChart3, Download, Info, ListChecks, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { currentMonthRange } from "@/components/dashboard/PeriodPicker";
@@ -34,8 +36,6 @@ import {
 } from "@/lib/salesAnalyticsMetrics";
 import { exportSalesLeadsCsv } from "@/lib/salesAnalyticsExport";
 import { EMPTY_SALES_FILTERS, type SalesLeadFilters } from "@/types/salesAnalytics";
-import { format } from "date-fns";
-import { ru } from "date-fns/locale";
 
 function periodLabel(range: ReportPeriodRange): string {
   const same =
@@ -117,16 +117,16 @@ export default function SalesAnalytics() {
       <PageHeader
         icon={BarChart3}
         title="Аналитика продаж"
-        description="Meta Ads → лид в CRM → квал → оплата → выручка. По одному кабинету и периоду."
+        description="Meta и CRM раздельно: реклама → заявки → квал → оплата → выручка"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <SalesMonthNav range={range} onChange={setRange} />
-            <Button variant="outline" className="gap-2" asChild>
-              <Link to="/settings?tab=services">Справочник услуг</Link>
+            <Button variant="outline" className="h-10 gap-2 rounded-xl" asChild>
+              <Link to="/settings?tab=services">Услуги</Link>
             </Button>
             <Button
               variant="outline"
-              className="gap-2"
+              className="h-10 gap-2 rounded-xl"
               onClick={handleExport}
               disabled={filtered.length === 0}
             >
@@ -137,52 +137,59 @@ export default function SalesAnalytics() {
         }
       />
 
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-3">
-        <span className="text-sm font-medium text-muted-foreground">Кабинет</span>
-        <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
-          <SelectTrigger className="h-10 w-[min(100%,320px)]">
-            <SelectValue placeholder="Выберите кабинет" />
-          </SelectTrigger>
-          <SelectContent>
-            {cabinets.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-xs text-muted-foreground">
-          Период: <span className="font-medium text-foreground">{periodLabel(range)}</span>
-        </span>
+      {/* Toolbar */}
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-muted/20 px-4 py-3.5 shadow-sm">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+          <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Кабинет
+          </span>
+          <Select value={cabinetId || undefined} onValueChange={setCabinetId}>
+            <SelectTrigger className="h-10 w-[min(100%,300px)] rounded-xl border-border/70 bg-background">
+              <SelectValue placeholder="Выберите кабинет" />
+            </SelectTrigger>
+            <SelectContent>
+              {cabinets.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          Период{" "}
+          <span className="font-semibold text-foreground">{periodLabel(range)}</span>
+        </div>
       </div>
 
       {cabinets.length === 0 && (
-        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+        <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-sm">
           Нет рекламных кабинетов.{" "}
-          <Link to="/ads" className="font-medium text-primary underline-offset-2 hover:underline">
+          <Link to="/ads" className="font-semibold text-primary underline-offset-2 hover:underline">
             Подключите кабинет
           </Link>
-          , чтобы считать расходы и лиды Meta.
         </div>
       )}
 
       {error && (
-        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3.5 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {overlayMissing && (
-        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          Таблица синхронизации не найдена. Данные читаются из CRM; выполните{" "}
-          <code className="text-xs">scripts/lovable-sales-analytics.sql</code> в Supabase при необходимости.
+        <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-sm text-amber-900 dark:text-amber-200">
+          Таблица синхронизации не найдена. Данные читаются из CRM.
         </div>
       )}
 
-      <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        <strong className="text-foreground">Лиды Meta и лиды CRM — разные числа.</strong> Из рекламы
-        до CRM доходят не все. В таблице — только заявки с именем и телефоном. Квал, оплату, услугу и
-        сумму можно менять прямо здесь (сохраняется в CRM).
+      <div className="mb-6 flex gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] px-4 py-3.5 text-sm text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+        <p>
+          <span className="font-semibold text-foreground">Лиды Meta ≠ лиды CRM.</span> Из рекламы
+          доходят не все. В таблице — только заявки с именем и телефоном. Квал, оплату, услугу и сумму
+          можно менять прямо в строках.
+        </p>
       </div>
 
       <SalesKpiCards kpi={kpi} cabinetName={cabinetName} loading={loading} />
@@ -192,38 +199,45 @@ export default function SalesAnalytics() {
         <TopServicesBlock items={topServices} />
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
-        <ListChecks className="h-4 w-4" />
-        Заявки в CRM
-        {selectedCabinet && (
-          <span className="text-foreground">· {selectedCabinet.name}</span>
-        )}
-        {(loading) && <Loader2 className="h-4 w-4 animate-spin" />}
-        <span className="ml-auto tabular-nums">
-          {filtered.length}
-          {filtered.length !== displayableRows.length
-            ? ` из ${displayableRows.length}`
-            : ""}{" "}
-          строк
-        </span>
-      </div>
+      {/* Table section */}
+      <section className="mb-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/12 text-violet-600">
+            <ListChecks className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">Заявки в CRM</h2>
+            <p className="text-[11px] text-muted-foreground">
+              {selectedCabinet?.name ?? "Кабинет"} · редактирование сохраняется сразу
+            </p>
+          </div>
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <span className="ml-auto rounded-full bg-muted px-3 py-1 text-xs font-semibold tabular-nums text-muted-foreground">
+            {filtered.length}
+            {filtered.length !== displayableRows.length
+              ? ` / ${displayableRows.length}`
+              : ""}{" "}
+            строк
+          </span>
+        </div>
 
-      <SalesFiltersBar
-        filters={filters}
-        onChange={patchFilters}
-        onReset={() => setFilters(EMPTY_SALES_FILTERS)}
-        services={activeServices}
-        monthSince={since}
-        monthUntil={until}
-      />
+        <SalesFiltersBar
+          filters={filters}
+          onChange={patchFilters}
+          onReset={() => setFilters(EMPTY_SALES_FILTERS)}
+          services={activeServices}
+          monthSince={since}
+          monthUntil={until}
+        />
 
-      <SalesLeadsTable
-        rows={filtered}
-        services={activeServices}
-        loading={loading}
-        editable
-        onUpdate={updateLead}
-      />
+        <SalesLeadsTable
+          rows={filtered}
+          services={activeServices}
+          loading={loading}
+          editable
+          onUpdate={updateLead}
+        />
+      </section>
     </PageContainer>
   );
 }
