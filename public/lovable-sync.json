@@ -1,7 +1,7 @@
 {
-  "git_sha": "c22e85a",
-  "git_sha_full": "c22e85ae6e757be7ee6377f7580b70e8002cc54f",
-  "updated_at": "2026-07-04T22:08:11+05:00",
-  "label": "fix: eslint prefer-const in SettingsConnection refreshWaRow",
+  "git_sha": "16bcb17",
+  "git_sha_full": "16bcb17993cf6975528e97cd6b7c91f74bad8297",
+  "updated_at": "2026-07-04T22:12:46+05:00",
+  "label": "fix: find WhatsApp bind across project cabinets, clearer status",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
