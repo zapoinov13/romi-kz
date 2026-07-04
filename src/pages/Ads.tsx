@@ -186,11 +186,11 @@ const Ads = () => {
         {filtered.length > 0 && (
           <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_180px] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
             <div>Кабинет</div>
-            <div className="text-right">Расход</div>
+            <div className="text-right">Расходы</div>
             <div className="text-right">Клики</div>
-            <div className="text-right">WhatsApp</div>
-            <div className="text-right">Лиды сайта</div>
-            <div className="text-right">Показы</div>
+            <div className="text-right">Ватсап</div>
+            <div className="text-right">Лиды с сайта</div>
+            <div className="text-right">Стоимость лида</div>
             <div />
           </div>
         )}

@@ -22,9 +22,8 @@ import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso, eachDayInRange, isoDateLocal } from "@/lib/periodRange";
 import {
   metaConversionsTotal,
-  metaCostPerMessage,
   metaCpc,
-  metaCplForms,
+  metaCplAllConversions,
 } from "@/lib/metaAdsMetrics";
 import { supabase } from "@/integrations/supabase/client";
 import { manualValueForSave } from "@/lib/cdiManualOverride";
@@ -166,28 +165,15 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
     });
   }, [period.from, period.to]);
 
-  const cplForms = metaCplForms({
+  const traffic = {
     spend: totals?.spend ?? 0,
     clicks: totals?.clicks ?? 0,
     leads: totals?.leads ?? 0,
     messages: totals?.messages ?? 0,
-  });
-  const cpc = metaCpc({
-    spend: totals?.spend ?? 0,
-    clicks: totals?.clicks ?? 0,
-    leads: totals?.leads ?? 0,
-    messages: totals?.messages ?? 0,
-  });
-  const costPerMessage = metaCostPerMessage({
-    spend: totals?.spend ?? 0,
-    clicks: totals?.clicks ?? 0,
-    leads: totals?.leads ?? 0,
-    messages: totals?.messages ?? 0,
-  });
-  const conversionsTotal = metaConversionsTotal({
-    leads: totals?.leads ?? 0,
-    messages: totals?.messages ?? 0,
-  });
+  };
+  const cpc = metaCpc(traffic);
+  const costPerLead = metaCplAllConversions(traffic);
+  const conversionsTotal = metaConversionsTotal(traffic);
 
 
   const upsertManual = async (
@@ -357,7 +343,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           className="grid w-full grid-cols-2 gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-left transition-colors hover:border-primary/25 active:bg-secondary/50 sm:grid-cols-3 lg:hidden"
         >
           <Metric
-            label="Расход"
+            label="Расходы"
             value={formatMoney(totals?.spend ?? 0, currency)}
           />
           <Metric
@@ -365,45 +351,30 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             value={
               <span className="text-violet-400">
                 {formatNumber(totals?.clicks ?? 0)}
-                {cpc > 0 ? (
-                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                    {formatMoney(cpc, currency)}
-                  </span>
-                ) : null}
               </span>
             }
           />
           <Metric
-            label="WhatsApp"
+            label="Ватсап"
             value={
               <span className="text-sky-500">
                 {formatNumber(totals?.messages ?? 0)}
-                {costPerMessage > 0 ? (
-                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                    {formatMoney(costPerMessage, currency)}
-                  </span>
-                ) : null}
               </span>
             }
           />
           <Metric
-            label="Лиды сайта"
+            label="Лиды с сайта"
             value={
               <span className="text-success">
                 {formatNumber(totals?.leads ?? 0)}
-                {cplForms > 0 ? (
-                  <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                    {formatMoney(cplForms, currency)}
-                  </span>
-                ) : null}
               </span>
             }
           />
           <Metric
-            label="Показы"
+            label="Стоимость лида"
             value={
-              <span className="text-blue-400">
-                {formatNumber(totals?.impressions ?? 0)}
+              <span className="text-primary">
+                {costPerLead > 0 ? formatMoney(costPerLead, currency) : "—"}
               </span>
             }
           />
@@ -415,24 +386,17 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
         </div>
         <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Клики по объявлениям Meta">
           <span className="text-violet-400">{formatNumber(totals?.clicks ?? 0)}</span>
-          {cpc > 0 && (
-            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cpc, currency)}</div>
-          )}
         </div>
         <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Начатые переписки в WhatsApp / Messenger">
           <span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>
-          {costPerMessage > 0 && (
-            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(costPerMessage, currency)}</div>
-          )}
         </div>
         <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Лиды через форму / сайт (без сообщений)">
           <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>
-          {cplForms > 0 && (
-            <div className="text-[10px] font-normal text-muted-foreground">{formatMoney(cplForms, currency)}</div>
-          )}
         </div>
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Показы объявлений">
-          <span className="text-blue-400">{formatNumber(totals?.impressions ?? 0)}</span>
+        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Расход ÷ (ватсап + лиды с сайта)">
+          <span className="text-primary">
+            {costPerLead > 0 ? formatMoney(costPerLead, currency) : "—"}
+          </span>
         </div>
 
 
@@ -557,7 +521,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
               {
                 label: "Расходы",
@@ -571,27 +535,20 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 sub: cpc > 0 ? `CPC ${formatMoney(cpc, currency)}` : undefined,
               },
               {
-                label: "WhatsApp",
+                label: "Ватсап",
                 value: formatNumber(totals?.messages ?? 0),
                 color: "text-sky-500",
-                sub: costPerMessage > 0 ? `${formatMoney(costPerMessage, currency)} / сообщ.` : undefined,
               },
               {
-                label: "Лиды сайта",
+                label: "Лиды с сайта",
                 value: formatNumber(totals?.leads ?? 0),
                 color: "text-success",
-                sub: cplForms > 0 ? `CPL ${formatMoney(cplForms, currency)}` : undefined,
               },
               {
-                label: "Конверсии",
-                value: formatNumber(conversionsTotal),
+                label: "Стоимость лида",
+                value: costPerLead > 0 ? formatMoney(costPerLead, currency) : "—",
                 color: "text-primary",
-                sub: "сайт + WhatsApp",
-              },
-              {
-                label: "Показы",
-                value: formatNumber(totals?.impressions ?? 0),
-                color: "text-blue-400",
+                sub: conversionsTotal > 0 ? `${conversionsTotal} всего` : undefined,
               },
             ].map((m) => (
               <div
@@ -619,14 +576,17 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
                   <th className="px-4 py-3 text-right font-medium">Расходы</th>
                   <th className="px-4 py-3 text-right font-medium">Клики</th>
-                  <th className="px-4 py-3 text-right font-medium">WhatsApp</th>
-                  <th className="px-4 py-3 text-right font-medium">Лиды сайта</th>
-                  <th className="px-4 py-3 text-right font-medium">Показы</th>
+                  <th className="px-4 py-3 text-right font-medium">Ватсап</th>
+                  <th className="px-4 py-3 text-right font-medium">Лиды с сайта</th>
+                  <th className="px-4 py-3 text-right font-medium">Стоимость лида</th>
                 </tr>
               </thead>
               <tbody>
                 {periodDays.map((d) => {
                   const row = dailyByDate.get(d.iso);
+                  const dayConv = (row?.messages ?? 0) + (row?.leads ?? 0);
+                  const dayCpl =
+                    row && dayConv > 0 && row.spend > 0 ? row.spend / dayConv : 0;
                   return (
                     <tr
                       key={d.key}
@@ -667,11 +627,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                       </td>
                       <td
                         className={cn(
-                          "px-4 py-3 text-right",
-                          !row?.impressions && "text-muted-foreground",
+                          "px-4 py-3 text-right text-primary",
+                          !dayCpl && "text-muted-foreground",
                         )}
                       >
-                        {row?.impressions ? formatNumber(row.impressions) : "—"}
+                        {dayCpl > 0 ? formatMoney(dayCpl, currency) : "—"}
                       </td>
                     </tr>
                   );
