@@ -25,6 +25,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCabinetsStore } from "@/hooks/useCabinetsStore";
+import {
+  ADS_HEADER_CELL,
+  ADS_TABLE_GRID,
+  ADS_TABLE_PAD,
+} from "@/components/ads/adsTableLayout";
 
 const SEARCH_THRESHOLD = 3;
 
@@ -182,16 +187,18 @@ const Ads = () => {
 
         <AlertsBanner />
 
-        {/* Table header — desktop */}
+        {/* Table header — desktop (та же сетка, что у CabinetRow) */}
         {filtered.length > 0 && (
-          <div className="meta-table-header hidden grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_180px] gap-3 border-b border-[hsl(var(--meta-border))] px-3 py-2 lg:grid">
-            <div>Кабинет</div>
-            <div className="text-right">Расходы</div>
-            <div className="text-right">Клики</div>
-            <div className="text-right">Ватсап</div>
-            <div className="text-right">Лиды с сайта</div>
-            <div className="text-right">Стоимость лида</div>
-            <div />
+          <div
+            className={`meta-table-header hidden gap-0 border-b border-[hsl(var(--meta-border))] bg-[hsl(var(--meta-header-bg))] lg:grid ${ADS_TABLE_GRID} ${ADS_TABLE_PAD}`}
+          >
+            <div className={`${ADS_HEADER_CELL} text-left`}>Кабинет</div>
+            <div className={ADS_HEADER_CELL}>Расходы</div>
+            <div className={ADS_HEADER_CELL}>Клики</div>
+            <div className={ADS_HEADER_CELL}>Ватсап</div>
+            <div className={ADS_HEADER_CELL}>Лиды с сайта</div>
+            <div className={ADS_HEADER_CELL}>Стоимость лида</div>
+            <div className={ADS_HEADER_CELL} aria-hidden />
           </div>
         )}
 

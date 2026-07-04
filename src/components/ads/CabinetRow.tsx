@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
-  BarChart3,
   ChevronDown,
   Copy,
   Loader2,
@@ -28,6 +27,11 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { manualValueForSave } from "@/lib/cdiManualOverride";
 import {
+  ADS_METRIC_CELL,
+  ADS_TABLE_GRID,
+  ADS_TABLE_PAD,
+} from "@/components/ads/adsTableLayout";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,10 +56,13 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   TRY: "₺",
   BYN: "Br",
 };
-const formatMoney = (n: number, currency: string) => {
+const formatMoney = (n: number, currency: string, fractionDigits = 0) => {
   const sym = CURRENCY_SYMBOLS[currency] ?? currency;
   const isPrefix = ["$", "€", "£"].includes(sym);
-  const num = Math.round(n).toLocaleString("ru-RU");
+  const num = n.toLocaleString("ru-RU", {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
+  });
   return isPrefix ? `${sym}${num}` : `${num} ${sym}`;
 };
 const formatNumber = (n: number) => Math.round(n).toLocaleString("ru-RU");
@@ -228,9 +235,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
           : "meta-card hover:border-primary/30 hover:shadow-md",
       )}
     >
-      <div className="flex flex-col gap-3 p-3 lg:grid lg:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))_180px] lg:items-center lg:gap-3">
+      <div
+        className={`flex flex-col gap-3 p-3 lg:grid lg:items-center lg:gap-0 lg:py-2.5 ${ADS_TABLE_GRID} ${ADS_TABLE_PAD} lg:px-3`}
+      >
         {/* Header row: icon + name + actions (always on one row on mobile) */}
-        <div className="flex items-center gap-2.5 lg:flex-1 lg:min-w-0">
+        <div className="flex min-w-0 items-center gap-2.5 pr-3">
           <span className={cn(
             "grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-colors lg:h-9 lg:w-9",
             cabinet.online ? "bg-success/15 text-success" : "bg-muted/40 text-muted-foreground",
@@ -278,11 +287,11 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
               type="button"
               onClick={handleSync}
               disabled={syncing}
-              aria-label="Получить статистику"
-              title="Получить статистику из Meta"
+              aria-label="Обновить"
+              title="Обновить данные из Meta"
               className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-60"
             >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -296,7 +305,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={handleSync} disabled={syncing}>
                   <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
-                  Получить статистику
+                  Обновить
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setKpiOpen(true)}>
                   <Target className="mr-2 h-4 w-4" />
@@ -374,43 +383,42 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             label="Стоимость лида"
             value={
               <span className="text-primary">
-                {costPerLead > 0 ? formatMoney(costPerLead, currency) : "—"}
+                {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
               </span>
             }
           />
         </button>
 
-        {/* Desktop-only inline metric cells — right-aligned to match the table header columns */}
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block">
+        {/* Desktop-only metric cells — та же сетка, что у шапки */}
+        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Расход за период">
           {formatMoney(totals?.spend ?? 0, currency)}
         </div>
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Клики по объявлениям Meta">
-          <span className="text-violet-400">{formatNumber(totals?.clicks ?? 0)}</span>
+        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Клики по объявлениям Meta">
+          <span className="text-violet-500">{formatNumber(totals?.clicks ?? 0)}</span>
         </div>
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Начатые переписки в WhatsApp / Messenger">
+        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Начатые переписки WhatsApp">
           <span className="text-sky-500">{formatNumber(totals?.messages ?? 0)}</span>
         </div>
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Лиды через форму / сайт (без сообщений)">
+        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Лиды с сайта / формы">
           <span className="text-success">{formatNumber(totals?.leads ?? 0)}</span>
         </div>
-        <div className="hidden text-right text-sm font-bold tabular-nums lg:block" title="Расход ÷ (ватсап + лиды с сайта)">
+        <div className={`hidden lg:block ${ADS_METRIC_CELL}`} title="Расход ÷ (ватсап + лиды с сайта)">
           <span className="text-primary">
-            {costPerLead > 0 ? formatMoney(costPerLead, currency) : "—"}
+            {costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—"}
           </span>
         </div>
 
-
-        {/* Desktop-only action cluster (mobile actions live next to the name above) */}
-        <div className="hidden items-center gap-1 self-center lg:flex">
+        {/* Desktop-only action cluster */}
+        <div className="hidden items-center justify-end gap-0.5 lg:flex">
           <button
             type="button"
             onClick={handleSync}
             disabled={syncing}
-            title="Получить статистику из Meta"
-            className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
+            title="Обновить данные из Meta"
+            className="flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
           >
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <BarChart3 className="h-3 w-3" />}
-            <span>{syncing ? "Загрузка" : "Статистика"}</span>
+            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            <span>{syncing ? "…" : "Обновить"}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -424,7 +432,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={handleSync} disabled={syncing}>
                 <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
-                Получить статистику
+                Обновить
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setKpiOpen(true)}>
                 <Target className="mr-2 h-4 w-4" />
@@ -496,7 +504,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             <div className="flex flex-col gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="font-semibold">За выбранный месяц статистика не подтянута</div>
-                <div className="text-xs opacity-80">Нажмите «Получить статистику», чтобы загрузить данные из Meta.</div>
+                <div className="text-xs opacity-80">Нажмите «Обновить», чтобы загрузить данные из Meta.</div>
               </div>
               <Button
                 size="sm"
@@ -505,8 +513,8 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 disabled={syncing}
                 className="border-warning/40 bg-background/30 text-warning hover:bg-warning/10"
               >
-                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
-                Получить статистику
+                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Обновить
               </Button>
             </div>
           )}
@@ -546,7 +554,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
               },
               {
                 label: "Стоимость лида",
-                value: costPerLead > 0 ? formatMoney(costPerLead, currency) : "—",
+                value: costPerLead > 0 ? formatMoney(costPerLead, currency, 2) : "—",
                 color: "text-primary",
                 sub: conversionsTotal > 0 ? `${conversionsTotal} всего` : undefined,
               },
@@ -631,7 +639,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                           !dayCpl && "text-muted-foreground",
                         )}
                       >
-                        {dayCpl > 0 ? formatMoney(dayCpl, currency) : "—"}
+                        {dayCpl > 0 ? formatMoney(dayCpl, currency, 2) : "—"}
                       </td>
                     </tr>
                   );
