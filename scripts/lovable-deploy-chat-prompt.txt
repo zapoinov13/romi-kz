@@ -5,8 +5,10 @@ Supabase project ref: rgttklitvvqsnlsakvzr
 1) SQL Editor — выполни целиком файл scripts/lovable-whatsapp-cabinet-bind.sql из репозитория (129 строк). Это добавляет cabinet_id в whatsapp_config и новую RPC bind_whatsapp_to_project с p_cabinet_id.
 
 2) Edge Functions — задеploy с verify_jwt=false только для greenapi-webhook:
-   - greenapi-proxy (обновлённый: cabinet creds + auto webhook token)
-   - greenapi-webhook (stateInstanceChanged → сохраняет phone)
+   - greenapi-proxy (setWebhook + token + cabinet creds)
+   - greenapi-webhook (CRM leads + forward n8n bot_webhook_url)
+
+   КРИТИЧНО: без деплоя greenapi-webhook входящие WA не создают лиды в CRM.
 
 3) Проверка после деплоя:
    - POST /functions/v1/greenapi-webhook с body {"typeWebhook":"test"} → {"ok":true,"skipped":"test"}

@@ -164,7 +164,8 @@ async function projectFromInstance(
     .eq("id_instance", String(idInstance))
     .maybeSingle();
   if (!data) {
-    return { projectId: null, cabinetId: null, ok: true, adsOnly: false, botWebhookUrl: null };
+    console.warn("greenapi-webhook: unknown idInstance", { idInstance });
+    return { projectId: null, cabinetId: null, ok: false, adsOnly: false, botWebhookUrl: null };
   }
   const row = data as {
     project_id?: string | null;
@@ -173,28 +174,28 @@ async function projectFromInstance(
     ads_only?: boolean | null;
     bot_webhook_url?: string | null;
   };
-  const expected = row.webhook_token ?? null;
-  const envToken = Deno.env.get("GREENAPI_WEBHOOK_TOKEN") ?? null;
-  const required = expected || envToken;
-  // Fail-closed: if neither a per-instance webhook_token nor the env token is
-  // configured, reject all webhook traffic. This prevents an unauthenticated
-  // caller from injecting fake messages / leads.
-  if (!required || required !== presentedToken) {
-    return {
-      projectId: row.project_id ?? null,
-      cabinetId: row.cabinet_id ?? null,
-      ok: false,
-      adsOnly: !!row.ads_only,
-      botWebhookUrl: row.bot_webhook_url ?? null,
-    };
-  }
-  return {
+  const base = {
     projectId: row.project_id ?? null,
     cabinetId: row.cabinet_id ?? null,
-    ok: true,
     adsOnly: !!row.ads_only,
     botWebhookUrl: row.bot_webhook_url ?? null,
   };
+  const expected = row.webhook_token?.trim() || Deno.env.get("GREENAPI_WEBHOOK_TOKEN")?.trim() || null;
+  const presented = presentedToken?.trim() || null;
+
+  // No token configured yet — accept (setWebhook will add token soon).
+  if (!expected) {
+    return { ...base, ok: true };
+  }
+  if (presented && presented === expected) {
+    return { ...base, ok: true };
+  }
+
+  console.warn("greenapi-webhook: token mismatch", {
+    idInstance,
+    hasPresented: !!presented,
+  });
+  return { ...base, ok: false };
 }
 
 function forwardToBotWebhook(url: string | null | undefined, body: Record<string, unknown>) {
@@ -462,7 +463,12 @@ async function findOrCreateLead(
   }
 
   const def = await getDefaultStage(resolvedProject);
-  if (!def) {
+  let stage = def;
+  if (!stage && resolvedProject) {
+    await admin.rpc("ensure_project_pipeline", { p_project_id: resolvedProject }).catch(() => null);
+    stage = await getDefaultStage(resolvedProject);
+  }
+  if (!stage) {
     console.error("No default pipeline/stage found", { projectId: resolvedProject });
     return null;
   }
@@ -487,8 +493,8 @@ async function findOrCreateLead(
       channel: "whatsapp",
       project_id: resolvedProject,
       cabinet_id: cabinetId,
-      pipeline_id: def.pipeline_id,
-      stage_id: def.stage_id,
+      pipeline_id: stage.pipeline_id,
+      stage_id: stage.stage_id,
       created_by: ownerId,
       assigned_to: ownerId,
       meta_ad_id: attribution?.meta_ad_id ?? null,

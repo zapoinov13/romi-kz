@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, saveBotWebhookUrl, isValidBotWebhookUrl, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, verifyCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, saveBotWebhookUrl, isValidBotWebhookUrl, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -126,6 +126,8 @@ export function GreenApiConnectionPanel({
   const [waLoading, setWaLoading] = useState(true);
   const [webhookOk, setWebhookOk] = useState(false);
   const [webhookEnsuring, setWebhookEnsuring] = useState(false);
+  const [liveWebhookUrl, setLiveWebhookUrl] = useState<string | null>(null);
+  const [webhookIssue, setWebhookIssue] = useState<string | null>(null);
   const [state, setState] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState(false);
   const [waLoadError, setWaLoadError] = useState<string | null>(null);
@@ -202,6 +204,8 @@ export function GreenApiConnectionPanel({
     setWebhookEnsuring(true);
     try {
       const result = await ensureCrmWebhook(projectId, cabinetId);
+      setLiveWebhookUrl(result.liveWebhookUrl ?? null);
+      setWebhookIssue(result.matched ? null : (result.error ?? null));
       if (result.matched) {
         setWebhookOk(true);
         await refreshWaRow();
@@ -211,8 +215,8 @@ export function GreenApiConnectionPanel({
       if (result.ok && !result.matched) {
         setWebhookOk(false);
         if (!silent) {
-          toast.warning("Webhook прописан, но проверка не прошла", {
-            description: result.error ?? "Попробуйте обновить статус",
+          toast.warning("Webhook не на ROMI — сообщения не попадут в CRM", {
+            description: result.error ?? "Нажмите «Синхронизировать webhook»",
           });
         }
         return false;
@@ -227,10 +231,24 @@ export function GreenApiConnectionPanel({
     }
   }, [projectId, cabinetId, waRow?.id_instance, waRow?.api_token_present, refreshWaRow]);
 
+  const checkWebhookOnly = useCallback(async () => {
+    if (!projectId || !cabinetId || !waRow?.api_token_present) return;
+    const result = await verifyCrmWebhook(projectId, cabinetId);
+    setLiveWebhookUrl(result.liveWebhookUrl ?? null);
+    setWebhookIssue(result.matched ? null : (result.error ?? null));
+    setWebhookOk(result.matched);
+  }, [projectId, cabinetId, waRow?.api_token_present]);
+
   useEffect(() => {
     webhookAutoTried.current = false;
     setWebhookOk(false);
+    setLiveWebhookUrl(null);
+    setWebhookIssue(null);
   }, [projectId, cabinetId, waRow?.id_instance]);
+
+  useEffect(() => {
+    if (isBound) void checkWebhookOnly();
+  }, [isBound, checkWebhookOnly]);
 
   useEffect(() => {
     if (!isBound || webhookOk || webhookEnsuring || webhookAutoTried.current) return;
@@ -248,7 +266,7 @@ export function GreenApiConnectionPanel({
   const isAuthed = state === "authorized";
   const setupSteps = {
     bind: isBound,
-    webhook: webhookOk || !!waRow?.webhook_url,
+    webhook: webhookOk,
   };
 
   return (
@@ -288,25 +306,45 @@ export function GreenApiConnectionPanel({
 
         {(isBound || hasInstance) && (
           <div className={cn(
-            "flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground",
+            "space-y-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs",
             embedded ? "mt-4" : "mt-6",
           )}>
-            {webhookEnsuring ? (
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-            ) : webhookOk || waRow?.webhook_url ? (
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
-            ) : needsToken ? (
-              <Circle className="h-3.5 w-3.5 shrink-0 text-warning" />
-            ) : (
-              <Circle className="h-3.5 w-3.5 shrink-0" />
-            )}
-            {webhookEnsuring
-              ? "Настраиваем webhook CRM…"
-              : webhookOk || waRow?.webhook_url
-                ? "Webhook CRM подключён — входящие WhatsApp попадают в CRM и аналитику продаж"
-                : needsToken
-                  ? "Сначала введите apiToken и нажмите «Привязать» — затем webhook настроится автоматически"
-                  : "Webhook CRM настроится автоматически после привязки"}
+            <div className="flex items-start gap-2 text-muted-foreground">
+              {webhookEnsuring ? (
+                <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+              ) : webhookOk ? (
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+              ) : needsToken ? (
+                <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+              ) : (
+                <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+              )}
+              <div className="min-w-0 flex-1">
+                {webhookEnsuring
+                  ? "Настраиваем webhook CRM…"
+                  : webhookOk
+                    ? "Webhook CRM подключён — входящие WhatsApp попадают в CRM"
+                    : needsToken
+                      ? "Сначала введите apiToken и нажмите «Привязать»"
+                      : webhookIssue
+                        ? webhookIssue
+                        : "Webhook не на ROMI — сообщения уходят мимо CRM (часто на n8n)"}
+                {liveWebhookUrl && !webhookOk ? (
+                  <p className="mt-1 break-all font-mono text-[10px] opacity-80">{liveWebhookUrl}</p>
+                ) : null}
+              </div>
+              {isBound && !needsToken ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 text-[11px]"
+                  disabled={webhookEnsuring}
+                  onClick={() => void ensureWebhookSetup(false)}
+                >
+                  Синхронизировать webhook
+                </Button>
+              ) : null}
+            </div>
           </div>
         )}
 

@@ -9,7 +9,14 @@ export function getCrmWebhookUrl(): string {
 export type WebhookSetupResult = {
   ok: boolean;
   matched: boolean;
+  incomingEnabled?: boolean;
+  liveWebhookUrl?: string;
   error?: string;
+};
+
+type GreenSettings = {
+  webhookUrl?: string;
+  incomingWebhook?: string;
 };
 
 /** Прописать CRM webhook в Green API и проверить, что URL совпадает. */
@@ -32,16 +39,42 @@ export async function ensureCrmWebhook(
       return { ok: false, matched: false, error: detail };
     }
 
+    return verifyCrmWebhook(projectId, cabinetId);
+  } catch (e) {
+    return { ok: false, matched: false, error: (e as Error).message };
+  }
+}
+
+/** Проверить текущий webhook в Green API (без перезаписи). */
+export async function verifyCrmWebhook(
+  projectId: string,
+  cabinetId: string,
+): Promise<WebhookSetupResult> {
+  const crmUrl = getCrmWebhookUrl();
+  try {
     const { data: settingsData, error: settingsError } = await supabase.functions.invoke(
       "greenapi-proxy",
       { body: { action: "settings", project_id: projectId, cabinet_id: cabinetId } },
     );
     if (settingsError) {
-      return { ok: true, matched: false, error: settingsError.message };
+      return { ok: false, matched: false, error: settingsError.message };
     }
-    const live = (settingsData as { data?: { webhookUrl?: string } } | null)?.data?.webhookUrl ?? "";
-    const matched = !!live && live.replace(/\/+$/, "").split("?")[0] === crmUrl.replace(/\/+$/, "");
-    return { ok: true, matched };
+    const liveSettings = (settingsData as { data?: GreenSettings } | null)?.data;
+    const live = liveSettings?.webhookUrl ?? "";
+    const incomingEnabled = liveSettings?.incomingWebhook === "yes";
+    const matched = !!live
+      && live.replace(/\/+$/, "").split("?")[0] === crmUrl.replace(/\/+$/, "");
+    return {
+      ok: true,
+      matched: matched && incomingEnabled,
+      incomingEnabled,
+      liveWebhookUrl: live,
+      error: !matched
+        ? `Green API шлёт на: ${live || "—"}`
+        : !incomingEnabled
+          ? "incomingWebhook выключен в Green API"
+          : undefined,
+    };
   } catch (e) {
     return { ok: false, matched: false, error: (e as Error).message };
   }
