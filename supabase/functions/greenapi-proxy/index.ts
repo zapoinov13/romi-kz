@@ -7,11 +7,7 @@
 //
 // Actions: status, qr, getCode, logout, settings, setWebhook, sendMessage.
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
-import {
-  DEFAULT_GREEN_API_BASE_URL,
-  validateGreenApiBaseUrl,
-} from "../_lib/green_api_url.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -19,11 +15,46 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const ENV_ID = Deno.env.get("GREENAPI_ID_INSTANCE") ?? "";
 const ENV_TOKEN = Deno.env.get("GREENAPI_API_TOKEN") ?? "";
-const ENV_URL = Deno.env.get("GREENAPI_API_URL") ?? DEFAULT_GREEN_API_BASE_URL;
+const ENV_URL = Deno.env.get("GREENAPI_API_URL") ?? "https://api.green-api.com";
+const DEFAULT_CRM_WEBHOOK =
+  Deno.env.get("CRM_WEBHOOK_URL")?.trim() || "https://romi-kz.vercel.app/api/wa-webhook";
 
-const admin: SupabaseClient = createClient(SUPABASE_URL, SERVICE_ROLE, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+// Inlined from _lib/green_api_url.ts so Lovable deploy bundles a single file.
+const ALLOWED_EXACT_HOSTS = new Set(["api.green-api.com", "api.greenapi.com"]);
+const ALLOWED_HOST_SUFFIX = ".api.greenapi.com";
+const ALLOWED_SUBDOMAIN_PATTERN = /^[a-z0-9-]+\.api\.greenapi\.com$/i;
+
+function isAllowedGreenApiHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().trim();
+  if (!h || h === "localhost" || h === "169.254.169.254") return false;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(h) || h.includes(":")) return false;
+  if (ALLOWED_EXACT_HOSTS.has(h)) return true;
+  return h.endsWith(ALLOWED_HOST_SUFFIX) && ALLOWED_SUBDOMAIN_PATTERN.test(h);
+}
+
+function validateGreenApiBaseUrl(raw: string | null | undefined): string {
+  if (!raw?.trim()) return ENV_URL || "https://api.green-api.com";
+  const u = new URL(raw.trim());
+  if (u.protocol !== "https:") throw new Error("apiUrl must use https");
+  if (u.pathname !== "/" && u.pathname !== "") throw new Error("apiUrl must not include a path");
+  if (!isAllowedGreenApiHost(u.hostname.toLowerCase())) throw new Error("apiUrl host not allowed");
+  return u.origin.replace(/\/+$/, "");
+}
+
+function getAdmin() {
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    throw new Error("Supabase service role not configured");
+  }
+  return createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+let adminClient: ReturnType<typeof createClient> | null = null;
+function admin() {
+  if (!adminClient) adminClient = getAdmin();
+  return adminClient;
+}
 
 type Creds = {
   source: "db" | "env";
@@ -80,7 +111,7 @@ async function resolveCreds(
 
   let projectId = bodyProjectId;
   if (!projectId) {
-    const { data } = await admin
+    const { data } = await admin()
       .from("user_active_project")
       .select("project_id")
       .eq("user_id", userId)
@@ -90,12 +121,12 @@ async function resolveCreds(
 
   if (projectId) {
     // Verify ownership/membership of the project before exposing credentials.
-    const { data: proj } = await admin
+    const { data: proj } = await admin()
       .from("projects")
       .select("id, created_by")
       .eq("id", projectId)
       .maybeSingle();
-    const { data: isAdmin } = await admin.rpc("has_role" as any, {
+    const { data: isAdmin } = await admin().rpc("has_role" as any, {
       _user_id: userId, _role: "admin",
     });
     const allowed = !!proj && (proj.created_by === userId || isAdmin === true);
@@ -114,7 +145,7 @@ async function resolveCreds(
     let row: WaRow | null = null;
 
     if (bodyCabinetId) {
-      const { data, error } = await admin
+      const { data, error } = await admin()
         .from("whatsapp_config")
         .select("id, project_id, id_instance, api_token, api_url")
         .eq("cabinet_id", bodyCabinetId)
@@ -123,7 +154,7 @@ async function resolveCreds(
     }
 
     if (!row?.id_instance) {
-      const { data, error } = await admin
+      const { data, error } = await admin()
         .from("whatsapp_config")
         .select("id, project_id, id_instance, api_token, api_url")
         .eq("project_id", projectId)
@@ -133,7 +164,7 @@ async function resolveCreds(
     }
 
     if (!row?.id_instance) {
-      const { data } = await admin
+      const { data } = await admin()
         .from("whatsapp_config")
         .select("id, project_id, id_instance, api_token, api_url")
         .eq("project_id", projectId)
@@ -178,7 +209,7 @@ async function resolveCreds(
   }
 
   // ENV fallback only for admins (legacy single-tenant ops).
-  const { data: isAdmin } = await admin.rpc("has_role" as any, {
+  const { data: isAdmin } = await admin().rpc("has_role" as any, {
     _user_id: userId, _role: "admin",
   });
   if (isAdmin === true && ENV_ID && ENV_TOKEN) {
@@ -236,7 +267,7 @@ async function syncState(
   };
   if (isAuth) patch.connected_at = new Date().toISOString();
   if (phoneFromSettings) patch.phone = phoneFromSettings;
-  await admin.from("whatsapp_config").update(patch).eq("id", creds.rowId);
+  await admin().from("whatsapp_config").update(patch).eq("id", creds.rowId);
 }
 
 /** Green API getWaSettings returns `{ wid: "77051234567@c.us", ... }`. */
@@ -339,37 +370,42 @@ Deno.serve(async (req) => {
       }
 
       case "setWebhook": {
-        const defaultUrl = SUPABASE_URL
-          ? `${SUPABASE_URL.replace(/\/+$/, "")}/functions/v1/greenapi-webhook`
-          : "";
-        const baseWebhookUrl = String(body.webhookUrl || defaultUrl).trim();
+        const baseWebhookUrl = String(body.webhookUrl || DEFAULT_CRM_WEBHOOK).trim();
         if (!baseWebhookUrl.startsWith("http")) {
           return json({ error: "Invalid webhook URL" }, 400);
         }
 
+        const webhookUrl = baseWebhookUrl.split("?")[0].replace(/\/+$/, "");
+        const usesVercelIngress = webhookUrl.endsWith("/api/wa-webhook");
         const forceRotate = body.forceRotate === true || body.force === true;
         const ENV_WEBHOOK_TOKEN = Deno.env.get("GREENAPI_WEBHOOK_TOKEN") ?? "";
-        let webhookToken = ENV_WEBHOOK_TOKEN.trim() || null;
+        let webhookToken: string | null = null;
 
-        if (creds.rowId) {
-          if (forceRotate || !webhookToken) {
-            webhookToken = crypto.randomUUID();
-          } else {
-            const { data: row } = await admin
-              .from("whatsapp_config")
-              .select("webhook_token")
-              .eq("id", creds.rowId)
-              .maybeSingle();
-            const stored = (row as { webhook_token?: string | null } | null)?.webhook_token?.trim();
-            webhookToken = stored || webhookToken || crypto.randomUUID();
+        if (!usesVercelIngress) {
+          webhookToken = ENV_WEBHOOK_TOKEN.trim() || null;
+          if (creds.rowId) {
+            if (forceRotate || !webhookToken) {
+              webhookToken = crypto.randomUUID();
+            } else {
+              const { data: row } = await admin()
+                .from("whatsapp_config")
+                .select("webhook_token")
+                .eq("id", creds.rowId)
+                .maybeSingle();
+              const stored = (row as { webhook_token?: string | null } | null)?.webhook_token?.trim();
+              webhookToken = stored || webhookToken || crypto.randomUUID();
+            }
+            await admin().from("whatsapp_config").update({
+              webhook_token: webhookToken,
+              updated_at: new Date().toISOString(),
+            }).eq("id", creds.rowId);
           }
-          await admin.from("whatsapp_config").update({
-            webhook_token: webhookToken,
+        } else if (creds.rowId) {
+          await admin().from("whatsapp_config").update({
+            webhook_token: null,
             updated_at: new Date().toISOString(),
           }).eq("id", creds.rowId);
         }
-
-        const webhookUrl = baseWebhookUrl.split("?")[0].replace(/\/+$/, "");
 
         const r = await callGreen(creds, "setSettings", {
           method: "POST",
@@ -388,7 +424,7 @@ Deno.serve(async (req) => {
           }),
         });
         if (r.ok && creds.rowId) {
-          await admin.from("whatsapp_config").update({
+          await admin().from("whatsapp_config").update({
             webhook_url: webhookUrl,
             updated_at: new Date().toISOString(),
           }).eq("id", creds.rowId);
@@ -404,7 +440,7 @@ Deno.serve(async (req) => {
         }
         const settings = await callGreen(creds, "getSettings");
         const liveUrl = String((settings.data as { webhookUrl?: string } | null)?.webhookUrl ?? "").trim();
-        await admin.from("whatsapp_config").update({
+        await admin().from("whatsapp_config").update({
           webhook_token: null,
           webhook_url: liveUrl || null,
           updated_at: new Date().toISOString(),

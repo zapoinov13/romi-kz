@@ -159,6 +159,8 @@ function tokensMatch(expected: string, presented: string): boolean {
   const b = normalizeWebhookToken(presented);
   return !!a && !!b && a === b;
 }
+
+type InstanceConfig = {
   projectId: string | null;
   cabinetId: string | null;
   ok: boolean;
