@@ -117,9 +117,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "messages",
     group: "ads",
-    label: "Сообщения",
-    short: "Сообщ.",
-    help: "Начатые переписки WhatsApp / Messenger из Meta.",
+    label: "WhatsApp",
+    short: "WA",
+    help: "Начатые переписки WhatsApp / Messenger. Не лиды с сайта.",
     kind: "meta",
     format: fmtNum,
     pick: (d) => d?.messages ?? 0,
@@ -128,9 +128,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "leads",
     group: "ads",
-    label: "Лиды (формы)",
+    label: "Лиды с сайта",
     short: "Лиды",
-    help: "Лид-формы и pixel lead из Meta. Без сообщений и кликов.",
+    help: "Лиды с сайта (pixel) и лид-формы Meta. Без WhatsApp и кликов.",
     kind: "direct",
     directField: "leads",
     format: fmtNum,
@@ -140,9 +140,9 @@ export const RNP_COLUMNS: RnpColumnDef[] = [
   {
     key: "cpl",
     group: "ads",
-    label: "Стоимость лида (формы)",
+    label: "Стоимость лида с сайта",
     short: "CPL",
-    help: "Затраты ÷ лиды-формы. Сообщения считаются отдельно.",
+    help: "Затраты ÷ лиды с сайта. WhatsApp считается отдельно.",
     kind: "formula",
     format: fmtTenge,
     pick: (d) => {

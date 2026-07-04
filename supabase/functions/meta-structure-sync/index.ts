@@ -9,6 +9,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { requireUser, userHasRole } from "../_lib/auth.ts";
+import {
+  PURCHASE_ACTIONS,
+  maxAction,
+  splitLeadsAndMessages,
+  sumActions,
+  type MetaAction,
+} from "../_lib/metaMetrics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,44 +24,10 @@ const corsHeaders = {
 
 const META_API_VERSION = "v21.0";
 
-const LEAD_ACTIONS = [
-  "lead",
-  "leadgen.other",
-  "onsite_conversion.lead_grouped",
-  "offsite_conversion.fb_pixel_lead",
-  "onsite_web_lead",
-];
-const MESSAGING_ACTIONS = ["onsite_conversion.messaging_conversation_started_7d"];
-const PURCHASE_ACTIONS = ["purchase", "offsite_conversion.fb_pixel_purchase", "omni_purchase"];
-
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-function maxAction(
-  actions: Array<{ action_type: string; value: string }> | undefined,
-  types: string[],
-) {
-  if (!actions) return 0;
-  let max = 0;
-  for (const a of actions) {
-    if (types.includes(a.action_type)) {
-      const v = Number(a.value || 0);
-      if (v > max) max = v;
-    }
-  }
-  return max;
-}
-function sumActions(
-  actions: Array<{ action_type: string; value: string }> | undefined,
-  types: string[],
-) {
-  if (!actions) return 0;
-  return actions
-    .filter((a) => types.includes(a.action_type))
-    .reduce((s, a) => s + Number(a.value || 0), 0);
 }
 
 function normalizeActId(id: string) {
@@ -251,30 +224,28 @@ interface ProcessedInsight {
 function processInsightRow(
   row: Record<string, unknown>,
   accountCurrency: string,
-  rates: Map<string, number>,
+  destinationType: string | null | undefined,
 ): ProcessedInsight | null {
   const date = String(row?.date_start ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  let spend = Number(row?.spend ?? 0);
+  const spend = Number(row?.spend ?? 0);
   const impressions = Number(row?.impressions ?? 0);
   const clicks = Number(row?.clicks ?? 0);
-  const actions = row?.actions as Array<{ action_type: string; value: string }> | undefined;
-  const actionValues = row?.action_values as Array<{ action_type: string; value: string }> | undefined;
-  const formLeads = maxAction(actions, LEAD_ACTIONS);
-  const messages = maxAction(actions, MESSAGING_ACTIONS);
+  const actions = row?.actions as MetaAction[] | undefined;
+  const actionValues = row?.action_values as MetaAction[] | undefined;
+  const { leads, messages } = splitLeadsAndMessages(actions, destinationType);
   const purchases = maxAction(actions, PURCHASE_ACTIONS);
-  let revenue = sumActions(actionValues, PURCHASE_ACTIONS);
-  let currency = accountCurrency;
+  const revenue = sumActions(actionValues, PURCHASE_ACTIONS);
   return {
     date,
     spend,
     impressions,
     clicks,
-    leads: formLeads + messages,
+    leads,
     messages,
     purchases,
     revenue,
-    currency,
+    currency: accountCurrency,
   };
 }
 
@@ -500,10 +471,12 @@ Deno.serve(async (req) => {
 
       const campDailyRows = campInsights
         .map((r) => {
-          const processed = processInsightRow(r, accountCurrency, ratesMap);
+          const campaignId = String(r.campaign_id);
+          const dest = destByCampaign.get(campaignId) ?? null;
+          const processed = processInsightRow(r, accountCurrency, dest);
           if (!processed) return null;
           return {
-            campaign_id: String(r.campaign_id),
+            campaign_id: campaignId,
             cabinet_id: cabinetId,
             project_id: projectId,
             date: processed.date,
@@ -529,13 +502,15 @@ Deno.serve(async (req) => {
 
       const adDailyRows = adInsights
         .map((r) => {
-          const processed = processInsightRow(r, accountCurrency, ratesMap);
+          const campaignId = (r.campaign_id as string | undefined) ?? null;
+          const dest = campaignId ? (destByCampaign.get(campaignId) ?? null) : null;
+          const processed = processInsightRow(r, accountCurrency, dest);
           if (!processed) return null;
           return {
             ad_id: String(r.ad_id),
             cabinet_id: cabinetId,
             project_id: projectId,
-            campaign_id: (r.campaign_id as string | undefined) ?? null,
+            campaign_id: campaignId,
             date: processed.date,
             spend: processed.spend,
             impressions: processed.impressions,

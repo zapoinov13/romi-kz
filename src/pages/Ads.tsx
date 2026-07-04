@@ -188,8 +188,8 @@ const Ads = () => {
             <div>Кабинет</div>
             <div className="text-right">Расход</div>
             <div className="text-right">Клики</div>
-            <div className="text-right">Сообщ.</div>
-            <div className="text-right">Лиды</div>
+            <div className="text-right">WhatsApp</div>
+            <div className="text-right">Лиды сайта</div>
             <div className="text-right">Показы</div>
             <div />
           </div>
@@ -271,7 +271,7 @@ const Ads = () => {
                 const r = (data?.results ?? [])[0];
                 if (r?.ok) {
                   toast.success(
-                    `Статистика: ${r.days} дн. · клики ${r.clicks ?? 0} · формы ${r.leads ?? 0} · сообщ. ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
+                    `Статистика: ${r.days} дн. · клики ${r.clicks ?? 0} · лиды сайта ${r.leads ?? 0} · WhatsApp ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
                   );
                   setRefreshKey((k) => k + 1);
                 } else if (r) {

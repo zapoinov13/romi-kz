@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { requireUser, userHasRole } from "../_lib/auth.ts";
+import {
+  PURCHASE_ACTIONS,
+  splitLeadsAndMessages,
+  sumActions,
+  type MetaAction,
+} from "../_lib/metaMetrics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,39 +14,26 @@ const corsHeaders = {
 
 const META_API_VERSION = "v21.0";
 
-// "Лиды с сайта / лид-формы" — берём максимум среди вариантов одного и того же события,
-// чтобы не задвоить (Meta часто дублирует одно и то же действие под разными именами).
-const LEAD_ACTIONS = [
-  "lead",
-  "leadgen.other",
-  "onsite_conversion.lead_grouped",
-  "offsite_conversion.fb_pixel_lead",
-  "onsite_web_lead",
-];
-// "Начатые переписки" — отдельная метрика (WhatsApp / Messenger), НЕ лиды-формы.
-const MESSAGING_ACTIONS = [
-  "onsite_conversion.messaging_conversation_started_7d",
-];
-const PURCHASE_ACTIONS = [
-  "purchase",
-  "offsite_conversion.fb_pixel_purchase",
-  "omni_purchase",
-];
-
-function maxAction(actions: Array<{ action_type: string; value: string }> | undefined, types: string[]) {
-  if (!actions) return 0;
-  let max = 0;
-  for (const a of actions) {
-    if (types.includes(a.action_type)) {
-      const v = Number(a.value || 0);
-      if (v > max) max = v;
+async function fetchAllPages<T extends Record<string, unknown>>(
+  startUrl: string,
+  fetchFn: (url: string) => Promise<Response>,
+  maxPages = 20,
+): Promise<T[]> {
+  const out: T[] = [];
+  let url: string | null = startUrl;
+  let pages = 0;
+  while (url && pages < maxPages) {
+    pages += 1;
+    const res = await fetchFn(url);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
     }
+    const data = (json?.data ?? []) as T[];
+    out.push(...data);
+    url = (json?.paging?.next as string | undefined) ?? null;
   }
-  return max;
-}
-function sumActions(actions: Array<{ action_type: string; value: string }> | undefined, types: string[]) {
-  if (!actions) return 0;
-  return actions.filter((a) => types.includes(a.action_type)).reduce((s, a) => s + Number(a.value || 0), 0);
+  return out;
 }
 function normalizeActId(id: string) {
   const t = id.trim();
@@ -311,72 +304,135 @@ Deno.serve(async (req) => {
       }
       const actId = normalizeActId(ext);
 
-      const fields = ["date_start", "spend", "impressions", "clicks", "actions", "action_values"].join(",");
+      // Кампанийный уровень: иначе Meta смешивает WhatsApp-переписки в lead на аккаунте.
+      const fields = ["campaign_id", "date_start", "spend", "impressions", "clicks", "actions", "action_values"].join(",");
       const timeRange = encodeURIComponent(JSON.stringify({ since, until }));
       const buildInsightsUrl = (tok: string) =>
         `https://graph.facebook.com/${META_API_VERSION}/${actId}/insights` +
-        `?fields=${fields}&time_range=${timeRange}&time_increment=1&level=account&limit=500` +
+        `?fields=${fields}&time_range=${timeRange}&time_increment=1&level=campaign&limit=500` +
         `&access_token=${encodeURIComponent(tok)}`;
       const buildAccountUrl = (tok: string) =>
         `https://graph.facebook.com/${META_API_VERSION}/${actId}` +
         `?fields=currency&access_token=${encodeURIComponent(tok)}`;
+      const buildAdsetsUrl = (tok: string) =>
+        `https://graph.facebook.com/${META_API_VERSION}/${actId}/adsets` +
+        `?fields=campaign_id,destination_type&limit=200&access_token=${encodeURIComponent(tok)}`;
 
       try {
         // Перебираем все Meta токены, пока какой-нибудь не получит доступ к кабинету.
-        // Это нужно при подключённых нескольких Business Manager (несколько токенов).
-        let iRes: Response | null = null;
-        let aRes: Response | null = null;
-        let iJson: any = null;
-        let aJson: any = {};
+        let workingTok: string | null = null;
+        let aJson: Record<string, unknown> = {};
         let lastErr: { msg: string; code?: unknown } | null = null;
         for (const tok of META_TOKENS) {
-          const [ir, ar] = await Promise.all([
-            fetchWithRetry(buildInsightsUrl(tok)),
-            fetchWithRetry(buildAccountUrl(tok)),
-          ]);
-          const ij = await ir.json();
-          if (ir.ok) {
-            iRes = ir; aRes = ar; iJson = ij;
-            aJson = await ar.json().catch(() => ({}));
+          const ar = await fetchWithRetry(buildAccountUrl(tok));
+          const aj = await ar.json().catch(() => ({}));
+          if (ar.ok) {
+            workingTok = tok;
+            aJson = aj as Record<string, unknown>;
             break;
           }
-          lastErr = { msg: ij?.error?.message ?? `HTTP ${ir.status}`, code: ij?.error?.code };
+          lastErr = { msg: (aj as { error?: { message?: string; code?: unknown } })?.error?.message ?? `HTTP ${ar.status}`, code: (aj as { error?: { code?: unknown } })?.error?.code };
         }
-        if (!iRes || !iRes.ok || !iJson) {
+        if (!workingTok) {
           results.push({ cabinet_id: cab.id, cabinet: cabName, ok: false, error: lastErr?.msg ?? "no token has access", code: lastErr?.code });
           console.error(`[meta-daily-sync] cabinet=${ext} no token has access: ${lastErr?.msg}`);
           continue;
         }
-        const accountCurrency: string = aJson?.currency ?? "USD";
-        const rawRows = (iJson.data ?? []) as Array<Record<string, unknown>>;
+        const accountCurrency: string = (aJson?.currency as string) ?? "USD";
 
-        const rows: Array<Record<string, unknown>> = [];
+        // destination_type по кампании (WhatsApp vs сайт)
+        const destByCampaign = new Map<string, string>();
+        try {
+          const adsets = await fetchAllPages<Record<string, unknown>>(
+            buildAdsetsUrl(workingTok),
+            fetchWithRetry,
+          );
+          for (const a of adsets) {
+            const cid = String(a.campaign_id ?? "");
+            const dest = (a.destination_type as string | undefined) ?? null;
+            if (cid && dest && !destByCampaign.has(cid)) destByCampaign.set(cid, dest);
+          }
+        } catch (e) {
+          console.warn(`[meta-daily-sync] cabinet=${ext} adsets dest fetch failed:`, e);
+        }
+        // Фоллбэк: уже сохранённые destination в meta_campaigns
+        if (destByCampaign.size === 0) {
+          const { data: camps } = await admin
+            .from("meta_campaigns")
+            .select("campaign_id, destination_type")
+            .eq("cabinet_id", cab.id);
+          for (const c of camps ?? []) {
+            const dest = (c as { destination_type?: string | null }).destination_type;
+            if (dest) destByCampaign.set(String(c.campaign_id), dest);
+          }
+        }
+
+        const campRows = await fetchAllPages<Record<string, unknown>>(
+          buildInsightsUrl(workingTok),
+          fetchWithRetry,
+        );
+
+        // Агрегат по дню: клики отдельно, WA → messages, сайт/формы → leads
+        type DayAgg = {
+          spend: number; impressions: number; clicks: number;
+          leads: number; messages: number; revenue: number;
+        };
+        const byDate = new Map<string, DayAgg>();
         let totalSpend = 0, totalLeads = 0, totalMessages = 0, totalClicks = 0, totalRevenue = 0;
-        for (const row of rawRows) {
+
+        for (const row of campRows) {
           const date = String(row?.date_start ?? "");
           if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+          const campaignId = String(row?.campaign_id ?? "");
+          const dest = destByCampaign.get(campaignId) ?? null;
           const spend = Number(row?.spend ?? 0);
           const impressions = Number(row?.impressions ?? 0);
           const clicks = Number(row?.clicks ?? 0);
-          const formLeads = maxAction(row?.actions as any, LEAD_ACTIONS);
-          const messages = maxAction(row?.actions as any, MESSAGING_ACTIONS);
-          const revenue = sumActions(row?.action_values as any, PURCHASE_ACTIONS);
-          const cpl = formLeads > 0 ? spend / formLeads : 0;
-          const cpm = impressions > 0 ? (spend / impressions) * 1000 : 0;
-          const cpc = clicks > 0 ? spend / clicks : 0;
-          const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+          const { leads, messages } = splitLeadsAndMessages(
+            row?.actions as MetaAction[] | undefined,
+            dest,
+          );
+          const revenue = sumActions(row?.action_values as MetaAction[] | undefined, PURCHASE_ACTIONS);
+
+          const cur = byDate.get(date) ?? {
+            spend: 0, impressions: 0, clicks: 0, leads: 0, messages: 0, revenue: 0,
+          };
+          cur.spend += spend;
+          cur.impressions += impressions;
+          cur.clicks += clicks;
+          cur.leads += leads;
+          cur.messages += messages;
+          cur.revenue += revenue;
+          byDate.set(date, cur);
+
+          totalSpend += spend;
+          totalLeads += leads;
+          totalMessages += messages;
+          totalClicks += clicks;
+          totalRevenue += revenue;
+        }
+
+        const rows: Array<Record<string, unknown>> = [];
+        for (const [date, agg] of byDate) {
+          const cpl = agg.leads > 0 ? agg.spend / agg.leads : 0;
+          const cpm = agg.impressions > 0 ? (agg.spend / agg.impressions) * 1000 : 0;
+          const cpc = agg.clicks > 0 ? agg.spend / agg.clicks : 0;
+          const ctr = agg.impressions > 0 ? (agg.clicks / agg.impressions) * 100 : 0;
           rows.push({
             cabinet_id: cab.id,
             external_id: actId,
-            project_id: (cab as any).project_id ?? null,
+            project_id: (cab as { project_id?: string | null }).project_id ?? null,
             date,
-            spend, impressions, clicks, leads: formLeads, messages, revenue,
+            spend: agg.spend,
+            impressions: agg.impressions,
+            clicks: agg.clicks,
+            leads: agg.leads,
+            messages: agg.messages,
+            revenue: agg.revenue,
             cpl, cpm, cpc, ctr,
             currency: accountCurrency,
             synced_at: new Date().toISOString(),
           });
-          totalSpend += spend; totalLeads += formLeads; totalMessages += messages;
-          totalClicks += clicks; totalRevenue += revenue;
         }
         if (rows.length > 0) {
           const { error: upErr } = await admin

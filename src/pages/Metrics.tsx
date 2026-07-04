@@ -330,9 +330,9 @@ const Metrics = () => {
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard icon={Wallet} label="Выручка" value={fmtTenge(totals.revenue)} sub={plan ? `${pct(totals.revenue, plan.revenue) ?? 0}% плана` : "—"} tone="success" />
-        <KpiCard icon={BarChart3} label="Расходы" value={fmtTenge(totals.spend)} sub={`Клики ${fmtNum(totals.clicks)} · Конв. ${fmtNum(metaConv)}`} tone="primary" />
+        <KpiCard icon={BarChart3} label="Расходы" value={fmtTenge(totals.spend)} sub={`Клики ${fmtNum(totals.clicks)} · Сайт ${fmtNum(totals.leads)} · WA ${fmtNum(totals.messages)}`} tone="primary" />
         <KpiCard icon={Target} label="КЭВ" value={fmtNum(totals.kev)} sub={`Продажи: ${totals.sales || "—"}`} tone="warning" />
-        <KpiCard icon={TrendingUp} label="CPL (формы)" value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"} sub={totals.messages > 0 ? `Сообщ. ${fmtNum(totals.messages)}` : totals.sales > 0 ? `CAC ${fmtTenge(totals.spend / totals.sales)}` : "—"} tone="muted" />
+        <KpiCard icon={TrendingUp} label="CPL сайта" value={totals.leads > 0 ? fmtTenge(totals.spend / totals.leads) : "—"} sub={totals.messages > 0 ? `WhatsApp ${fmtNum(totals.messages)}` : totals.sales > 0 ? `CAC ${fmtTenge(totals.spend / totals.sales)}` : "—"} tone="muted" />
       </div>
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

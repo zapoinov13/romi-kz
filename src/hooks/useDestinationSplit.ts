@@ -153,12 +153,10 @@ export function useDestinationSplit(
         if (isWhatsappDest(dest)) {
           wa.spend += spend;
           wa.clicks += clicks;
-          // For WA/messenger campaigns, prefer messages; fall back to leads if 0.
+          // WA: только переписки. Старые данные могли класть их в leads.
           wa.messages += messages > 0 ? messages : leads;
-        } else if (isLeadFormDest(dest)) {
-          // Лид-формы Meta — не смешиваем с сайтом и WhatsApp.
-        } else if (isWebsiteDest(dest) || dest === null) {
-          // Treat unknown destination as website by default.
+        } else if (isLeadFormDest(dest) || isWebsiteDest(dest) || dest === null) {
+          // Сайт / лид-формы Meta → колонка «лиды сайта», не WhatsApp.
           const cab = cabMeta.get(row.cabinet_id as string);
           const url = cab?.url || cab?.name || "Без сайта";
           const key = url;
@@ -167,8 +165,8 @@ export function useDestinationSplit(
             label: hostLabel(url),
             spend: 0, clicks: 0, leads: 0, cr: 0,
           };
-          // For site campaigns subtract messages from leads (sync sums them together).
-          const pureLeads = Math.max(leads - messages, 0);
+          // Старый баг: leads = formLeads + messages — вычитаем messages.
+          const pureLeads = messages > 0 ? Math.max(leads - messages, 0) : leads;
           cur.spend += spend;
           cur.clicks += clicks;
           cur.leads += pureLeads;

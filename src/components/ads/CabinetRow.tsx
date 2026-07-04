@@ -129,7 +129,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
       const r = (resp?.results ?? [])[0];
       if (r?.ok) {
         toast.success(
-          `Загружено: ${r.days} дн. · клики ${r.clicks ?? 0} · формы ${r.leads ?? 0} · сообщ. ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
+          `Загружено: ${r.days} дн. · клики ${r.clicks ?? 0} · лиды сайта ${r.leads ?? 0} · WhatsApp ${r.messages ?? 0} · расход ${Math.round(r.spend)}`,
         );
         refresh();
         onSynced?.();
@@ -374,7 +374,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             }
           />
           <Metric
-            label="Сообщ."
+            label="WhatsApp"
             value={
               <span className="text-sky-500">
                 {formatNumber(totals?.messages ?? 0)}
@@ -387,7 +387,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             }
           />
           <Metric
-            label="Лиды"
+            label="Лиды сайта"
             value={
               <span className="text-success">
                 {formatNumber(totals?.leads ?? 0)}
@@ -571,13 +571,13 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 sub: cpc > 0 ? `CPC ${formatMoney(cpc, currency)}` : undefined,
               },
               {
-                label: "Сообщения",
+                label: "WhatsApp",
                 value: formatNumber(totals?.messages ?? 0),
                 color: "text-sky-500",
                 sub: costPerMessage > 0 ? `${formatMoney(costPerMessage, currency)} / сообщ.` : undefined,
               },
               {
-                label: "Лиды (формы)",
+                label: "Лиды сайта",
                 value: formatNumber(totals?.leads ?? 0),
                 color: "text-success",
                 sub: cplForms > 0 ? `CPL ${formatMoney(cplForms, currency)}` : undefined,
@@ -586,7 +586,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                 label: "Конверсии",
                 value: formatNumber(conversionsTotal),
                 color: "text-primary",
-                sub: "лиды + сообщения",
+                sub: "сайт + WhatsApp",
               },
               {
                 label: "Показы",
@@ -619,8 +619,8 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
                   <th className="px-4 py-3 text-left font-medium">Дата</th>
                   <th className="px-4 py-3 text-right font-medium">Расходы</th>
                   <th className="px-4 py-3 text-right font-medium">Клики</th>
-                  <th className="px-4 py-3 text-right font-medium">Сообщ.</th>
-                  <th className="px-4 py-3 text-right font-medium">Лиды</th>
+                  <th className="px-4 py-3 text-right font-medium">WhatsApp</th>
+                  <th className="px-4 py-3 text-right font-medium">Лиды сайта</th>
                   <th className="px-4 py-3 text-right font-medium">Показы</th>
                 </tr>
               </thead>

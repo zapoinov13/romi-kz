@@ -243,10 +243,10 @@ const Dashboard = () => {
           Заявок всего: <span className="font-semibold text-foreground">{fmtNum(totals?.totalLeads ?? 0)}</span>
         </div>
         <div>
-          Формы: <span className="font-semibold text-foreground">{fmtNum(totals?.adsLeads ?? 0)}</span>
+          Лиды сайта: <span className="font-semibold text-foreground">{fmtNum(totals?.adsLeads ?? 0)}</span>
         </div>
         <div>
-          Сообщения: <span className="font-semibold text-foreground">{fmtNum(totals?.adsMessages ?? 0)}</span>
+          WhatsApp: <span className="font-semibold text-foreground">{fmtNum(totals?.adsMessages ?? 0)}</span>
         </div>
         <div>
           Кликов: <span className="font-semibold text-foreground">{fmtNum(totals?.clicks ?? 0)}</span>
