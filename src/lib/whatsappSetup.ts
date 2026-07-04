@@ -17,6 +17,8 @@ export type WebhookSetupResult = {
 type GreenSettings = {
   webhookUrl?: string;
   incomingWebhook?: string;
+  incomingMessageWebhook?: string;
+  webhookUrlToken?: string;
 };
 
 /** Прописать CRM webhook в Green API и проверить, что URL совпадает. */
@@ -27,7 +29,13 @@ export async function ensureCrmWebhook(
   const crmUrl = getCrmWebhookUrl();
   try {
     const { data: setData, error: setError } = await supabase.functions.invoke("greenapi-proxy", {
-      body: { action: "setWebhook", webhookUrl: crmUrl, project_id: projectId, cabinet_id: cabinetId },
+      body: {
+        action: "setWebhook",
+        webhookUrl: crmUrl,
+        project_id: projectId,
+        cabinet_id: cabinetId,
+        forceRotate: true,
+      },
     });
     if (setError) {
       return { ok: false, matched: false, error: setError.message };
@@ -61,19 +69,25 @@ export async function verifyCrmWebhook(
     }
     const liveSettings = (settingsData as { data?: GreenSettings } | null)?.data;
     const live = liveSettings?.webhookUrl ?? "";
-    const incomingEnabled = liveSettings?.incomingWebhook === "yes";
-    const matched = !!live
+    const incomingEnabled =
+      liveSettings?.incomingWebhook === "yes"
+      || liveSettings?.incomingMessageWebhook === "yes";
+    const urlBaseOk = !!live
       && live.replace(/\/+$/, "").split("?")[0] === crmUrl.replace(/\/+$/, "");
+    const tokenOk = live.includes("token=") || !!(liveSettings?.webhookUrlToken?.trim());
+    const matched = urlBaseOk && incomingEnabled && tokenOk;
     return {
       ok: true,
-      matched: matched && incomingEnabled,
+      matched,
       incomingEnabled,
       liveWebhookUrl: live,
-      error: !matched
-        ? `Green API шлёт на: ${live || "—"}`
+      error: !urlBaseOk
+        ? `Green API шлёт на: ${live || "—"} (нужен ROMI CRM webhook)`
         : !incomingEnabled
           ? "incomingWebhook выключен в Green API"
-          : undefined,
+          : !tokenOk
+            ? "webhookUrlToken не прописан в Green API — нажмите «Синхронизировать webhook»"
+            : undefined,
     };
   } catch (e) {
     return { ok: false, matched: false, error: (e as Error).message };
@@ -197,6 +211,14 @@ export async function saveBotWebhookUrl(
   const trimmed = url.trim();
   if (trimmed && !isValidBotWebhookUrl(trimmed)) {
     return { error: { message: "URL должен быть https (например n8n.zapoinov.com/webhook/…)" } };
+  }
+  const crmBase = getCrmWebhookUrl().replace(/\/+$/, "");
+  if (trimmed && trimmed.replace(/\/+$/, "").split("?")[0] === crmBase) {
+    return {
+      error: {
+        message: "Это URL CRM, не n8n. Укажите webhook n8n-бота — ROMI сам принимает сообщения.",
+      },
+    };
   }
   const { error } = await supabase.rpc("save_whatsapp_bot_webhook", {
     p_project_id: projectId,

@@ -565,8 +565,9 @@ Deno.serve(async (req) => {
   // stay backwards-compatible and accept the call.
   const url = new URL(req.url);
   const presentedToken =
-    url.searchParams.get("token") ??
-    (typeof body.webhookUrlToken === "string" ? (body.webhookUrlToken as string) : null);
+    url.searchParams.get("token")
+    ?? (typeof body.webhookUrlToken === "string" ? body.webhookUrlToken as string : null)
+    ?? (typeof body.token === "string" ? body.token as string : null);
   const instanceCfg = await projectFromInstance(instanceData?.idInstance, presentedToken);
   if (!instanceCfg.ok) {
     console.warn("greenapi-webhook: invalid webhook token", { idInstance: instanceData?.idInstance });

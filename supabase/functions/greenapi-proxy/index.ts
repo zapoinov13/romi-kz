@@ -347,24 +347,26 @@ Deno.serve(async (req) => {
           return json({ error: "Invalid webhook URL" }, 400);
         }
 
+        const forceRotate = body.forceRotate === true || body.force === true;
         const ENV_WEBHOOK_TOKEN = Deno.env.get("GREENAPI_WEBHOOK_TOKEN") ?? "";
         let webhookToken = ENV_WEBHOOK_TOKEN.trim() || null;
+
         if (creds.rowId) {
-          const { data: row } = await admin
-            .from("whatsapp_config")
-            .select("webhook_token")
-            .eq("id", creds.rowId)
-            .maybeSingle();
-          const stored = (row as { webhook_token?: string | null } | null)?.webhook_token?.trim();
-          if (stored) {
-            webhookToken = stored;
-          } else if (!webhookToken) {
+          if (forceRotate || !webhookToken) {
             webhookToken = crypto.randomUUID();
-            await admin.from("whatsapp_config").update({
-              webhook_token: webhookToken,
-              updated_at: new Date().toISOString(),
-            }).eq("id", creds.rowId);
+          } else {
+            const { data: row } = await admin
+              .from("whatsapp_config")
+              .select("webhook_token")
+              .eq("id", creds.rowId)
+              .maybeSingle();
+            const stored = (row as { webhook_token?: string | null } | null)?.webhook_token?.trim();
+            webhookToken = stored || webhookToken || crypto.randomUUID();
           }
+          await admin.from("whatsapp_config").update({
+            webhook_token: webhookToken,
+            updated_at: new Date().toISOString(),
+          }).eq("id", creds.rowId);
         }
 
         const urlObj = new URL(baseWebhookUrl.split("?")[0]);
@@ -383,7 +385,9 @@ Deno.serve(async (req) => {
             outgoingMessageWebhook: "yes",
             outgoingAPIMessageWebhook: "yes",
             incomingWebhook: "yes",
+            incomingMessageWebhook: "yes",
             stateWebhook: "yes",
+            deviceWebhook: "no",
           }),
         });
         if (r.ok && creds.rowId) {

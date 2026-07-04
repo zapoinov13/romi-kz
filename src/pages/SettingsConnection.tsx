@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, verifyCrmWebhook, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, saveBotWebhookUrl, isValidBotWebhookUrl, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
+import { WHATSAPP_SETUP_STEPS, ensureCrmWebhook, verifyCrmWebhook, getCrmWebhookUrl, pickWhatsappConfigRow, bindWhatsappToProject, queryWhatsappConfigSafe, saveBotWebhookUrl, isValidBotWebhookUrl, type WhatsappConfigSafeRow } from "@/lib/whatsappSetup";
 
 type GreenResp<T = unknown> = {
   ok: boolean;
@@ -489,6 +489,10 @@ function N8nBotWebhookCard({
     }
   };
 
+  const crmUrlBase = getCrmWebhookUrl().replace(/\/+$/, "");
+  const savedIsCrmUrl = !!savedUrl.trim()
+    && savedUrl.trim().replace(/\/+$/, "").split("?")[0] === crmUrlBase;
+
   return (
     <Card className={cn("border-border bg-card", embedded ? "mt-4" : "mt-6")}>
       <CardHeader className="pb-3">
@@ -499,6 +503,12 @@ function N8nBotWebhookCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {savedIsCrmUrl ? (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Сейчас указан URL CRM — это неверно. Вставьте n8n webhook (например{" "}
+            <code>n8n.zapoinov.com/webhook/8bba7244-…</code>) или очистите поле.
+          </p>
+        ) : null}
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
