@@ -149,7 +149,7 @@ export function GreenApiConnectionPanel({
       return;
     }
     setWaLoading(true);
-    let q = supabase
+    const q = supabase
       .from("whatsapp_config_safe")
       .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
       .eq("cabinet_id", cabinetId);
