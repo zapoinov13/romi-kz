@@ -5,7 +5,7 @@
 // row and only fall back to GREENAPI_* env vars when the project has no
 // binding (legacy single-tenant behaviour).
 //
-// Actions: status, qr, getCode, logout, settings, setWebhook, sendMessage.
+// Actions: status, qr, getCode, logout, settings, setWebhook, sendMessage, syncLeadName, syncLeadNamesBatch.
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
@@ -252,6 +252,180 @@ async function callGreen(
   return { ok: res.ok, status: res.status, data };
 }
 
+const PHONEBOOK_LABELS = new Set([
+  "муж", "жена", "wife", "husband", "мама", "папа", "mom", "dad",
+  "брат", "сестра", "bro", "sis", "brother", "sister", "друг", "подруга",
+  "клиент", "client", "customer", "заказчик", "пациент", "patient",
+]);
+
+function isPhonebookLabel(name: string): boolean {
+  return PHONEBOOK_LABELS.has(name.trim().toLowerCase());
+}
+
+/** Green API getContactInfo: `name` = WhatsApp profile, `contactName` = phone book label. */
+function pickWaDisplayName(info: { name?: string; contactName?: string }): string {
+  const profile = (info.name ?? "").trim();
+  if (profile && !isPhonebookLabel(profile)) return profile;
+  return "";
+}
+
+function isServiceRoleRequest(req: Request): boolean {
+  if (!SERVICE_ROLE) return false;
+  const auth = (req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "").trim();
+  return auth === `Bearer ${SERVICE_ROLE}`;
+}
+
+async function lookupWaCreds(
+  projectId: string | null,
+  cabinetId: string | null,
+): Promise<Creds | { error: string; status: number }> {
+  type WaRow = {
+    id: string;
+    project_id: string | null;
+    id_instance: string | null;
+    api_token: string | null;
+    api_url: string | null;
+  };
+
+  let row: WaRow | null = null;
+
+  if (cabinetId) {
+    const { data } = await admin()
+      .from("whatsapp_config")
+      .select("id, project_id, id_instance, api_token, api_url")
+      .eq("cabinet_id", cabinetId)
+      .maybeSingle();
+    row = data as WaRow | null;
+  }
+
+  if (!row?.id_instance && projectId) {
+    const { data } = await admin()
+      .from("whatsapp_config")
+      .select("id, project_id, id_instance, api_token, api_url")
+      .eq("project_id", projectId)
+      .is("cabinet_id", null)
+      .maybeSingle();
+    row = data as WaRow | null;
+  }
+
+  if (!row?.id_instance && projectId) {
+    const { data } = await admin()
+      .from("whatsapp_config")
+      .select("id, project_id, id_instance, api_token, api_url")
+      .eq("project_id", projectId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    row = data as WaRow | null;
+  }
+
+  if (!row?.id_instance && ENV_ID && ENV_TOKEN) {
+    const baseUrlOrErr = resolveGreenApiBaseUrl(ENV_URL);
+    if (typeof baseUrlOrErr !== "string") return baseUrlOrErr;
+    return {
+      source: "env",
+      rowId: null,
+      projectId,
+      idInstance: ENV_ID,
+      apiToken: ENV_TOKEN,
+      baseUrl: baseUrlOrErr,
+    };
+  }
+
+  if (!row?.id_instance) {
+    return { error: "Green API instance not bound to project", status: 400 };
+  }
+
+  const baseUrlOrErr = resolveGreenApiBaseUrl(row.api_url);
+  if (typeof baseUrlOrErr !== "string") return baseUrlOrErr;
+  const apiToken = (row.api_token ?? "").trim();
+  if (!apiToken) {
+    if (ENV_TOKEN && row.id_instance === ENV_ID) {
+      return {
+        source: "db",
+        rowId: row.id,
+        projectId: row.project_id,
+        idInstance: row.id_instance,
+        apiToken: ENV_TOKEN,
+        baseUrl: baseUrlOrErr,
+      };
+    }
+    return { error: "Green API token missing for project", status: 400 };
+  }
+
+  return {
+    source: "db",
+    rowId: row.id,
+    projectId: row.project_id,
+    idInstance: row.id_instance,
+    apiToken,
+    baseUrl: baseUrlOrErr,
+  };
+}
+
+async function callGreenGetContactInfo(
+  creds: Creds,
+  chatId: string,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const url =
+    `${creds.baseUrl}/waInstance${creds.idInstance}/getContactInfo/${creds.apiToken}?chatId=${encodeURIComponent(chatId)}`;
+  const res = await fetch(url);
+  const text = await res.text();
+  let data: unknown = text;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    /* keep raw text */
+  }
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function syncLeadNameFromGreenApi(
+  creds: Creds,
+  leadId: string,
+): Promise<{ ok: boolean; updated?: boolean; name?: string; skipped?: boolean; error?: string }> {
+  const { data: lead, error } = await admin()
+    .from("leads")
+    .select("id, phone, name, channel")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (error || !lead) return { ok: false, error: "Lead not found" };
+
+  const row = lead as { id: string; phone?: string | null; name?: string | null; channel?: string | null };
+  if (row.channel !== "whatsapp") return { ok: true, skipped: true };
+
+  const digits = String(row.phone ?? "").replace(/\D/g, "");
+  if (digits.length < 8) return { ok: false, error: "Invalid phone on lead" };
+
+  const r = await callGreenGetContactInfo(creds, `${digits}@c.us`);
+  if (!r.ok) {
+    return { ok: false, error: `getContactInfo HTTP ${r.status}` };
+  }
+
+  const info = (r.data ?? {}) as { name?: string; contactName?: string };
+  const next = pickWaDisplayName(info);
+  const contactName = (info.contactName ?? "").trim();
+  const current = (row.name ?? "").trim();
+  const isPhone = /^\+?\d[\d\s()-]{7,}$/.test(current);
+  const fromContactBook = !!contactName && current === contactName;
+  const isLabel = isPhonebookLabel(current);
+
+  if (next && current !== next && (!current || isPhone || fromContactBook || isLabel)) {
+    await admin().from("leads").update({ name: next }).eq("id", leadId);
+    return { ok: true, updated: true, name: next };
+  }
+
+  if (!next && (isLabel || fromContactBook)) {
+    const fallback = (row.phone ?? "").trim();
+    if (fallback && current !== fallback) {
+      await admin().from("leads").update({ name: fallback }).eq("id", leadId);
+      return { ok: true, updated: true, name: fallback };
+    }
+  }
+
+  return { ok: true, updated: false, name: current || next || undefined };
+}
+
 /** After a successful state poll, push the live state back into the bound row
  * so the UI doesn't show a stale "подключён" badge. Best-effort. */
 async function syncState(
@@ -305,7 +479,13 @@ Deno.serve(async (req) => {
         ? body.cabinet_id
         : null;
 
-    const credsOrErr = await resolveCreds(req, projectId, cabinetId);
+    const internalSync =
+      (action === "syncLeadName" || action === "syncLeadNamesBatch") &&
+      isServiceRoleRequest(req);
+
+    const credsOrErr = internalSync
+      ? await lookupWaCreds(projectId, cabinetId)
+      : await resolveCreds(req, projectId, cabinetId);
     if ("error" in credsOrErr) {
       return json({ error: credsOrErr.error, code: "NO_CREDENTIALS" }, credsOrErr.status);
     }
@@ -464,6 +644,38 @@ Deno.serve(async (req) => {
           }),
         });
         return json({ ok: r.ok, status: r.status, data: r.data });
+      }
+
+      case "syncLeadName": {
+        const leadId = String(body.lead_id ?? body.leadId ?? "").trim();
+        if (!leadId) return json({ error: "lead_id required" }, 400);
+        const result = await syncLeadNameFromGreenApi(creds, leadId);
+        return json(result, result.ok ? 200 : 400);
+      }
+
+      case "syncLeadNamesBatch": {
+        if (!projectId) return json({ error: "project_id required" }, 400);
+        const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
+        const { data: leadRows } = await admin()
+          .from("leads")
+          .select("id, name, phone")
+          .eq("channel", "whatsapp")
+          .eq("project_id", projectId)
+          .order("updated_at", { ascending: false })
+          .limit(limit);
+
+        let updated = 0;
+        let scanned = 0;
+        for (const row of (leadRows ?? []) as { id: string; name?: string | null; phone?: string | null }[]) {
+          const current = (row.name ?? "").trim();
+          const isPhone = /^\+?\d[\d\s()-]{7,}$/.test(current);
+          if (!isPhonebookLabel(current) && !isPhone && current) continue;
+          scanned++;
+          const r = await syncLeadNameFromGreenApi(creds, row.id);
+          if (r.updated) updated++;
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        return json({ ok: true, updated, scanned, limit });
       }
 
       default:

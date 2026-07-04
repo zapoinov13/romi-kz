@@ -34,7 +34,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: error.message, code: error.code });
   }
 
-  const result = (data ?? { ok: true }) as { ok?: boolean; botWebhookUrl?: string | null };
+  const result = (data ?? { ok: true }) as {
+    ok?: boolean;
+    botWebhookUrl?: string | null;
+    leadId?: string | null;
+    projectId?: string | null;
+  };
   const botUrl = result.botWebhookUrl?.trim();
   if (botUrl && botUrl !== `${url.replace(/\/+$/, "")}/functions/v1/greenapi-webhook`) {
     fetch(botUrl, {
@@ -42,6 +47,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).catch((e) => console.warn("bot forward failed", e));
+  }
+
+  const leadId = result.leadId?.trim();
+  const projectId = result.projectId?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (
+    serviceKey &&
+    leadId &&
+    (body.typeWebhook === "incomingMessageReceived" ||
+      body.typeWebhook === "outgoingMessageReceived" ||
+      body.typeWebhook === "outgoingAPIMessageReceived")
+  ) {
+    fetch(`${url.replace(/\/+$/, "")}/functions/v1/greenapi-proxy`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "syncLeadName",
+        lead_id: leadId,
+        project_id: projectId ?? undefined,
+      }),
+    }).catch((e) => console.warn("wa name sync failed", e));
   }
 
   return res.status(200).json(data ?? { ok: true });
