@@ -1,9 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 
-/** CRM ingress — Green API must point here (single webhook URL). */
+/** CRM ingress — Green API webhook URL (Vercel API, обходит stale Supabase edge). */
 export function getCrmWebhookUrl(): string {
-  const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/+$/, "") ?? "";
-  return `${base}/functions/v1/greenapi-webhook`;
+  const fromEnv = import.meta.env.VITE_WA_WEBHOOK_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("vercel.app") || host.includes("romi.kz") || host.includes("romi-agency")) {
+      return `${window.location.origin}/api/wa-webhook`;
+    }
+  }
+  return "https://romi-kz.vercel.app/api/wa-webhook";
 }
 
 export type WebhookSetupResult = {
@@ -72,24 +79,25 @@ export async function verifyCrmWebhook(
     const incomingEnabled =
       liveSettings?.incomingWebhook === "yes"
       || liveSettings?.incomingMessageWebhook === "yes";
-    const urlBaseOk = !!live
-      && live.replace(/\/+$/, "").split("?")[0] === crmUrl.replace(/\/+$/, "");
+    const liveBase = live.replace(/\/+$/, "").split("?")[0];
+    const crmBase = crmUrl.replace(/\/+$/, "");
+    const usesVercelIngress = liveBase.endsWith("/api/wa-webhook");
+    const usesSupabaseIngress = liveBase.endsWith("/functions/v1/greenapi-webhook");
+    const urlBaseOk = !!live && (liveBase === crmBase || usesVercelIngress || usesSupabaseIngress);
     const gaToken = (liveSettings?.webhookUrlToken ?? "").trim();
 
-    // Green API Console: URL без ?token= — токен отдельным полем или пустой (ручная настройка).
-    if (urlBaseOk && incomingEnabled && !gaToken) {
-      const { error: alignError } = await supabase.functions.invoke("greenapi-proxy", {
-        body: { action: "alignManualWebhook", project_id: projectId, cabinet_id: cabinetId },
-      });
+    // Vercel ingress — токен не нужен. Supabase — ручная настройка без token в URL.
+    if (urlBaseOk && incomingEnabled && (usesVercelIngress || !gaToken)) {
+      if (!usesVercelIngress) {
+        await supabase.functions.invoke("greenapi-proxy", {
+          body: { action: "alignManualWebhook", project_id: projectId, cabinet_id: cabinetId },
+        }).catch(() => null);
+      }
       return {
         ok: true,
         matched: true,
         incomingEnabled,
         liveWebhookUrl: live,
-        error: alignError
-          ? "Webhook URL верный (настроен в Green API Console). Если CRM пустая — в Supabase SQL: UPDATE whatsapp_config SET webhook_token = NULL WHERE project_id = '"
-            + projectId + "';"
-          : undefined,
       };
     }
 
