@@ -1,6 +1,4 @@
--- CRM WhatsApp: входящие + исходящие (бот n8n, API, телефон) в одном диалоге.
--- Lovable → Supabase → SQL Editor → выполнить целиком.
--- Green API webhook: https://romi-kz.vercel.app/api/wa-webhook
+-- Reject phonebook labels (муж/жена) as lead names; use phone instead.
 
 CREATE OR REPLACE FUNCTION public.greenapi_ingest(p_payload jsonb)
 RETURNS jsonb

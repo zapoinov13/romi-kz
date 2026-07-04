@@ -74,6 +74,17 @@ function widToPhone(wid: unknown): string | null {
   return `+${s}`;
 }
 
+/** Labels from the business phone book — not WhatsApp profile names. */
+const PHONEBOOK_LABELS = new Set([
+  "муж", "жена", "wife", "husband", "мама", "папа", "mom", "dad",
+  "брат", "сестра", "bro", "sis", "brother", "sister", "друг", "подруга",
+  "клиент", "client", "customer", "заказчик", "пациент", "patient",
+]);
+
+function isPhonebookLabel(name: string): boolean {
+  return PHONEBOOK_LABELS.has(name.trim().toLowerCase());
+}
+
 /** WhatsApp profile name — not the label from the business phone contacts (senderContactName). */
 function extractWaProfileName(
   senderData?: {
@@ -86,27 +97,40 @@ function extractWaProfileName(
   const chatName = senderData.chatName?.trim() ?? "";
   const senderName = senderData.senderName?.trim() ?? "";
   const contactName = senderData.senderContactName?.trim() ?? "";
-  if (chatName) return chatName;
-  if (senderName && senderName !== contactName) return senderName;
-  if (senderName && !contactName) return senderName;
-  return "";
+  let candidate = "";
+  if (chatName && !isPhonebookLabel(chatName) && chatName !== contactName) {
+    candidate = chatName;
+  } else if (senderName && !isPhonebookLabel(senderName) && senderName !== contactName) {
+    candidate = senderName;
+  } else if (chatName && !isPhonebookLabel(chatName)) {
+    candidate = chatName;
+  } else if (senderName && !isPhonebookLabel(senderName)) {
+    candidate = senderName;
+  }
+  return candidate;
 }
 
 async function syncLeadWaProfileName(
   leadId: string,
   waName: string,
   contactName?: string | null,
+  phone?: string | null,
 ) {
   const next = waName.trim();
-  if (!next) return;
-  const { data: lead } = await admin.from("leads").select("name").eq("id", leadId).maybeSingle();
-  const current = (lead as { name?: string } | null)?.name?.trim() ?? "";
+  const { data: lead } = await admin.from("leads").select("name, phone").eq("id", leadId).maybeSingle();
+  const current = (lead as { name?: string; phone?: string } | null)?.name?.trim() ?? "";
   const cName = contactName?.trim() ?? "";
   const isPhone = /^\+?\d[\d\s()-]{7,}$/.test(current);
   const fromContactBook = !!cName && current === cName;
-  if (!current || isPhone || fromContactBook) {
-    if (current !== next) {
-      await admin.from("leads").update({ name: next }).eq("id", leadId);
+  const isLabel = isPhonebookLabel(current);
+  if (next && !isPhonebookLabel(next) && (current !== next) && (!current || isPhone || fromContactBook || isLabel)) {
+    await admin.from("leads").update({ name: next }).eq("id", leadId);
+    return;
+  }
+  if (!next && (isLabel || fromContactBook)) {
+    const fallback = phone?.trim() || (lead as { phone?: string } | null)?.phone?.trim() || "";
+    if (fallback && current !== fallback) {
+      await admin.from("leads").update({ name: fallback }).eq("id", leadId);
     }
   }
 }
@@ -667,7 +691,7 @@ Deno.serve(async (req) => {
       const leadId = existingLeadId ??
         await findOrCreateLead(phone, name, projectId, attribution ?? undefined, instanceCfg.cabinetId);
       if (!leadId) return json({ ok: false, error: "lead not created" }, 500);
-      await syncLeadWaProfileName(leadId, name, contactName);
+      await syncLeadWaProfileName(leadId, name, contactName, phone);
       const text = extractText(messageData);
       await insertCommunication({ leadId, direction: "in", text, externalId: idMessage });
       triggerChatAnalysis(leadId, "in");

@@ -276,13 +276,8 @@ export function useCrmStore() {
     if (projectId) {
       leadsQuery = leadsQuery.or(`project_id.eq.${projectId},project_id.is.null`);
     }
-    const [leadsRes, commRes, evRes, tasksRes, histRes] = await Promise.all([
+    const [leadsRes, evRes, tasksRes, histRes] = await Promise.all([
       leadsQuery,
-      supabase
-        .from("communications")
-        .select("id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at")
-        .order("created_at", { ascending: false })
-        .limit(2000),
       supabase
         .from("events")
         .select("id,lead_id,event_type,payload,actor_id,created_at")
@@ -300,6 +295,19 @@ export function useCrmStore() {
         .limit(1000),
     ]);
     if (projectIdRef.current !== projectId) return;
+
+    const leadRows = (leadsRes.data ?? []) as LeadRow[];
+    const leadIds = leadRows.map((r) => r.id);
+    let commRows: CommRow[] = [];
+    if (leadIds.length > 0) {
+      const { data: commData } = await supabase
+        .from("communications")
+        .select("id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at")
+        .in("lead_id", leadIds)
+        .order("created_at", { ascending: true })
+        .limit(10000);
+      commRows = (commData ?? []) as CommRow[];
+    }
 
     const events = (evRes.data ?? []) as EventRow[];
     const tasks = (tasksRes.data ?? []) as TaskRow[];
@@ -330,17 +338,12 @@ export function useCrmStore() {
       arr.sort((a, b) => a.changed_at.localeCompare(b.changed_at));
     }
 
-    const visibleLeads = ((leadsRes.data ?? []) as LeadRow[]).map((r) =>
+    const visibleLeads = leadRows.map((r) =>
       leadRowToFrontIndexed(r, stageIdMap.idToKey, eventsByLead, tasksByLead, historyByLead),
     );
     setLeads(visibleLeads);
-    // Communications were fetched DESC for limit; chats expect ASC for chronological render.
-    // Чаты «личных» лидов тоже не показываем — фильтруем по id видимых лидов.
     const visibleIds = new Set(visibleLeads.map((l) => l.id));
-    const commsAsc = ((commRes.data ?? []) as CommRow[])
-      .slice()
-      .reverse()
-      .filter((c) => visibleIds.has(c.lead_id));
+    const commsAsc = commRows.filter((c) => visibleIds.has(c.lead_id));
     setChats(commsAsc.map(commToChat).filter((c): c is ChatMessage => c !== null));
   }, [stageIdMap.idToKey, projectId]);
 
