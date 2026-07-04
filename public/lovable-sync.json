@@ -1,7 +1,7 @@
 {
-  "git_sha": "56b0cc1",
-  "git_sha_full": "56b0cc16b3d3a189269c4ebc7a3a0eaa32086070",
-  "updated_at": "2026-07-04T17:10:59+05:00",
-  "label": "fix: топ объявлений по имени креатива + ускорение аналитики продаж",
+  "git_sha": "1a9447a",
+  "git_sha_full": "1a9447a3485e4c7f3a37395b75f04edaf785641f",
+  "updated_at": "2026-07-04T21:43:16+05:00",
+  "label": "fix: Meta leads vs WhatsApp classification, RNP table, project delete",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
