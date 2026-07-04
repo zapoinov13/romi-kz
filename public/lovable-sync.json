@@ -1,7 +1,7 @@
 {
-  "git_sha": "2898a2e",
-  "git_sha_full": "2898a2ef61fa16a3623c2908d16c11d6bc4ea1a2",
-  "updated_at": "2026-07-04T22:15:54+05:00",
-  "label": "chore: disable JWT verify for greenapi-webhook in config.toml",
+  "git_sha": "a27fb53",
+  "git_sha_full": "a27fb53c49eb472b72b4c3a614da1540f2184056",
+  "updated_at": "2026-07-04T22:25:16+05:00",
+  "label": "fix: WhatsApp bind works on prod before Lovable SQL migration",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
