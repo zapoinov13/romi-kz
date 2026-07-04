@@ -185,11 +185,10 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
     messages: totals?.messages ?? 0,
   });
   const conversionsTotal = metaConversionsTotal({
-    spend: totals?.spend ?? 0,
-    clicks: totals?.clicks ?? 0,
     leads: totals?.leads ?? 0,
     messages: totals?.messages ?? 0,
   });
+
 
   const upsertManual = async (
     isoDate: string,
