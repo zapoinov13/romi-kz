@@ -1,7 +1,7 @@
 {
-  "git_sha": "4a7ca2b",
-  "git_sha_full": "4a7ca2bc1b3af8cb3180c13bfa61c98871d95ce9",
-  "updated_at": "2026-07-04T23:40:10+05:00",
-  "label": "fix(whatsapp): Vercel webhook ingress bypassing stale Supabase edge",
+  "git_sha": "725708a",
+  "git_sha_full": "725708a64a45ed9844d0c14841041904ee810804",
+  "updated_at": "2026-07-05T00:23:39+05:00",
+  "label": "chore: trigger Vercel redeploy for wa-webhook",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
