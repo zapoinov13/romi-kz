@@ -136,6 +136,7 @@ async function getDefaultStage(
 
 type InstanceConfig = {
   projectId: string | null;
+  cabinetId: string | null;
   ok: boolean;
   adsOnly: boolean;
   botWebhookUrl: string | null;
@@ -148,19 +149,19 @@ async function projectFromInstance(
   presentedToken: string | null,
 ): Promise<InstanceConfig> {
   if (!idInstance) {
-    // Fail-closed: without instance ID we cannot validate the webhook token
-    return { projectId: null, ok: false, adsOnly: false, botWebhookUrl: null };
+    return { projectId: null, cabinetId: null, ok: false, adsOnly: false, botWebhookUrl: null };
   }
   const { data } = await admin
     .from("whatsapp_config")
-    .select("project_id, webhook_token, ads_only, bot_webhook_url")
+    .select("project_id, cabinet_id, webhook_token, ads_only, bot_webhook_url")
     .eq("id_instance", String(idInstance))
     .maybeSingle();
   if (!data) {
-    return { projectId: null, ok: true, adsOnly: false, botWebhookUrl: null };
+    return { projectId: null, cabinetId: null, ok: true, adsOnly: false, botWebhookUrl: null };
   }
   const row = data as {
     project_id?: string | null;
+    cabinet_id?: string | null;
     webhook_token?: string | null;
     ads_only?: boolean | null;
     bot_webhook_url?: string | null;
@@ -174,6 +175,7 @@ async function projectFromInstance(
   if (!required || required !== presentedToken) {
     return {
       projectId: row.project_id ?? null,
+      cabinetId: row.cabinet_id ?? null,
       ok: false,
       adsOnly: !!row.ads_only,
       botWebhookUrl: row.bot_webhook_url ?? null,
@@ -181,6 +183,7 @@ async function projectFromInstance(
   }
   return {
     projectId: row.project_id ?? null,
+    cabinetId: row.cabinet_id ?? null,
     ok: true,
     adsOnly: !!row.ads_only,
     botWebhookUrl: row.bot_webhook_url ?? null,
@@ -349,6 +352,7 @@ async function findOrCreateLead(
   displayName: string,
   projectId: string | null,
   attribution?: CtwaAttribution,
+  defaultCabinetId?: string | null,
 ): Promise<string | null> {
   const d = digits(phone);
   if (!d) return null;
@@ -411,7 +415,7 @@ async function findOrCreateLead(
   }
 
   let resolvedProject = projectId;
-  let cabinetId: string | null = null;
+  let cabinetId: string | null = defaultCabinetId ?? null;
   let metaCampaignId = attribution?.meta_campaign_id ?? null;
   let metaAdsetId = attribution?.meta_adset_id ?? null;
   if (attribution?.meta_ad_id) {
@@ -587,7 +591,7 @@ Deno.serve(async (req) => {
       }
 
       const leadId = existingLeadId ??
-        await findOrCreateLead(phone, name, projectId, attribution ?? undefined);
+        await findOrCreateLead(phone, name, projectId, attribution ?? undefined, instanceCfg.cabinetId);
       if (!leadId) return json({ ok: false, error: "lead not created" }, 500);
       const text = extractText(messageData);
       await insertCommunication({ leadId, direction: "in", text, externalId: idMessage });
@@ -604,7 +608,7 @@ Deno.serve(async (req) => {
       const messageData = body.messageData as Record<string, unknown> | undefined;
       const phone = chatIdToPhone(senderData?.chatId);
       if (!phone) return json({ ok: true, skipped: "no phone" });
-      const leadId = await findOrCreateLead(phone, "", projectId);
+      const leadId = await findOrCreateLead(phone, "", projectId, undefined, instanceCfg.cabinetId);
       if (!leadId) return json({ ok: false, error: "lead not created" }, 500);
       const text = extractText(messageData);
       await insertCommunication({

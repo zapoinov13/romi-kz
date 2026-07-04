@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import { GreenApiConnectionPanel } from "@/pages/SettingsConnection";
+import { supabase } from "@/integrations/supabase/client";
 
 const GREEN_API_DOCS = [
   {
@@ -18,8 +19,8 @@ const GREEN_API_DOCS = [
     href: "https://green-api.com/docs/about/",
   },
   {
-    title: "2. Привяжите к проекту",
-    text: "Вставьте idInstance и apiToken ниже — инстанс привяжется к выбранному проекту. CRM webhook настроится автоматически.",
+    title: "2. Выберите проект и кабинет",
+    text: "Номер WhatsApp привязывается к конкретному рекламному кабинету Meta — так лиды попадут в нужную аналитику.",
   },
   {
     title: "3. Авторизуйте WhatsApp",
@@ -28,13 +29,18 @@ const GREEN_API_DOCS = [
   },
   {
     title: "4. Готово",
-    text: "Входящие сообщения создают лиды в CRM. Для n8n-бота укажите URL в шаге 4 webhook-карточки.",
+    text: "Входящие сообщения создают лиды в CRM с привязкой к кабинету. Для n8n-бота укажите URL в шаге webhook.",
   },
 ];
+
+type CabinetOption = { id: string; name: string };
 
 export function GreenApiSettings() {
   const { projects, active } = useProjectsStore();
   const [projectId, setProjectId] = useState("");
+  const [cabinetId, setCabinetId] = useState("");
+  const [cabinets, setCabinets] = useState<CabinetOption[]>([]);
+  const [cabinetsLoading, setCabinetsLoading] = useState(false);
 
   useEffect(() => {
     if (!projectId && projects.length > 0) {
@@ -42,9 +48,39 @@ export function GreenApiSettings() {
     }
   }, [projects, active?.id, projectId]);
 
+  useEffect(() => {
+    if (!projectId) {
+      setCabinets([]);
+      setCabinetId("");
+      return;
+    }
+    let cancelled = false;
+    setCabinetsLoading(true);
+    void (async () => {
+      const { data } = await supabase
+        .from("ad_cabinets_safe" as any)
+        .select("id, name")
+        .eq("project_id", projectId)
+        .order("name");
+      if (cancelled) return;
+      const list = (data ?? []) as CabinetOption[];
+      setCabinets(list);
+      setCabinetId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]?.id ?? ""));
+      setCabinetsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
   const projectName = useMemo(
     () => projects.find((p) => p.id === projectId)?.name ?? null,
     [projects, projectId],
+  );
+
+  const cabinetName = useMemo(
+    () => cabinets.find((c) => c.id === cabinetId)?.name ?? null,
+    [cabinets, cabinetId],
   );
 
   return (
@@ -65,12 +101,12 @@ export function GreenApiSettings() {
             >
               официальной документации Green API
             </a>
-            . Один инстанс = один номер WhatsApp на проект.
+            . Один инстанс = один номер WhatsApp на рекламный кабинет.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px] flex-1">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">Проект</p>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger className="h-10">
@@ -85,6 +121,36 @@ export function GreenApiSettings() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Рекламный кабинет</p>
+              <Select
+                value={cabinetId || undefined}
+                onValueChange={setCabinetId}
+                disabled={!projectId || cabinetsLoading || cabinets.length === 0}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue
+                    placeholder={
+                      cabinetsLoading
+                        ? "Загрузка…"
+                        : cabinets.length === 0
+                          ? "Нет кабинетов в проекте"
+                          : "Выберите кабинет"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {cabinets.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <a
               href="https://console.green-api.com"
               target="_blank"
@@ -94,6 +160,11 @@ export function GreenApiSettings() {
               Green API Console
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
+            {projectId && cabinets.length === 0 && !cabinetsLoading && (
+              <p className="text-xs text-muted-foreground">
+                Добавьте Meta-кабинет в разделе «Управление рекламой».
+              </p>
+            )}
           </div>
 
           <ol className="grid gap-2 sm:grid-cols-2">
@@ -120,14 +191,18 @@ export function GreenApiSettings() {
         </CardContent>
       </Card>
 
-      {projectId ? (
+      {projectId && cabinetId ? (
         <GreenApiConnectionPanel
           embedded
           projectId={projectId}
           projectName={projectName}
+          cabinetId={cabinetId}
+          cabinetName={cabinetName}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">Создайте или выберите проект в шапке сайта.</p>
+        <p className="text-sm text-muted-foreground">
+          Выберите проект и рекламный кабинет, к которому привязать номер WhatsApp.
+        </p>
       )}
     </div>
   );

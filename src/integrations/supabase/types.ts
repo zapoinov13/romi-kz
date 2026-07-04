@@ -4837,6 +4837,7 @@ export type Database = {
           api_token_present: boolean | null
           api_url: string | null
           bot_webhook_url: string | null
+          cabinet_id: string | null
           connected: boolean
           connected_at: string | null
           display_name: string | null
@@ -4856,6 +4857,7 @@ export type Database = {
           api_token_present?: boolean | null
           api_url?: string | null
           bot_webhook_url?: string | null
+          cabinet_id?: string | null
           connected?: boolean
           connected_at?: string | null
           display_name?: string | null
@@ -4875,6 +4877,7 @@ export type Database = {
           api_token_present?: boolean | null
           api_url?: string | null
           bot_webhook_url?: string | null
+          cabinet_id?: string | null
           connected?: boolean
           connected_at?: string | null
           display_name?: string | null
@@ -5536,6 +5539,7 @@ export type Database = {
           api_token_present: boolean | null
           api_url: string | null
           bot_webhook_url: string | null
+          cabinet_id: string | null
           connected: boolean | null
           connected_at: string | null
           display_name: string | null
@@ -5553,6 +5557,7 @@ export type Database = {
           api_token_present?: boolean | null
           api_url?: string | null
           bot_webhook_url?: string | null
+          cabinet_id?: string | null
           connected?: boolean | null
           connected_at?: string | null
           display_name?: string | null
@@ -5570,6 +5575,7 @@ export type Database = {
           api_token_present?: boolean | null
           api_url?: string | null
           bot_webhook_url?: string | null
+          cabinet_id?: string | null
           connected?: boolean | null
           connected_at?: string | null
           display_name?: string | null
@@ -5619,6 +5625,7 @@ export type Database = {
         Args: {
           p_api_token?: string
           p_api_url?: string
+          p_cabinet_id: string
           p_id_instance: string
           p_project_id: string
         }

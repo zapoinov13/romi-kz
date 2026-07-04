@@ -48,6 +48,7 @@ const callProxy = async <T = unknown,>(
 type WaBindRow = {
   id: string;
   project_id: string | null;
+  cabinet_id: string | null;
   id_instance: string | null;
   api_token_present: boolean | null;
   api_url: string | null;
@@ -60,7 +61,36 @@ type WaBindRow = {
 
 const SettingsConnection = () => {
   const navigate = useNavigate();
-  const { active } = useProjectsStore();
+  const { active, projects } = useProjectsStore();
+  const [projectId, setProjectId] = useState<string>("");
+  const [cabinetId, setCabinetId] = useState<string>("");
+  const [cabinets, setCabinets] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (!projectId && active?.id) setProjectId(active.id);
+  }, [active?.id, projectId]);
+
+  useEffect(() => {
+    if (!projectId) {
+      setCabinets([]);
+      setCabinetId("");
+      return;
+    }
+    void supabase
+      .from("ad_cabinets_safe" as any)
+      .select("id, name")
+      .eq("project_id", projectId)
+      .order("name")
+      .then(({ data }) => {
+        const list = (data ?? []) as Array<{ id: string; name: string }>;
+        setCabinets(list);
+        setCabinetId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]?.id ?? ""));
+      });
+  }, [projectId]);
+
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? null;
+  const cabinetName = cabinets.find((c) => c.id === cabinetId)?.name ?? null;
+
   return (
     <main className="min-h-screen">
       <section className="container max-w-3xl pt-10 pb-16 sm:pt-14 animate-fade-in-up">
@@ -74,8 +104,10 @@ const SettingsConnection = () => {
           К настройкам
         </Button>
         <GreenApiConnectionPanel
-          projectId={active?.id ?? null}
-          projectName={active?.name ?? null}
+          projectId={projectId || null}
+          projectName={projectName}
+          cabinetId={cabinetId || null}
+          cabinetName={cabinetName}
         />
         <div className="mt-10">
           <SiteIntakeCard />
@@ -88,12 +120,16 @@ const SettingsConnection = () => {
 export type GreenApiConnectionPanelProps = {
   projectId: string | null;
   projectName: string | null;
+  cabinetId: string | null;
+  cabinetName: string | null;
   embedded?: boolean;
 };
 
 export function GreenApiConnectionPanel({
   projectId,
   projectName,
+  cabinetId,
+  cabinetName,
   embedded = false,
 }: GreenApiConnectionPanelProps) {
   const [waRow, setWaRow] = useState<WaBindRow | null>(null);
@@ -112,20 +148,30 @@ export function GreenApiConnectionPanel({
   const pollRef = useRef<number | null>(null);
 
   const refreshWaRow = useCallback(async () => {
-    if (!projectId) {
+    if (!projectId || !cabinetId) {
       setWaRow(null);
       setWaLoading(false);
       return;
     }
     setWaLoading(true);
-    const { data } = await supabase
+    let q = supabase
       .from("whatsapp_config_safe")
-      .select("id, project_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
-      .eq("project_id", projectId)
-      .maybeSingle();
-    setWaRow((data as WaBindRow | null) ?? null);
+      .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
+      .eq("cabinet_id", cabinetId);
+    const { data } = await q.maybeSingle();
+    if (!data) {
+      const legacy = await supabase
+        .from("whatsapp_config_safe")
+        .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url")
+        .eq("project_id", projectId)
+        .is("cabinet_id", null)
+        .maybeSingle();
+      setWaRow((legacy.data as WaBindRow | null) ?? null);
+    } else {
+      setWaRow((data as WaBindRow | null) ?? null);
+    }
     setWaLoading(false);
-  }, [projectId]);
+  }, [projectId, cabinetId]);
 
   const refreshState = useCallback(async () => {
     if (!projectId || !waRow?.id_instance || !waRow?.api_token_present) {
@@ -248,8 +294,14 @@ export function GreenApiConnectionPanel({
           <>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Подключение WhatsApp</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Green API → CRM. Проект: <strong>{projectName ?? "не выбран"}</strong>.
-              Webhook CRM прописывается автоматически после привязки инстанса.
+              Green API → CRM. Проект: <strong>{projectName ?? "не выбран"}</strong>
+              {cabinetName ? (
+                <>
+                  {" "}
+                  · Кабинет: <strong>{cabinetName}</strong>
+                </>
+              ) : null}
+              . Webhook CRM прописывается автоматически после привязки инстанса.
             </p>
           </>
         )}
@@ -259,6 +311,8 @@ export function GreenApiConnectionPanel({
         <WhatsappProjectBindCard
           projectId={projectId}
           projectName={projectName}
+          cabinetId={cabinetId}
+          cabinetName={cabinetName}
           row={waRow}
           loading={waLoading}
           onRefresh={refreshWaRow}
@@ -700,6 +754,8 @@ function WebhookCard({
 export function WhatsappProjectBindCard({
   projectId,
   projectName,
+  cabinetId,
+  cabinetName,
   row,
   loading,
   onRefresh,
@@ -707,6 +763,8 @@ export function WhatsappProjectBindCard({
 }: {
   projectId: string | null;
   projectName: string | null;
+  cabinetId: string | null;
+  cabinetName: string | null;
   row: WaBindRow | null;
   loading: boolean;
   onRefresh: () => Promise<void>;
@@ -714,6 +772,7 @@ export function WhatsappProjectBindCard({
 }) {
   const { projects } = useProjectsStore();
   const [rows, setRows] = useState<WaBindRow[]>([]);
+  const [cabinetNames, setCabinetNames] = useState<Map<string, string>>(new Map());
   const [instance, setInstance] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [apiUrl, setApiUrl] = useState("");
@@ -722,8 +781,23 @@ export function WhatsappProjectBindCard({
   const refreshAll = useCallback(async () => {
     const { data } = await supabase
       .from("whatsapp_config_safe")
-      .select("id, project_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url");
-    setRows((data ?? []) as WaBindRow[]);
+      .select("id, project_id, cabinet_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url");
+    const list = (data ?? []) as WaBindRow[];
+    setRows(list);
+    const cabinetIds = Array.from(new Set(list.map((r) => r.cabinet_id).filter(Boolean))) as string[];
+    if (cabinetIds.length > 0) {
+      const { data: cabs } = await supabase
+        .from("ad_cabinets_safe" as any)
+        .select("id, name")
+        .in("id", cabinetIds);
+      const map = new Map<string, string>();
+      for (const c of cabs ?? []) {
+        map.set(String((c as { id: string }).id), String((c as { name: string }).name));
+      }
+      setCabinetNames(map);
+    } else {
+      setCabinetNames(new Map());
+    }
     await onRefresh();
   }, [onRefresh]);
 
@@ -738,7 +812,11 @@ export function WhatsappProjectBindCard({
 
   const onBind = async () => {
     if (!projectId) {
-      toast.error("Сначала выберите активный проект");
+      toast.error("Сначала выберите проект");
+      return;
+    }
+    if (!cabinetId) {
+      toast.error("Выберите рекламный кабинет");
       return;
     }
     const idInstance = instance.trim();
@@ -774,12 +852,13 @@ export function WhatsappProjectBindCard({
     try {
       const { error } = await supabase.rpc("bind_whatsapp_to_project", {
         p_project_id: projectId,
+        p_cabinet_id: cabinetId,
         p_id_instance: idInstance,
         p_api_token: token.length >= 20 ? token : undefined,
         p_api_url: trimmedApiUrl || null,
       });
       if (error) throw error;
-      toast.success(`WhatsApp ${idInstance} привязан к «${projectName ?? "проект"}»`, {
+      toast.success(`WhatsApp ${idInstance} → «${cabinetName ?? "кабинет"}»`, {
         description: "Дальше: авторизуйте WA и настройте webhook CRM.",
       });
       await refreshAll();
@@ -803,19 +882,26 @@ export function WhatsappProjectBindCard({
   };
 
   const conflict = instance.trim() && rows.find(
-    (r) => r.id_instance === instance.trim() && r.project_id !== projectId,
+    (r) => r.id_instance === instance.trim() && r.cabinet_id !== cabinetId,
   );
-  const conflictProject = conflict
-    ? projects.find((p) => p.id === conflict.project_id)?.name
-    : null;
+  const conflictCabinet = conflict?.cabinet_id
+    ? cabinetNames.get(conflict.cabinet_id) ?? "другой кабинет"
+    : conflict
+      ? projects.find((p) => p.id === conflict.project_id)?.name ?? "другой проект"
+      : null;
 
   return (
     <Card className="mt-6 border-border bg-card">
       <CardHeader>
-        <CardTitle className="text-lg">Шаг 1 — Привязать Green API к проекту</CardTitle>
+        <CardTitle className="text-lg">Шаг 1 — Привязать Green API</CardTitle>
         <CardDescription>
-          Скопируйте из <a href="https://console.green-api.com" target="_blank" rel="noreferrer" className="underline">Green API Console</a> idInstance и apiTokenInstance.
-          Сообщения на этот номер попадут в CRM проекта <strong>{projectName ?? "—"}</strong>, этап «Новая».
+          Скопируйте из{" "}
+          <a href="https://console.green-api.com" target="_blank" rel="noreferrer" className="underline">
+            Green API Console
+          </a>{" "}
+          idInstance и apiTokenInstance. Номер будет привязан к кабинету{" "}
+          <strong>{cabinetName ?? "—"}</strong> (проект <strong>{projectName ?? "—"}</strong>).
+          Сообщения попадут в CRM этого проекта с атрибуцией к кабинету.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -888,9 +974,10 @@ export function WhatsappProjectBindCard({
               ) : null}
               <div className="flex items-center justify-between gap-2">
                 <div className="text-[11px] text-muted-foreground">
-                  {conflictProject ? (
+                  {conflictCabinet ? (
                     <span className="text-destructive">
-                      Этот idInstance уже привязан к «{conflictProject}». Перепривязка перенесёт его на «{projectName}».
+                      Этот idInstance уже привязан к «{conflictCabinet}». Перепривязка перенесёт его на «
+                      {cabinetName}».
                     </span>
                   ) : currentRow ? (
                     <>
@@ -902,7 +989,7 @@ export function WhatsappProjectBindCard({
                     "У этого проекта пока нет привязанного WhatsApp."
                   )}
                 </div>
-                <Button onClick={onBind} disabled={saving || !projectId}>
+                <Button onClick={onBind} disabled={saving || !projectId || !cabinetId}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   {currentRow?.id_instance ? "Перепривязать" : "Привязать"}
                 </Button>
@@ -919,6 +1006,7 @@ export function WhatsappProjectBindCard({
                     <thead className="bg-muted/40 text-left text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 font-medium">Проект</th>
+                        <th className="px-3 py-2 font-medium">Кабинет</th>
                         <th className="px-3 py-2 font-medium">idInstance</th>
                         <th className="px-3 py-2 font-medium">Номер</th>
                       </tr>
@@ -929,6 +1017,9 @@ export function WhatsappProjectBindCard({
                         return (
                           <tr key={r.id} className="border-t border-border/40">
                             <td className="px-3 py-2">{proj?.name ?? "—"}</td>
+                            <td className="px-3 py-2">
+                              {r.cabinet_id ? cabinetNames.get(r.cabinet_id) ?? "—" : "—"}
+                            </td>
                             <td className="px-3 py-2"><code>{r.id_instance ?? "—"}</code></td>
                             <td className="px-3 py-2">{r.phone ?? "—"}</td>
                           </tr>
