@@ -1,7 +1,3 @@
--- ROMI-KZ · Lovable → Supabase → SQL Editor → Run
--- Закрывает Critical/Warning Security Scan (токены, secrets, SECURITY DEFINER).
--- Безопасно запускать повторно.
-
 -- Security scan lockdown: secret columns never readable/writable from client roles.
 -- Idempotent. service_role keeps full access (bypasses grants).
 
