@@ -5,6 +5,10 @@ import type { ReportPeriodRange } from "@/hooks/useReportData";
 import { dateRangeToIso } from "@/lib/periodRange";
 import { normalizeCdiRowsMetaMoney } from "@/lib/cdiCurrency";
 import { isManualOverrideActive, resolveCdiMetric } from "@/lib/cdiManualOverride";
+import {
+  fetchReclassifiedLeadSplit,
+  resolveCabinetIdsByActIds,
+} from "@/lib/metaCampaignSplit";
 
 export interface DailyInsightRow {
   date: string;
@@ -280,6 +284,42 @@ async function fetchInsights(
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   const normalized = await normalizeCdiRowsMetaMoney((data ?? []) as CdiRow[]);
+
+  // Пересчёт WhatsApp / лиды сайта с уровня кампаний (destination / objective / имя).
+  // CDI часто хранит WA-переписки в leads — поправляем на чтении.
+  try {
+    const cabinetIds = await resolveCabinetIdsByActIds(ids, projectId);
+    const split = await fetchReclassifiedLeadSplit(cabinetIds, since, until, projectId);
+    const applyCdiHeuristic = (row: CdiRow) => {
+      const l = Number(row.leads) || 0;
+      const m = Number(row.messages) || 0;
+      if (m > 0 && l >= m) {
+        row.leads = l - m;
+        row.messages = m;
+      } else if (l > 0 && m === 0) {
+        // Старый sync клал WA-переписки в leads.
+        row.leads = 0;
+        row.messages = l;
+      }
+    };
+
+    if (split) {
+      for (const row of normalized) {
+        const day = split.byDate.get(row.date);
+        if (day) {
+          row.leads = day.leads;
+          row.messages = day.messages;
+        } else {
+          applyCdiHeuristic(row);
+        }
+      }
+    } else {
+      for (const row of normalized) applyCdiHeuristic(row);
+    }
+  } catch (e) {
+    console.warn("[useMetaInsights] campaign lead split failed", e);
+  }
+
   return aggregate(normalized);
 }
 

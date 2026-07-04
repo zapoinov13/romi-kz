@@ -225,6 +225,9 @@ function processInsightRow(
   row: Record<string, unknown>,
   accountCurrency: string,
   destinationType: string | null | undefined,
+  objective?: string | null,
+  optimizationGoal?: string | null,
+  campaignName?: string | null,
 ): ProcessedInsight | null {
   const date = String(row?.date_start ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -233,7 +236,13 @@ function processInsightRow(
   const clicks = Number(row?.clicks ?? 0);
   const actions = row?.actions as MetaAction[] | undefined;
   const actionValues = row?.action_values as MetaAction[] | undefined;
-  const { leads, messages } = splitLeadsAndMessages(actions, destinationType);
+  const { leads, messages } = splitLeadsAndMessages(
+    actions,
+    destinationType,
+    objective,
+    optimizationGoal,
+    campaignName,
+  );
   const purchases = maxAction(actions, PURCHASE_ACTIONS);
   const revenue = sumActions(actionValues, PURCHASE_ACTIONS);
   return {
@@ -327,11 +336,29 @@ Deno.serve(async (req) => {
       const adsetMap = await fetchAllPages<Record<string, unknown>>(
         `https://graph.facebook.com/${META_API_VERSION}/${actId}/adsets?fields=campaign_id,destination_type,optimization_goal&limit=200&access_token=${encodeURIComponent(META_ACCESS_TOKEN)}`,
       );
-      const destByCampaign = new Map<string, string>();
+      type CampMeta = {
+        dest: string | null;
+        objective: string | null;
+        optGoal: string | null;
+        name: string | null;
+      };
+      const campMeta = new Map<string, CampMeta>();
+      for (const c of campaigns) {
+        const cid = String(c.id);
+        campMeta.set(cid, {
+          dest: null,
+          objective: (c.objective as string | undefined) ?? null,
+          optGoal: null,
+          name: String(c.name ?? ""),
+        });
+      }
       for (const a of adsetMap) {
         const cid = String(a.campaign_id ?? "");
-        const dest = (a.destination_type as string | undefined) ?? null;
-        if (cid && dest && !destByCampaign.has(cid)) destByCampaign.set(cid, dest);
+        if (!cid) continue;
+        const cur = campMeta.get(cid) ?? { dest: null, objective: null, optGoal: null, name: null };
+        if (!cur.dest && a.destination_type) cur.dest = String(a.destination_type);
+        if (!cur.optGoal && a.optimization_goal) cur.optGoal = String(a.optimization_goal);
+        campMeta.set(cid, cur);
       }
 
       const campaignRows = campaigns.map((c) => ({
@@ -340,7 +367,7 @@ Deno.serve(async (req) => {
         campaign_id: String(c.id),
         name: String(c.name ?? ""),
         objective: (c.objective as string | undefined) ?? null,
-        destination_type: destByCampaign.get(String(c.id)) ?? null,
+        destination_type: campMeta.get(String(c.id))?.dest ?? null,
         status: (c.status as string | undefined) ?? null,
         effective_status: (c.effective_status as string | undefined) ?? null,
         daily_budget: c.daily_budget ? Number(c.daily_budget) / 100 : null,
@@ -472,8 +499,15 @@ Deno.serve(async (req) => {
       const campDailyRows = campInsights
         .map((r) => {
           const campaignId = String(r.campaign_id);
-          const dest = destByCampaign.get(campaignId) ?? null;
-          const processed = processInsightRow(r, accountCurrency, dest);
+          const meta = campMeta.get(campaignId);
+          const processed = processInsightRow(
+            r,
+            accountCurrency,
+            meta?.dest,
+            meta?.objective,
+            meta?.optGoal,
+            meta?.name,
+          );
           if (!processed) return null;
           return {
             campaign_id: campaignId,
@@ -503,8 +537,15 @@ Deno.serve(async (req) => {
       const adDailyRows = adInsights
         .map((r) => {
           const campaignId = (r.campaign_id as string | undefined) ?? null;
-          const dest = campaignId ? (destByCampaign.get(campaignId) ?? null) : null;
-          const processed = processInsightRow(r, accountCurrency, dest);
+          const meta = campaignId ? campMeta.get(campaignId) : undefined;
+          const processed = processInsightRow(
+            r,
+            accountCurrency,
+            meta?.dest,
+            meta?.objective,
+            meta?.optGoal,
+            meta?.name,
+          );
           if (!processed) return null;
           return {
             ad_id: String(r.ad_id),

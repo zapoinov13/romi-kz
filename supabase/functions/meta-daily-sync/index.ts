@@ -316,7 +316,10 @@ Deno.serve(async (req) => {
         `?fields=currency&access_token=${encodeURIComponent(tok)}`;
       const buildAdsetsUrl = (tok: string) =>
         `https://graph.facebook.com/${META_API_VERSION}/${actId}/adsets` +
-        `?fields=campaign_id,destination_type&limit=200&access_token=${encodeURIComponent(tok)}`;
+        `?fields=campaign_id,destination_type,optimization_goal&limit=200&access_token=${encodeURIComponent(tok)}`;
+      const buildCampaignsUrl = (tok: string) =>
+        `https://graph.facebook.com/${META_API_VERSION}/${actId}/campaigns` +
+        `?fields=id,name,objective&limit=200&access_token=${encodeURIComponent(tok)}`;
 
       try {
         // Перебираем все Meta токены, пока какой-нибудь не получит доступ к кабинету.
@@ -340,30 +343,53 @@ Deno.serve(async (req) => {
         }
         const accountCurrency: string = (aJson?.currency as string) ?? "USD";
 
-        // destination_type по кампании (WhatsApp vs сайт)
-        const destByCampaign = new Map<string, string>();
+        type CampMeta = {
+          dest: string | null;
+          objective: string | null;
+          optGoal: string | null;
+          name: string | null;
+        };
+        const campMeta = new Map<string, CampMeta>();
+
         try {
-          const adsets = await fetchAllPages<Record<string, unknown>>(
-            buildAdsetsUrl(workingTok),
-            fetchWithRetry,
-          );
+          const [adsets, camps] = await Promise.all([
+            fetchAllPages<Record<string, unknown>>(buildAdsetsUrl(workingTok), fetchWithRetry),
+            fetchAllPages<Record<string, unknown>>(buildCampaignsUrl(workingTok), fetchWithRetry),
+          ]);
+          for (const c of camps) {
+            const cid = String(c.id ?? "");
+            if (!cid) continue;
+            campMeta.set(cid, {
+              dest: null,
+              objective: (c.objective as string | undefined) ?? null,
+              optGoal: null,
+              name: (c.name as string | undefined) ?? null,
+            });
+          }
           for (const a of adsets) {
             const cid = String(a.campaign_id ?? "");
-            const dest = (a.destination_type as string | undefined) ?? null;
-            if (cid && dest && !destByCampaign.has(cid)) destByCampaign.set(cid, dest);
+            if (!cid) continue;
+            const cur = campMeta.get(cid) ?? { dest: null, objective: null, optGoal: null, name: null };
+            if (!cur.dest && a.destination_type) cur.dest = String(a.destination_type);
+            if (!cur.optGoal && a.optimization_goal) cur.optGoal = String(a.optimization_goal);
+            campMeta.set(cid, cur);
           }
         } catch (e) {
-          console.warn(`[meta-daily-sync] cabinet=${ext} adsets dest fetch failed:`, e);
+          console.warn(`[meta-daily-sync] cabinet=${ext} campaign meta fetch failed:`, e);
         }
-        // Фоллбэк: уже сохранённые destination в meta_campaigns
-        if (destByCampaign.size === 0) {
+        // Фоллбэк: уже сохранённые meta_campaigns
+        if (campMeta.size === 0) {
           const { data: camps } = await admin
             .from("meta_campaigns")
-            .select("campaign_id, destination_type")
+            .select("campaign_id, destination_type, objective, name")
             .eq("cabinet_id", cab.id);
           for (const c of camps ?? []) {
-            const dest = (c as { destination_type?: string | null }).destination_type;
-            if (dest) destByCampaign.set(String(c.campaign_id), dest);
+            campMeta.set(String(c.campaign_id), {
+              dest: (c as { destination_type?: string | null }).destination_type ?? null,
+              objective: (c as { objective?: string | null }).objective ?? null,
+              optGoal: null,
+              name: (c as { name?: string | null }).name ?? null,
+            });
           }
         }
 
@@ -384,13 +410,16 @@ Deno.serve(async (req) => {
           const date = String(row?.date_start ?? "");
           if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
           const campaignId = String(row?.campaign_id ?? "");
-          const dest = destByCampaign.get(campaignId) ?? null;
+          const meta = campMeta.get(campaignId);
           const spend = Number(row?.spend ?? 0);
           const impressions = Number(row?.impressions ?? 0);
           const clicks = Number(row?.clicks ?? 0);
           const { leads, messages } = splitLeadsAndMessages(
             row?.actions as MetaAction[] | undefined,
-            dest,
+            meta?.dest,
+            meta?.objective,
+            meta?.optGoal,
+            meta?.name,
           );
           const revenue = sumActions(row?.action_values as MetaAction[] | undefined, PURCHASE_ACTIONS);
 

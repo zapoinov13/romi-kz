@@ -16,6 +16,10 @@ import {
 } from "@/lib/metricsSourceOfTruth";
 import { fetchMetaDashboard } from "@/hooks/useMetaDashboard";
 import type { MetaCreativeRow } from "@/hooks/useMetaStructure";
+import {
+  fetchReclassifiedLeadSplit,
+  resolveCabinetIdsByActIds,
+} from "@/lib/metaCampaignSplit";
 
 export interface ReportPeriodRange {
   from: Date;
@@ -236,6 +240,38 @@ async function fetchMetaForRange(
   if (error) throw new Error(error.message);
 
   const rows = await normalizeCdiRowsMetaMoney(data ?? []);
+
+  // WhatsApp vs лиды сайта — с уровня кампаний (или эвристика для старого CDI).
+  try {
+    const cabinetIds = await resolveCabinetIdsByActIds(ids, projectId);
+    const split = await fetchReclassifiedLeadSplit(cabinetIds, since, until, projectId);
+    const applyHeuristic = (row: (typeof rows)[number]) => {
+      const l = Number(row.leads) || 0;
+      const m = Number((row as { messages?: number }).messages) || 0;
+      if (m > 0 && l >= m) {
+        row.leads = l - m;
+        (row as { messages?: number }).messages = m;
+      } else if (l > 0 && m === 0) {
+        row.leads = 0;
+        (row as { messages?: number }).messages = l;
+      }
+    };
+    if (split) {
+      for (const row of rows) {
+        const day = split.byDate.get(row.date);
+        if (day) {
+          row.leads = day.leads;
+          (row as { messages?: number }).messages = day.messages;
+        } else {
+          applyHeuristic(row);
+        }
+      }
+    } else {
+      for (const row of rows) applyHeuristic(row);
+    }
+  } catch (e) {
+    console.warn("[useReportData] campaign lead split failed", e);
+  }
 
   const dailyAgg = new Map<string, { spend: number; leads: number; messages: number; revenue: number }>();
   let totSpend = 0, totImp = 0, totClicks = 0, totLeads = 0, totMessages = 0;
