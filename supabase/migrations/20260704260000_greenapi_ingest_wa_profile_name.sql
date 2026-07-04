@@ -1,6 +1,4 @@
--- CRM WhatsApp: входящие + исходящие (бот n8n, API, телефон) в одном диалоге.
--- Lovable → Supabase → SQL Editor → выполнить целиком.
--- Green API webhook: https://romi-kz.vercel.app/api/wa-webhook
+-- WhatsApp profile name (chatName/senderName), not phone contact book (senderContactName).
 
 CREATE OR REPLACE FUNCTION public.greenapi_ingest(p_payload jsonb)
 RETURNS jsonb
@@ -104,7 +102,6 @@ BEGIN
     RETURN jsonb_build_object('ok', true, 'skipped', 'no phone', 'projectId', v_project_id);
   END IF;
 
-  -- WhatsApp profile: chatName / senderName. Never senderContactName (phone book label like «муж»).
   v_chat_name := nullif(btrim(p_payload->'senderData'->>'chatName'), '');
   v_sender_name := nullif(btrim(p_payload->'senderData'->>'senderName'), '');
   v_contact_name := nullif(btrim(p_payload->'senderData'->>'senderContactName'), '');

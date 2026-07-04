@@ -74,6 +74,43 @@ function widToPhone(wid: unknown): string | null {
   return `+${s}`;
 }
 
+/** WhatsApp profile name — not the label from the business phone contacts (senderContactName). */
+function extractWaProfileName(
+  senderData?: {
+    chatName?: string;
+    senderName?: string;
+    senderContactName?: string;
+  } | null,
+): string {
+  if (!senderData) return "";
+  const chatName = senderData.chatName?.trim() ?? "";
+  const senderName = senderData.senderName?.trim() ?? "";
+  const contactName = senderData.senderContactName?.trim() ?? "";
+  if (chatName) return chatName;
+  if (senderName && senderName !== contactName) return senderName;
+  if (senderName && !contactName) return senderName;
+  return "";
+}
+
+async function syncLeadWaProfileName(
+  leadId: string,
+  waName: string,
+  contactName?: string | null,
+) {
+  const next = waName.trim();
+  if (!next) return;
+  const { data: lead } = await admin.from("leads").select("name").eq("id", leadId).maybeSingle();
+  const current = (lead as { name?: string } | null)?.name?.trim() ?? "";
+  const cName = contactName?.trim() ?? "";
+  const isPhone = /^\+?\d[\d\s()-]{7,}$/.test(current);
+  const fromContactBook = !!cName && current === cName;
+  if (!current || isPhone || fromContactBook) {
+    if (current !== next) {
+      await admin.from("leads").update({ name: next }).eq("id", leadId);
+    }
+  }
+}
+
 function extractText(messageData: Record<string, unknown> | undefined): string {
   if (!messageData) return "";
   const td = messageData.textMessageData as { textMessage?: string } | undefined;
@@ -596,11 +633,18 @@ Deno.serve(async (req) => {
 
     if (type === "incomingMessageReceived") {
       const senderData = body.senderData as
-        | { chatId?: string; sender?: string; senderName?: string }
+        | {
+          chatId?: string;
+          sender?: string;
+          senderName?: string;
+          chatName?: string;
+          senderContactName?: string;
+        }
         | undefined;
       const messageData = body.messageData as Record<string, unknown> | undefined;
       const phone = chatIdToPhone(senderData?.chatId ?? senderData?.sender);
-      const name = senderData?.senderName?.trim() || "";
+      const name = extractWaProfileName(senderData);
+      const contactName = senderData?.senderContactName?.trim() ?? "";
       if (!phone) {
         forwardToBotWebhook(instanceCfg.botWebhookUrl, body);
         return json({ ok: true, skipped: "no phone" });
@@ -623,6 +667,7 @@ Deno.serve(async (req) => {
       const leadId = existingLeadId ??
         await findOrCreateLead(phone, name, projectId, attribution ?? undefined, instanceCfg.cabinetId);
       if (!leadId) return json({ ok: false, error: "lead not created" }, 500);
+      await syncLeadWaProfileName(leadId, name, contactName);
       const text = extractText(messageData);
       await insertCommunication({ leadId, direction: "in", text, externalId: idMessage });
       triggerChatAnalysis(leadId, "in");
