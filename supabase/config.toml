@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.greenapi-webhook]
 verify_jwt = false
+
+[functions.greenapi-sync-name]
+verify_jwt = false

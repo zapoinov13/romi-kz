@@ -18,8 +18,8 @@ fi
 
 LIMIT="${2:-100}"
 
-curl -sS -X POST "${SUPABASE_URL}/functions/v1/greenapi-proxy" \
+curl -sS -X POST "${SUPABASE_URL}/functions/v1/greenapi-sync-name" \
   -H "Authorization: Bearer ${SERVICE_KEY}" \
   -H "Content-Type: application/json" \
-  -d "{\"action\":\"syncLeadNamesBatch\",\"project_id\":\"${PROJECT_ID}\",\"limit\":${LIMIT}}" \
+  -d "{\"batch\":true,\"project_id\":\"${PROJECT_ID}\",\"limit\":${LIMIT}}" \
   | python3 -m json.tool

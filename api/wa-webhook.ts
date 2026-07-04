@@ -59,14 +59,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body.typeWebhook === "outgoingMessageReceived" ||
       body.typeWebhook === "outgoingAPIMessageReceived")
   ) {
-    fetch(`${url.replace(/\/+$/, "")}/functions/v1/greenapi-proxy`, {
+    fetch(`${url.replace(/\/+$/, "")}/functions/v1/greenapi-sync-name`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        action: "syncLeadName",
         lead_id: leadId,
         project_id: projectId ?? undefined,
       }),

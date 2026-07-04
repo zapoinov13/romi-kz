@@ -3,7 +3,7 @@
 set -euo pipefail
 
 PROJECT_REF="${SUPABASE_PROJECT_REF:-mekwfbqmsqiborjdrjxc}"
-FUNCS=(greenapi-webhook greenapi-proxy greenapi-setup)
+FUNCS=(greenapi-webhook greenapi-proxy greenapi-setup greenapi-sync-name)
 
 if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
   echo "ERROR: export SUPABASE_ACCESS_TOKEN=<PAT from supabase.com/dashboard/account/tokens>"

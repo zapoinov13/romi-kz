@@ -1,5 +1,5 @@
 -- Lovable → SQL Editor: переименовать лиды с метками из телефонной книги → номер телефона.
--- Затем задеploy greenapi-proxy (syncLeadName) и откройте чат — подтянется имя из WhatsApp getContactInfo.
+-- Затем задеploy greenapi-proxy + greenapi-sync-name и откройте чат — подтянется имя из WhatsApp getContactInfo.
 -- Или: SUPABASE_SERVICE_ROLE_KEY=... ./scripts/sync-wa-lead-names.sh <project_id>
 
 UPDATE public.leads

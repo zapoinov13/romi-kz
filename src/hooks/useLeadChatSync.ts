@@ -31,9 +31,8 @@ export function useLeadChatSync(
   const syncWaName = useCallback(
     async (id: string) => {
       try {
-        await supabase.functions.invoke("greenapi-proxy", {
+        await supabase.functions.invoke("greenapi-sync-name", {
           body: {
-            action: "syncLeadName",
             lead_id: id,
             project_id: projectId ?? undefined,
           },
