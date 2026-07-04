@@ -126,3 +126,9 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.bind_whatsapp_to_project(uuid, uuid, text, text, text) TO authenticated;
+
+-- Re-grant column SELECT (cabinet_id added after security_scan lockdown)
+SELECT public._grant_safe_select(
+  'public.whatsapp_config'::regclass,
+  ARRAY['api_token', 'webhook_token']
+);

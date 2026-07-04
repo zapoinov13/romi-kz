@@ -75,11 +75,20 @@ export const WHATSAPP_CONFIG_SAFE_SELECT =
 export const WHATSAPP_CONFIG_SAFE_SELECT_LEGACY =
   "id, project_id, id_instance, api_token_present, api_url, phone, connected, ads_only, bot_webhook_url, webhook_url";
 
-export function isCabinetMigrationMissing(message: string | undefined): boolean {
+export function shouldUseLegacyWhatsappSelect(message: string | undefined): boolean {
   if (!message) return false;
   const m = message.toLowerCase();
-  return m.includes("cabinet_id") || m.includes("pgrst202") || m.includes("could not find");
+  return (
+    m.includes("cabinet_id")
+    || m.includes("permission denied")
+    || m.includes("42501")
+    || m.includes("pgrst202")
+    || m.includes("could not find")
+  );
 }
+
+/** @deprecated use shouldUseLegacyWhatsappSelect */
+export const isCabinetMigrationMissing = shouldUseLegacyWhatsappSelect;
 
 type WhatsappSafeQuery = {
   data: WhatsappConfigSafeRow | WhatsappConfigSafeRow[] | null;
@@ -87,7 +96,7 @@ type WhatsappSafeQuery = {
   usedLegacySelect: boolean;
 };
 
-/** Select from whatsapp_config_safe; falls back when cabinet_id migration not applied. */
+/** Select from whatsapp_config_safe; falls back without cabinet_id on any read error. */
 export async function queryWhatsappConfigSafe(
   build: (select: string) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
 ): Promise<WhatsappSafeQuery> {
@@ -98,9 +107,6 @@ export async function queryWhatsappConfigSafe(
       error: null,
       usedLegacySelect: false,
     };
-  }
-  if (!isCabinetMigrationMissing(full.error.message)) {
-    return { data: null, error: full.error, usedLegacySelect: false };
   }
   const legacy = await build(WHATSAPP_CONFIG_SAFE_SELECT_LEGACY);
   return {
@@ -115,10 +121,10 @@ export type BindWhatsappResult = {
   usedLegacyRpc: boolean;
 };
 
-/** Bind Green API instance; falls back to legacy RPC until Lovable applies SQL migration. */
+/** Bind Green API instance to project + cabinet. */
 export async function bindWhatsappToProject(params: {
   projectId: string;
-  cabinetId?: string | null;
+  cabinetId: string;
   idInstance: string;
   apiToken?: string | null;
   apiUrl?: string | null;
@@ -126,30 +132,14 @@ export async function bindWhatsappToProject(params: {
   const token =
     params.apiToken && params.apiToken.length >= 20 ? params.apiToken : undefined;
 
-  if (params.cabinetId) {
-    const { error } = await supabase.rpc("bind_whatsapp_to_project", {
-      p_project_id: params.projectId,
-      p_cabinet_id: params.cabinetId,
-      p_id_instance: params.idInstance,
-      p_api_token: token,
-      p_api_url: params.apiUrl ?? undefined,
-    });
-    if (!error) return { error: null, usedLegacyRpc: false };
-    if (!isCabinetMigrationMissing(error.message)) {
-      return { error, usedLegacyRpc: false };
-    }
-  }
-
-  const { error } = await (supabase as { rpc: (fn: string, args: Record<string, unknown>) => ReturnType<typeof supabase.rpc> }).rpc(
-    "bind_whatsapp_to_project",
-    {
-      p_project_id: params.projectId,
-      p_id_instance: params.idInstance,
-      p_api_token: token,
-      p_api_url: params.apiUrl ?? undefined,
-    },
-  );
-  return { error: error ?? null, usedLegacyRpc: true };
+  const { error } = await supabase.rpc("bind_whatsapp_to_project", {
+    p_project_id: params.projectId,
+    p_cabinet_id: params.cabinetId,
+    p_id_instance: params.idInstance,
+    p_api_token: token,
+    p_api_url: params.apiUrl ?? undefined,
+  });
+  return { error: error ?? null, usedLegacyRpc: false };
 }
 
 export type WhatsappConfigSafeRow = {

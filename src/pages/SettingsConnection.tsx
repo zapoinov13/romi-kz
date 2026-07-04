@@ -141,52 +141,24 @@ export function GreenApiConnectionPanel({
     setWaLoading(true);
     setWaLoadError(null);
     try {
-      let row: WaBindRow | null = null;
-      let migrationPending = false;
-
-      if (cabinetId) {
-        const byCabinet = await queryWhatsappConfigSafe((select) =>
-          supabase
-            .from("whatsapp_config_safe")
-            .select(select)
-            .eq("cabinet_id", cabinetId)
-            .maybeSingle(),
-        );
-        migrationPending = byCabinet.usedLegacySelect;
-        if (byCabinet.error && !byCabinet.usedLegacySelect) {
-          setWaLoadError(byCabinet.error.message);
-        } else if (byCabinet.data && !Array.isArray(byCabinet.data)) {
-          row = byCabinet.data;
-        }
+      const byProject = await queryWhatsappConfigSafe((select) =>
+        supabase
+          .from("whatsapp_config_safe")
+          .select(select)
+          .eq("project_id", projectId),
+      );
+      if (byProject.error) {
+        setWaLoadError(byProject.error.message);
+        setWaRow(null);
+      } else {
+        const list = (Array.isArray(byProject.data)
+          ? byProject.data
+          : byProject.data
+            ? [byProject.data]
+            : []) as WaBindRow[];
+        const row = pickWhatsappConfigRow(list, cabinetId);
+        setWaRow(row);
       }
-
-      if (!row) {
-        const byProject = await queryWhatsappConfigSafe((select) =>
-          supabase
-            .from("whatsapp_config_safe")
-            .select(select)
-            .eq("project_id", projectId),
-        );
-        migrationPending = migrationPending || byProject.usedLegacySelect;
-        if (byProject.error) {
-          setWaLoadError(byProject.error.message);
-        } else {
-          const list = (Array.isArray(byProject.data)
-            ? byProject.data
-            : byProject.data
-              ? [byProject.data]
-              : []) as WaBindRow[];
-          row = pickWhatsappConfigRow(list, cabinetId);
-        }
-      }
-
-      if (migrationPending) {
-        setWaLoadError(
-          "Привязка работает на уровне проекта. Для привязки к кабинету выполните SQL: scripts/lovable-whatsapp-cabinet-bind.sql в Lovable",
-        );
-      }
-
-      setWaRow(row);
     } finally {
       setWaLoading(false);
     }
@@ -576,6 +548,7 @@ export function WhatsappProjectBindCard({
   const [apiToken, setApiToken] = useState("");
   const [apiUrl, setApiUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [bindError, setBindError] = useState<string | null>(null);
 
   const refreshAll = useCallback(async () => {
     if (!embedded) {
@@ -653,6 +626,7 @@ export function WhatsappProjectBindCard({
       }
     }
     setSaving(true);
+    setBindError(null);
     try {
       const { error, usedLegacyRpc } = await bindWhatsappToProject({
         projectId,
@@ -663,14 +637,14 @@ export function WhatsappProjectBindCard({
       });
       if (error) throw error;
       toast.success(`WhatsApp ${idInstance} → «${cabinetName ?? "кабинет"}»`, {
-        description: usedLegacyRpc
-          ? "Привязано к проекту. Webhook CRM настраивается… (кабинет — после SQL в Lovable)"
-          : "Webhook CRM настраивается автоматически…",
+        description: "Webhook CRM настраивается автоматически…",
       });
       await refreshAll();
       await onBound?.();
     } catch (e) {
-      toast.error("Не удалось привязать", { description: (e as Error).message });
+      const msg = (e as Error).message;
+      setBindError(msg);
+      toast.error("Не удалось привязать", { description: msg });
     } finally {
       setSaving(false);
     }
@@ -781,9 +755,11 @@ export function WhatsappProjectBindCard({
                   />
                 </div>
               ) : null}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-[11px] text-muted-foreground">
-                  {conflictCabinet ? (
+                  {bindError ? (
+                    <span className="text-destructive">{bindError}</span>
+                  ) : conflictCabinet ? (
                     <span className="text-destructive">
                       Этот idInstance уже привязан к «{conflictCabinet}». Перепривязка перенесёт его на «
                       {cabinetName}».
@@ -794,11 +770,19 @@ export function WhatsappProjectBindCard({
                       {currentRow.phone ? `, номер ${currentRow.phone}` : ""}
                       {currentRow.connected ? " · подключён" : ""}
                     </>
+                  ) : instance.trim() && apiToken.trim().length >= 20 ? (
+                    <span className="text-warning">
+                      Данные введены — нажмите «Привязать», чтобы сохранить в CRM
+                    </span>
                   ) : (
                     "У этого проекта пока нет привязанного WhatsApp."
                   )}
                 </div>
-                <Button onClick={onBind} disabled={saving || !projectId || !cabinetId}>
+                <Button
+                  onClick={onBind}
+                  disabled={saving || !projectId || !cabinetId}
+                  className="shrink-0"
+                >
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   {currentRow?.id_instance ? "Перепривязать" : "Привязать"}
                 </Button>
