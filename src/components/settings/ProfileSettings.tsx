@@ -20,20 +20,17 @@ export function ProfileSettings() {
     if (!user) return;
     setLoading(true);
     void supabase
-      .from("profiles")
-      .select("name, phone, sip_extension")
-      .eq("id", user.id)
-      .maybeSingle()
+      .rpc("get_my_profile")
       .then(({ data, error }) => {
         if (error) toast.error(error.message);
-        if (data) {
-          setName(data.name ?? "");
-          setPhone(data.phone ?? "");
-          setSipExt(data.sip_extension ?? "");
+        const row = data as { name?: string | null; phone?: string | null; sip_extension?: string | null } | null;
+        if (row) {
+          setName(row.name ?? "");
+          setPhone(row.phone ?? "");
+          setSipExt(row.sip_extension ?? "");
         }
         setLoading(false);
-        // Reset autosave baseline so loaded data isn't treated as a change.
-        markSaved({ name: data?.name ?? "", phone: data?.phone ?? "", sipExt: data?.sip_extension ?? "" });
+        markSaved({ name: row?.name ?? "", phone: row?.phone ?? "", sipExt: row?.sip_extension ?? "" });
       });
   };
 
