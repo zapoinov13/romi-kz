@@ -61,7 +61,10 @@ const Schema = z.object({
   // Сквозная атрибуция «креатив → лид»
   ad_id: z.string().trim().max(40).optional().nullable(),
   adset_id: z.string().trim().max(40).optional().nullable(),
+  adgroup_id: z.string().trim().max(40).optional().nullable(),
   campaign_id: z.string().trim().max(40).optional().nullable(),
+  ad_name: z.string().trim().max(200).optional().nullable(),
+  headline: z.string().trim().max(200).optional().nullable(),
   cw: z.string().trim().max(80).optional().nullable(),
   codeword: z.string().trim().max(80).optional().nullable(),
   ig_user: z.string().trim().max(120).optional().nullable(),
@@ -257,6 +260,80 @@ async function projectFromToken(token: string): Promise<string | null> {
   return data?.id ?? null;
 }
 
+function buildUtmPayload(v: z.infer<typeof Schema>): Record<string, string> {
+  const utm: Record<string, string> = {};
+  const pairs: [keyof z.infer<typeof Schema>, string, string][] = [
+    ["utm_source", "source", "utm_source"],
+    ["utm_medium", "medium", "utm_medium"],
+    ["utm_campaign", "campaign", "utm_campaign"],
+    ["utm_content", "content", "utm_content"],
+    ["utm_term", "term", "utm_term"],
+  ];
+  for (const [field, legacy, canonical] of pairs) {
+    const val = v[field]?.trim();
+    if (!val) continue;
+    utm[legacy] = val;
+    utm[canonical] = val;
+  }
+  const adName = v.ad_name?.trim() || v.headline?.trim();
+  if (adName) {
+    utm.ad_name = adName;
+    utm.headline = adName;
+  }
+  if (v.fbc?.trim()) utm.fbc = v.fbc.trim();
+  if (v.fbp?.trim()) utm.fbp = v.fbp.trim();
+  return utm;
+}
+
+async function enrichUtmWithCreativeName(
+  metaAdId: string,
+  utm: Record<string, string>,
+): Promise<Record<string, string>> {
+  if (utm.ad_name?.trim()) return utm;
+  const { data: mc } = await admin
+    .from("meta_creatives")
+    .select("name, headline")
+    .eq("ad_id", metaAdId)
+    .maybeSingle();
+  let label = (mc?.name ?? "").trim() || (mc?.headline ?? "").trim();
+  if (!label) {
+    const { data: ac } = await admin
+      .from("ad_campaigns")
+      .select("ad_name, headline")
+      .eq("meta_ad_id", metaAdId)
+      .maybeSingle();
+    label = (ac?.ad_name ?? "").trim() || (ac?.headline ?? "").trim();
+  }
+  if (!label) return utm;
+  return { ...utm, ad_name: label, headline: label };
+}
+
+async function resolveMetaAttribution(v: z.infer<typeof Schema>): Promise<{
+  utm: Record<string, string>;
+  metaAdId: string | null;
+  metaAdsetId: string | null;
+  metaCampaignId: string | null;
+  clickId: string | null;
+}> {
+  const numericId = (s: string | null | undefined) =>
+    s && /^[0-9]{6,}$/.test(s.trim()) ? s.trim() : null;
+
+  let utm = buildUtmPayload(v);
+  const metaAdId = (v.ad_id && v.ad_id.trim()) || numericId(v.utm_content);
+  const metaAdsetId =
+    (v.adset_id && v.adset_id.trim()) ||
+    (v.adgroup_id && v.adgroup_id.trim()) ||
+    numericId(v.utm_term);
+  const metaCampaignId = (v.campaign_id && v.campaign_id.trim()) || numericId(v.utm_campaign);
+  const clickId = (v.fbclid && v.fbclid.trim()) || null;
+
+  if (metaAdId) {
+    utm = await enrichUtmWithCreativeName(metaAdId, utm);
+  }
+
+  return { utm, metaAdId, metaAdsetId, metaCampaignId, clickId };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -303,14 +380,7 @@ Deno.serve(async (req) => {
   const phoneE164 = `+${phoneDigits}`;
   const name = v.name?.trim() || phoneE164;
 
-  const utm: Record<string, string> = {};
-  if (v.utm_source) utm.source = v.utm_source;
-  if (v.utm_medium) utm.medium = v.utm_medium;
-  if (v.utm_campaign) utm.campaign = v.utm_campaign;
-  if (v.utm_content) utm.content = v.utm_content;
-  if (v.utm_term) utm.term = v.utm_term;
-
-  // Normalize source synonyms so all rows in DB use canonical keys.
+  // UTM и Meta-атрибуция собираются ниже в resolveMetaAttribution (после project/cabinet).
   const SOURCE_ALIASES: Record<string, string> = {
     wa: "whatsapp", whatsapp: "whatsapp", whats: "whatsapp", waapi: "whatsapp", greenapi: "whatsapp",
     ig: "instagram", insta: "instagram",
@@ -404,11 +474,11 @@ Deno.serve(async (req) => {
     if (!projectId) projectId = data?.[0]?.project_id ?? null;
   }
   // Last resort: try utm_source as external_id
-  if (!cabinetId && utm.utm_source) {
+  if (!cabinetId && v.utm_source?.trim()) {
     const { data } = await admin
       .from("ad_cabinets")
       .select("id, project_id")
-      .eq("external_id", utm.utm_source)
+      .eq("external_id", v.utm_source.trim())
       .limit(1);
     if (data?.[0]) {
       cabinetId = data[0].id;
@@ -417,13 +487,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Сквозная атрибуция: ad_id может прийти явно или в utm_content (шаблон {{ad.id}}).
-    const numericId = (s: string | null | undefined) =>
-      s && /^[0-9]{6,}$/.test(s.trim()) ? s.trim() : null;
-    const metaAdId = (v.ad_id && v.ad_id.trim()) || numericId(v.utm_content);
-    const metaAdsetId = (v.adset_id && v.adset_id.trim()) || numericId(v.utm_term);
-    const metaCampaignId = (v.campaign_id && v.campaign_id.trim()) || numericId(v.utm_campaign);
-    const clickId = (v.fbclid && v.fbclid.trim()) || null;
+    const { utm, metaAdId, metaAdsetId, metaCampaignId, clickId } = await resolveMetaAttribution(v);
+    const leadSource =
+      metaAdId && (source === "site" || source === "facebook") ? "meta" : source;
 
     // Dedupe by phone — scoped to the resolved project.
     const existingId = await findExistingLeadByPhone(phoneE164, projectId);
@@ -479,7 +545,7 @@ Deno.serve(async (req) => {
         name,
         phone: phoneE164,
         email: v.email || null,
-        source,
+        source: leadSource,
         channel,
         note,
         service: v.service || null,
