@@ -239,6 +239,7 @@ export default function ProjectIntegrationWizard() {
       if (waInstance && waToken) {
         await supabase.rpc("bind_whatsapp_to_project", {
           p_project_id: projectId,
+          p_cabinet_id: cabinetId,
           p_id_instance: waInstance,
           p_api_token: waToken,
           p_api_url: null,
