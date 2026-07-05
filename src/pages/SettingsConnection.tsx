@@ -72,7 +72,7 @@ const SettingsConnection = () => {
       .eq("project_id", projectId)
       .order("name")
       .then(({ data }) => {
-        const list = (data ?? []) as Array<{ id: string; name: string }>;
+        const list = (data ?? []) as unknown as Array<{ id: string; name: string }>;
         setCabinets(list);
         setCabinetId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]?.id ?? ""));
       });
