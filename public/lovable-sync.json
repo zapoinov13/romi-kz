@@ -1,7 +1,7 @@
 {
-  "git_sha": "090b36a",
-  "git_sha_full": "090b36a636525c6b40f35b3808aef8d6a1c94761",
-  "updated_at": "2026-07-05T10:53:20+05:00",
-  "label": "fix(lead-intake): Meta lead form attribution for sales analytics",
+  "git_sha": "2ab08d3",
+  "git_sha_full": "2ab08d38387439e043e25741c9da817085ec7b7d",
+  "updated_at": "2026-07-05T10:59:28+05:00",
+  "label": "feat(meta): auto-sync Lead Form submissions via cron",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
