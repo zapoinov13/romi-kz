@@ -16,6 +16,7 @@ on:
       - "supabase/functions/_lib/meta_list_ad_accounts.ts"
       - "supabase/functions/_lib/meta_connect_helpers.ts"
       - "supabase/functions/meta-page-assets/**"
+      - "supabase/functions/meta-leads-sync/**"
       - "supabase/functions/_lib/cabinet_meta_resolve.ts"
       - "supabase/functions/_lib/meta_tokens.ts"
       - "supabase/functions/_lib/auth.ts"
@@ -60,6 +61,9 @@ jobs:
           echo "::endgroup::"
           echo "::group::Deploy meta-page-assets"
           supabase functions deploy meta-page-assets --project-ref "$SUPABASE_PROJECT_REF"
+          echo "::endgroup::"
+          echo "::group::Deploy meta-leads-sync (no JWT)"
+          supabase functions deploy meta-leads-sync --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
           echo "::endgroup::"
           echo "::group::Deploy ads-telegram-webhook (no JWT)"
           supabase functions deploy ads-telegram-webhook --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt

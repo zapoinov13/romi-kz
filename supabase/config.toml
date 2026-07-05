@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.greenapi-sync-name]
 verify_jwt = false
+
+[functions.meta-leads-sync]
+verify_jwt = false
