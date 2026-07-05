@@ -1,7 +1,7 @@
 {
-  "git_sha": "5e404af",
-  "git_sha_full": "5e404afa559607d440d1818910b0d1e0a5e5e300",
-  "updated_at": "2026-07-05T05:49:45Z",
-  "label": "Fixed 12 security issues",
+  "git_sha": "090b36a",
+  "git_sha_full": "090b36a636525c6b40f35b3808aef8d6a1c94761",
+  "updated_at": "2026-07-05T10:53:20+05:00",
+  "label": "fix(lead-intake): Meta lead form attribution for sales analytics",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
