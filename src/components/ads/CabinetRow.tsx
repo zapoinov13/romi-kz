@@ -245,7 +245,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
 
   const menuItems = (
     <>
-      <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+      <DropdownMenuItem onClick={() => void handleSync()} disabled={syncing}>
         <RefreshCw className={cn("mr-2 h-4 w-4", syncing && "animate-spin")} />
         Обновить
       </DropdownMenuItem>
@@ -322,7 +322,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
     <div className="flex shrink-0 items-center justify-end gap-1">
       <button
         type="button"
-        onClick={handleSync}
+        onClick={() => void handleSync()}
         disabled={syncing}
         title="Обновить данные из Meta"
         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-white px-2.5 text-[11px] font-medium text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary disabled:opacity-60"
@@ -369,7 +369,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleSync}
+                onClick={() => void handleSync()}
                 disabled={syncing}
                 className="border-warning/40 bg-background/30 text-warning hover:bg-warning/10"
               >
@@ -559,7 +559,7 @@ const CabinetRow = ({ cabinet, expanded, onToggle, period, onToggleOnline, onRem
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
-                onClick={handleSync}
+                onClick={() => void handleSync()}
                 disabled={syncing}
                 aria-label="Обновить"
                 className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-60"
