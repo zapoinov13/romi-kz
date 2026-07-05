@@ -90,8 +90,35 @@ Deno.serve(async (req) => {
     let pixelId = String(pxIn || "");
 
     if (cabinet_id && (!token || !adAccount || !pixelId)) {
-      // На main supabase данные кабинета лежат в ad_cabinets (там и access_token,
-      // и ad_account_id, и pixel_id одной строкой — отдельной clients_secrets нет).
+      // Object-level authorization: verify the caller can access the cabinet's project
+      // before using the service role to fetch Meta credentials.
+      const userClient = createClient(
+        SUPABASE_URL,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: auth.authHeader } } },
+      );
+      const { data: cabRow, error: cabErr } = await supa
+        .from("ad_cabinets")
+        .select("project_id")
+        .eq("id", cabinet_id)
+        .maybeSingle();
+      if (cabErr || !cabRow?.project_id) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "cabinet not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const { data: canAccess, error: accessErr } = await userClient.rpc(
+        "user_can_access_project",
+        { _project_id: cabRow.project_id },
+      );
+      if (accessErr || canAccess !== true) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const { data: cfg } = await supa
         .from("ad_cabinets")
         .select("ad_account_id, pixel_id, access_token")
@@ -103,6 +130,7 @@ Deno.serve(async (req) => {
         if (!token) token = String((cfg as any).access_token || "");
       }
     }
+
 
     if (adAccount && !adAccount.startsWith("act_")) adAccount = "act_" + adAccount;
 
