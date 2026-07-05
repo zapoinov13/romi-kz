@@ -1,7 +1,7 @@
 {
-  "git_sha": "9c9c6f7",
-  "git_sha_full": "9c9c6f793e847ca5d254f7250b04341dd503f740",
-  "updated_at": "2026-07-05T11:06:35+05:00",
-  "label": "fix(wa-webhook): allow Green API test ping without service env",
+  "git_sha": "70bc942",
+  "git_sha_full": "70bc9425b1ff2ec619a90d4e753ffe6f1c407d21",
+  "updated_at": "2026-07-05T06:13:13Z",
+  "label": "Задеплоил edge functions",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
