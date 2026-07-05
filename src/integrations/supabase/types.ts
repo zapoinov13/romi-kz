@@ -3581,6 +3581,145 @@ export type Database = {
           },
         ]
       }
+      meta_lead_ingest: {
+        Row: {
+          cabinet_id: string | null
+          created_at: string
+          form_id: string | null
+          id: string
+          lead_id: string | null
+          meta_ad_id: string | null
+          meta_created_at: string | null
+          meta_lead_id: string
+          project_id: string | null
+        }
+        Insert: {
+          cabinet_id?: string | null
+          created_at?: string
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          meta_created_at?: string | null
+          meta_lead_id: string
+          project_id?: string | null
+        }
+        Update: {
+          cabinet_id?: string | null
+          created_at?: string
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          meta_ad_id?: string | null
+          meta_created_at?: string | null
+          meta_lead_id?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_lead_ingest_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_ingest_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_ingest_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_ingest_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "meta_lead_ingest_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_ingest_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_lead_sync_state: {
+        Row: {
+          cabinet_id: string
+          last_error: string | null
+          last_sync_at: string | null
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cabinet_id: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cabinet_id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_lead_sync_state_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: true
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_sync_state_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: true
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_sync_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "meta_lead_sync_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_lead_sync_state_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_oauth_states: {
         Row: {
           created_at: string
