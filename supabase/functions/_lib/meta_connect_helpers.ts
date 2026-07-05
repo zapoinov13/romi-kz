@@ -6,6 +6,8 @@ export const META_OAUTH_SCOPES = [
   "ads_management",
   "pages_show_list",
   "pages_read_engagement",
+  "pages_manage_ads",
+  "leads_retrieval",
   "instagram_basic",
   "business_management",
 ] as const;

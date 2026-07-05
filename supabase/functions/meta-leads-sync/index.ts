@@ -2,7 +2,7 @@
 // Запуск: pg_cron каждые 10 мин (x-automation-key) или вручную админом.
 //
 // Требует у кабинета: page_id (+ опционально lead_form_id).
-// Права Meta token: leads_retrieval, pages_read_engagement, pages_show_list.
+// Права Meta token: leads_retrieval, pages_manage_ads, pages_read_engagement, pages_show_list.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import {
