@@ -51,6 +51,7 @@ const marketing: NavItem[] = [
     title: "Управление рекламой",
     url: "/ads",
     icon: Target,
+    hint: "Кабинеты и кампании",
     module: "ads",
     match: (p) => p === "/ads" || p.startsWith("/ads/") || p.startsWith("/create"),
   },
@@ -80,6 +81,7 @@ const system: NavItem[] = [
     title: "Настройки",
     url: "/settings",
     icon: Settings,
+    hint: "Проект и интеграции",
     module: "settings",
     match: (p) => p.startsWith("/settings"),
   },
@@ -113,7 +115,7 @@ export function AppSidebar() {
           asChild
           tooltip={collapsed ? item.title : undefined}
           isActive={active}
-          className="h-auto p-0 hover:bg-transparent data-[active=true]:bg-transparent"
+          className="h-auto overflow-visible p-0 hover:bg-transparent data-[active=true]:bg-transparent [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible"
         >
           <NavLink
             to={item.url}
@@ -123,23 +125,37 @@ export function AppSidebar() {
             onMouseEnter={() => prefetchRoute(item.url)}
             title={item.hint ?? item.title}
             className={cn(
-              "group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all duration-150",
+              "group flex w-full items-start gap-2.5 rounded-lg px-2 py-2 transition-all duration-150",
               active
-                ? "glass-surface text-primary shadow-sm ring-1 ring-border/50"
-                : "text-foreground/75 hover:bg-white/45 hover:text-foreground hover:backdrop-blur-md",
+                ? "bg-primary/[0.08] text-primary ring-1 ring-primary/15"
+                : "text-foreground/80 hover:bg-muted/60 hover:text-foreground",
             )}
           >
             <span
               className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
+                "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors",
                 active
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-secondary/80 text-foreground/55 group-hover:bg-secondary group-hover:text-foreground",
+                  : "bg-muted/80 text-muted-foreground group-hover:bg-muted group-hover:text-foreground",
               )}
             >
-              <item.icon className="h-4 w-4" strokeWidth={2.25} />
+              <item.icon className="h-3.5 w-3.5" strokeWidth={2.25} />
             </span>
-            {!collapsed && <span className="min-w-0 flex-1 truncate leading-tight">{item.title}</span>}
+            {!collapsed && (
+              <div className="min-w-0 flex-1 leading-tight">
+                <span className="block text-[13px] font-medium leading-snug">{item.title}</span>
+                {item.hint ? (
+                  <span
+                    className={cn(
+                      "mt-0.5 block text-[11px] leading-snug",
+                      active ? "text-primary/70" : "text-muted-foreground",
+                    )}
+                  >
+                    {item.hint}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </NavLink>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -152,11 +168,11 @@ export function AppSidebar() {
       variant="floating"
       className="border-none bg-transparent [&_[data-sidebar=sidebar]]:glass-sidebar"
     >
-      <SidebarHeader className="gap-3 border-b border-border/40 px-3 py-3.5">
-        <div className={cn("flex items-center gap-2.5", collapsed && "justify-center")}>
+      <SidebarHeader className="gap-2.5 border-b border-border/40 px-3 py-3">
+        <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
           <RomiLogo size={collapsed ? "sm" : "md"} />
           {!collapsed && (
-            <span className="text-[13px] font-semibold uppercase tracking-[0.18em] text-foreground/45">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Agency
             </span>
           )}
@@ -164,27 +180,27 @@ export function AppSidebar() {
         <ProjectSwitcher collapsed={collapsed} />
       </SidebarHeader>
 
-      <SidebarContent className="px-2.5 py-3">
+      <SidebarContent className="px-2 py-3">
         {GROUPS.map((group) => {
           const items = group.items.filter(canSee);
           if (items.length === 0) return null;
           return (
-            <SidebarGroup key={group.label} className="py-1">
+            <SidebarGroup key={group.label} className="py-1.5">
               {!collapsed && (
-                <SidebarGroupLabel className="mb-1.5 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <SidebarGroupLabel className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
                   {group.label}
                 </SidebarGroupLabel>
               )}
               <SidebarGroupContent>
-                <SidebarMenu className="gap-1">{items.map((item) => renderItem(item))}</SidebarMenu>
+                <SidebarMenu className="gap-0.5">{items.map((item) => renderItem(item))}</SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
           );
         })}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/40 px-2.5 py-2.5">
-        <SidebarMenu className="gap-1">
+      <SidebarFooter className="border-t border-border/40 px-2 py-2">
+        <SidebarMenu className="gap-0.5">
           {system.filter(canSee).map((item) => renderItem(item))}
         </SidebarMenu>
       </SidebarFooter>

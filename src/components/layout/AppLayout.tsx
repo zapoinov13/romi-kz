@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   SidebarInset,
   SidebarProvider,
@@ -16,7 +17,10 @@ interface AppLayoutProps {
 const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <ContentFactoryGalleryProvider>
-      <SidebarProvider defaultOpen={true}>
+      <SidebarProvider
+        defaultOpen={true}
+        style={{ "--sidebar-width": "18rem", "--sidebar-width-icon": "3rem" } as CSSProperties}
+      >
         <div className="flex min-h-svh w-full app-shell-bg">
           <AppSidebar />
           <SidebarInset className="flex min-w-0 flex-1 flex-col bg-transparent">

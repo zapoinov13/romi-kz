@@ -105,13 +105,13 @@ export function ProjectSwitcher({ collapsed, metaStyle = false }: Props) {
               "flex items-center gap-2 text-left transition-colors",
               metaStyle
                 ? "max-w-full rounded-md px-1 py-1 hover:bg-[hsl(var(--meta-header-bg))]"
-                : "w-full gap-3 rounded-xl border border-border/60 bg-card/60 p-2.5 hover:bg-card",
+                : "w-full gap-2.5 rounded-lg border border-border/50 bg-background/50 p-2 hover:bg-background/80",
             )}
           >
             <span
               className={cn(
                 "grid shrink-0 place-items-center rounded-md bg-primary/15 font-bold text-primary",
-                metaStyle ? "h-7 w-7 text-[11px]" : "h-10 w-10 rounded-xl text-base ring-1 ring-primary/30",
+                metaStyle ? "h-7 w-7 text-[11px]" : "h-9 w-9 rounded-lg text-sm ring-1 ring-primary/20",
               )}
             >
               {active?.initials ?? "PR"}
