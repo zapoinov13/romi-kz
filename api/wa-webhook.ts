@@ -37,23 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true, hint: "POST Green API notifications here" });
   }
 
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const typeWebhook = String(body.typeWebhook ?? "");
+
+  // Test pings from Green API — no DB, no secrets required.
+  if (typeWebhook === "test" || !typeWebhook) {
+    return res.status(200).json({ ok: true, skipped: typeWebhook || "empty" });
+  }
+
   const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !serviceKey) {
     return res.status(500).json({ error: "Supabase service env not configured on Vercel" });
   }
 
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const typeWebhook = String(body.typeWebhook ?? "");
-
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-
-  // Test pings from Green API have no token — allow them, no side effects.
-  if (typeWebhook === "test" || !typeWebhook) {
-    return res.status(200).json({ ok: true, skipped: typeWebhook || "empty" });
-  }
 
   // Resolve instance + verify token before invoking any RPC.
   const instanceData = (body.instanceData ?? {}) as Record<string, unknown>;
