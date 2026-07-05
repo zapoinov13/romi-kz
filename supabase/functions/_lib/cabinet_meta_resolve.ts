@@ -125,13 +125,13 @@ export function clientConfigFromCabinet(
     instagram_actor_id: String(cab.instagram_id ?? "").trim()
       || pickConfigStr(config, "instagramId", "instagram_id", "instagram_actor_id"),
     fb_pixel_id: pixelId || null,
-    pixel_event: cab.pixel_event ?? pickConfigStr(config, "pixelEvent", "pixel_event") || "Lead",
+    pixel_event: (cab.pixel_event ?? pickConfigStr(config, "pixelEvent", "pixel_event")) || "Lead",
     website_url: website,
     whatsapp_number: whatsapp || null,
     business_id: cab.business_id,
     app_id: cab.app_id,
     currency: cab.currency,
-    lead_form_id: cab.lead_form_id ?? pickConfigStr(config, "leadFormId", "lead_form_id") || null,
+    lead_form_id: (cab.lead_form_id ?? pickConfigStr(config, "leadFormId", "lead_form_id")) || null,
     access_token: metaToken,
     daily_budget: budget ? Math.round(Number(budget) * 100) : undefined,
   };
