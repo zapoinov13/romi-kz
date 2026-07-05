@@ -42,7 +42,7 @@ export function GreenApiSettings() {
         .eq("project_id", projectId)
         .order("name");
       if (cancelled) return;
-      const list = (data ?? []) as CabinetOption[];
+      const list = (data ?? []) as unknown as CabinetOption[];
       setCabinets(list);
       setCabinetId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]?.id ?? ""));
       setCabinetsLoading(false);
