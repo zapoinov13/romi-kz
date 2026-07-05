@@ -1,7 +1,7 @@
 {
-  "git_sha": "b50d0d9",
-  "git_sha_full": "b50d0d9c5eba9bde495082754fd8dbf21ed78ca2",
-  "updated_at": "2026-07-05T05:42:07Z",
-  "label": "Синхронизировал проект с GH",
+  "git_sha": "7a93835",
+  "git_sha_full": "7a9383526b97625beefde40343ef5840514af36e",
+  "updated_at": "2026-07-05T10:44:23+05:00",
+  "label": "fix(ci): resolve prefer-const lint errors blocking deploy",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
