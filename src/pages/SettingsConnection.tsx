@@ -616,7 +616,7 @@ export function WhatsappProjectBindCard({
           .in("id", cabinetIds);
         const map = new Map<string, string>();
         for (const c of cabs ?? []) {
-          map.set(String((c as { id: string }).id), String((c as { name: string }).name));
+          map.set(String((c as unknown as { id: string }).id), String((c as unknown as { name: string }).name));
         }
         setCabinetNames(map);
       } else {
