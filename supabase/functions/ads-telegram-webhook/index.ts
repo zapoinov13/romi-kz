@@ -667,7 +667,7 @@ Deno.serve(async (req) => {
     }
 
     // Берём Meta access_token: сначала с кабинета, иначе глобальный.
-    let metaToken = metaTokens[0] ?? "";
+    const metaToken = metaTokens[0] ?? "";
     if (!metaToken) {
       await sendMessage(
         bot.bot_token as string,

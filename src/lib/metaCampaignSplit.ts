@@ -58,8 +58,9 @@ export async function fetchCampaignDayMetrics(
     .gte("date", since)
     .lte("date", until);
   if (projectId) mcdQ = mcdQ.eq("project_id", projectId);
-  let { data: mcd, error } = await mcdQ;
-  if (error) return byDate;
+  const first = await mcdQ;
+  if (first.error) return byDate;
+  let mcd = first.data;
 
   // Фоллбэк: строки без project_id / другой проект
   if ((!mcd || mcd.length === 0) && projectId) {

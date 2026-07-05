@@ -236,8 +236,9 @@ async function fetchMetaForRange(
     .gte("date", since)
     .lte("date", until);
   if (projectId) q = q.eq("project_id", projectId);
-  let { data, error } = await q;
-  if (error) throw new Error(error.message);
+  const first = await q;
+  if (first.error) throw new Error(first.error.message);
+  let data = first.data;
 
   // Фоллбэк без project_id — иначе «Вчера» может быть пустым при данных за месяц
   if ((!data || data.length === 0) && projectId) {

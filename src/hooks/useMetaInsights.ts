@@ -307,8 +307,9 @@ async function fetchInsights(
     .lte("date", until)
     .order("date", { ascending: true });
   if (projectId) q = q.eq("project_id", projectId);
-  let { data, error } = await q;
-  if (error) throw new Error(error.message);
+  const first = await q;
+  if (first.error) throw new Error(first.error.message);
+  let data = first.data;
 
   // Фоллбэк: CDI без project_id (старые синки) — иначе «Вчера» даёт 0 при данных за месяц
   if ((!data || data.length === 0) && projectId) {

@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
 
     const accountCurrency: string = accountJson?.currency ?? "USD";
 
-    let rows: DailyRow[] = ((metaJson.data ?? []) as Array<{
+    const rows: DailyRow[] = ((metaJson.data ?? []) as Array<{
       date_start: string;
       spend?: string;
       impressions?: string;
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       revenue: sumActions(r.action_values, PURCHASE_ACTIONS),
     }));
 
-    let displayCurrency = accountCurrency;
+    const displayCurrency = accountCurrency;
 
     const totals = rows.reduce(
       (acc, r) => {
