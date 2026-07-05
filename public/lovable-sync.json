@@ -1,7 +1,7 @@
 {
-  "git_sha": "aa4dc49",
-  "git_sha_full": "aa4dc49d75369ef41c6de7ac2190926c78d47e24",
-  "updated_at": "2026-07-05T10:19:26+05:00",
-  "label": "fix(sales-analytics): show Meta ad name in Объявление column",
+  "git_sha": "b50d0d9",
+  "git_sha_full": "b50d0d9c5eba9bde495082754fd8dbf21ed78ca2",
+  "updated_at": "2026-07-05T05:42:07Z",
+  "label": "Синхронизировал проект с GH",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
