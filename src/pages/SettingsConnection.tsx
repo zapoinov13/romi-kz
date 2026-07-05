@@ -72,7 +72,7 @@ const SettingsConnection = () => {
       .eq("project_id", projectId)
       .order("name")
       .then(({ data }) => {
-        const list = (data ?? []) as Array<{ id: string; name: string }>;
+        const list = (data ?? []) as unknown as Array<{ id: string; name: string }>;
         setCabinets(list);
         setCabinetId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]?.id ?? ""));
       });
@@ -616,7 +616,7 @@ export function WhatsappProjectBindCard({
           .in("id", cabinetIds);
         const map = new Map<string, string>();
         for (const c of cabs ?? []) {
-          map.set(String((c as { id: string }).id), String((c as { name: string }).name));
+          map.set(String((c as unknown as { id: string }).id), String((c as unknown as { name: string }).name));
         }
         setCabinetNames(map);
       } else {
