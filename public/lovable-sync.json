@@ -1,7 +1,7 @@
 {
-  "git_sha": "bbe5a09",
-  "git_sha_full": "bbe5a09fd7d2622cf3c7b6b3a8bbeb737102a2e0",
-  "updated_at": "2026-07-05T12:46:46+05:00",
-  "label": "fix(security): close Critical/Warning scan issues",
+  "git_sha": "a3f9401",
+  "git_sha_full": "a3f9401fd24822bbd9fb52f2a7d5bc58b37949be",
+  "updated_at": "2026-07-05T12:53:14+05:00",
+  "label": "fix(ui): sidebar nav labels no longer truncated",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
