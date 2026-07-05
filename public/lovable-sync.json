@@ -1,7 +1,7 @@
 {
-  "git_sha": "70bc942",
-  "git_sha_full": "70bc9425b1ff2ec619a90d4e753ffe6f1c407d21",
-  "updated_at": "2026-07-05T06:13:13Z",
-  "label": "Задеплоил edge functions",
+  "git_sha": "eb96fd4",
+  "git_sha_full": "eb96fd4c4a2f916ba5634c43d193ac6656effe38",
+  "updated_at": "2026-07-05T11:15:41+05:00",
+  "label": "fix(meta-oauth): add pages_manage_ads + leads_retrieval for lead forms",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
