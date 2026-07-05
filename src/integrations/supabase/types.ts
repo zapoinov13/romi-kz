@@ -250,6 +250,7 @@ export type Database = {
       ad_cabinets: {
         Row: {
           access_token: string | null
+          access_token_present: boolean | null
           ad_account_id: string | null
           app_id: string | null
           auto_launch_enabled: boolean
@@ -314,6 +315,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          access_token_present?: boolean | null
           ad_account_id?: string | null
           app_id?: string | null
           auto_launch_enabled?: boolean
@@ -378,6 +380,7 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          access_token_present?: boolean | null
           ad_account_id?: string | null
           app_id?: string | null
           auto_launch_enabled?: boolean
@@ -2598,6 +2601,7 @@ export type Database = {
           page_access_token_present: boolean | null
           page_id: string
           page_name: string | null
+          page_token_present: boolean | null
           profile_picture_url: string | null
           project_id: string
           updated_at: string
@@ -2618,6 +2622,7 @@ export type Database = {
           page_access_token_present?: boolean | null
           page_id: string
           page_name?: string | null
+          page_token_present?: boolean | null
           profile_picture_url?: string | null
           project_id: string
           updated_at?: string
@@ -2638,6 +2643,7 @@ export type Database = {
           page_access_token_present?: boolean | null
           page_id?: string
           page_name?: string | null
+          page_token_present?: boolean | null
           profile_picture_url?: string | null
           project_id?: string
           updated_at?: string
@@ -4893,6 +4899,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "whatsapp_config_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_config_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_config_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -5590,6 +5610,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "whatsapp_config_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_config_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_config_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -5615,6 +5649,10 @@ export type Database = {
     }
     Functions: {
       _get_usd_kzt_rate: { Args: { p_date: string }; Returns: number }
+      _grant_safe_select: {
+        Args: { p_secrets: string[]; p_table: unknown }
+        Returns: undefined
+      }
       _meta_get: { Args: { p_url: string }; Returns: Json }
       _normalize_act_id: { Args: { p_id: string }; Returns: string }
       backfill_lead_attribution: {
@@ -5667,6 +5705,7 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: string
       }
+      greenapi_ingest: { Args: { p_payload: Json }; Returns: Json }
       has_module_access: {
         Args: { _module_key: string; _user_id: string }
         Returns: boolean
