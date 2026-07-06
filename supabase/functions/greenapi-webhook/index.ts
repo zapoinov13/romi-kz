@@ -263,9 +263,10 @@ async function projectFromInstance(
   const expected = row.webhook_token?.trim() || Deno.env.get("GREENAPI_WEBHOOK_TOKEN")?.trim() || null;
   const presented = normalizeWebhookToken(presentedToken);
 
-  // No token configured yet — accept (setWebhook will add token soon).
+  // Fail-closed: reject if no webhook token is configured.
   if (!expected) {
-    return { ...base, ok: true };
+    console.error("greenapi-webhook: no token configured for instance", idInstance);
+    return { ...base, ok: false };
   }
   if (presented && expected && tokensMatch(expected, presented)) {
     return { ...base, ok: true };
