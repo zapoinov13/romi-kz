@@ -1,7 +1,7 @@
 {
-  "git_sha": "c5ea748",
-  "git_sha_full": "c5ea74878d3f899559282c1cd0fd178bc286908d",
-  "updated_at": "2026-07-06T11:07:09+05:00",
-  "label": "fix(meta): meta-connect-token boot without _lib imports",
+  "git_sha": "aa68ffd",
+  "git_sha_full": "aa68ffd9e6545730258d0753b522aaabaf26122a",
+  "updated_at": "2026-07-06T11:20:18+05:00",
+  "label": "perf: prefetch core routes and cache cabinets/Meta assets",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
