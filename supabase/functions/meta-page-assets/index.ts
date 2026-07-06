@@ -50,6 +50,72 @@ const FALLBACK_PIXEL_EVENTS = [
   "Schedule",
 ];
 
+type AssetParams = {
+  kind: string | null;
+  actId: string | null;
+  pageId: string | null;
+  pixelId: string | null;
+  igId: string | null;
+  cabinetId: string | null;
+};
+
+async function readAssetParams(req: Request, url: URL): Promise<AssetParams> {
+  let body: Record<string, unknown> = {};
+  if (req.method === "POST") {
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      body = {};
+    }
+  }
+  const pick = (key: keyof AssetParams) => {
+    const fromQuery = url.searchParams.get(key);
+    if (fromQuery) return fromQuery;
+    const fromBody = body[key];
+    return typeof fromBody === "string" && fromBody.trim() ? fromBody.trim() : null;
+  };
+  return {
+    kind: pick("kind"),
+    actId: pick("actId"),
+    pageId: pick("pageId"),
+    pixelId: pick("pixelId"),
+    igId: pick("igId"),
+    cabinetId: pick("cabinetId"),
+  };
+}
+
+function pickConfigStr(config: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = config[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+async function loadCabinetMeta(
+  admin: ReturnType<typeof createClient>,
+  cabinetId: string | null,
+) {
+  if (!cabinetId) return null;
+  const { data: cab } = await admin
+    .from("ad_cabinets")
+    .select("id, name, ad_account_id, external_id, page_id, page_name, access_token, lead_form_id, config, project_id")
+    .eq("id", cabinetId)
+    .maybeSingle();
+  if (!cab) return null;
+  const cfg = (cab.config ?? {}) as Record<string, unknown>;
+  const adAccountId = String(cab.ad_account_id ?? cab.external_id ?? "")
+    .trim()
+    || pickConfigStr(cfg, "adAccountId", "ad_account_id", "adAccountID");
+  const pageId = String(cab.page_id ?? "").trim()
+    || pickConfigStr(cfg, "pageId", "page_id");
+  const pageName = String(cab.page_name ?? "").trim()
+    || pickConfigStr(cfg, "pageName", "page_name");
+  const accessToken = String(cab.access_token ?? "").trim()
+    || pickConfigStr(cfg, "accessToken", "access_token");
+  return { ...cab, adAccountId, pageId, pageName, accessToken, config: cfg };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -74,18 +140,22 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
-    const kind = url.searchParams.get("kind");
-    const actId = url.searchParams.get("actId");
-    const pageId = url.searchParams.get("pageId");
-    const pixelId = url.searchParams.get("pixelId");
-    const igId = url.searchParams.get("igId");
-    const cabinetId = url.searchParams.get("cabinetId");
+    const params = await readAssetParams(req, url);
+    const kind = params.kind;
+    let actId = params.actId;
+    const pageId = params.pageId;
+    const pixelId = params.pixelId;
+    const igId = params.igId;
+    const cabinetId = params.cabinetId;
 
     if (!kind) return jsonResponse({ error: "kind is required" }, 400);
 
+    const cabinetMeta = await loadCabinetMeta(admin, cabinetId);
+    if (!actId && cabinetMeta?.adAccountId) actId = cabinetMeta.adAccountId;
+
     const isDiscovery =
       kind === "pages" || kind === "pixels" || kind === "instagram" ||
-      kind === "ig_media" || kind === "whatsapp";
+      kind === "ig_media" || kind === "whatsapp" || kind === "lead_forms";
 
     if (actId && !isDiscovery) {
       const actAccess = await requireMetaAdAccountAccess(auth.authHeader, actId);
@@ -357,7 +427,9 @@ Deno.serve(async (req) => {
     // ============ PAGES ============
     // Returns Facebook Pages that can be used as the "from" page for ads on this ad account.
     if (kind === "pages") {
-      if (!actId) return jsonResponse({ error: "actId is required" }, 400);
+      if (!actId && !cabinetMeta?.pageId) {
+        return jsonResponse({ error: "actId or cabinet with page_id is required" }, 400);
+      }
       const seen = new Set<string>();
       const items: Array<{
         id: string;
@@ -388,51 +460,72 @@ Deno.serve(async (req) => {
         "id,name,category,picture{url},website,instagram_business_account{id,username},connected_instagram_account{id,username}";
       const debug = url.searchParams.get("debug") === "1";
       const dbg: Record<string, unknown> = {};
-      const acct = normalizeActId(actId);
-
-      // 1) Pages promotable from this ad account
-      const r1 = await metaGet(
-        `/${acct}/promote_pages?fields=${pageFields}&limit=200`,
-        META_ACCESS_TOKEN,
+      const acct = actId ? normalizeActId(actId) : "";
+      const tokens = Array.from(
+        new Set([cabinetMeta?.accessToken, ...metaTokens].filter(Boolean) as string[]),
       );
-      if (debug) dbg.promote_pages = r1.body;
-      if (r1.ok && Array.isArray(r1.body?.data)) r1.body.data.forEach(push);
 
-      // 2) Business owned + client pages
-      if (items.length === 0) {
-        const r2 = await metaGet(
-          `/${acct}?fields=business{owned_pages{${pageFields}},client_pages{${pageFields}},pages{${pageFields}}}`,
-          META_ACCESS_TOKEN,
-        );
-        if (debug) dbg.business_pages = r2.body;
-        const biz = r2.body?.business ?? {};
-        for (const k of ["owned_pages", "client_pages", "pages"] as const) {
-          const arr = biz?.[k]?.data;
-          if (Array.isArray(arr)) arr.forEach(push);
-        }
-      }
+      const fetchPagesForToken = async (token: string) => {
+        if (acct) {
+          const r1 = await metaGet(
+            `/${acct}/promote_pages?fields=${pageFields}&limit=200`,
+            token,
+          );
+          if (debug) dbg[`promote_pages_${token.slice(0, 6)}`] = r1.body;
+          if (r1.ok && Array.isArray(r1.body?.data)) r1.body.data.forEach(push);
 
-      // NOTE: /me/accounts fallback intentionally removed - оно возвращает ВСЕ
-      // страницы пользователя токена, а нам нужны только страницы этого кабинета.
+          if (items.length === 0) {
+            const r2 = await metaGet(
+              `/${acct}?fields=business{owned_pages{${pageFields}},client_pages{${pageFields}},pages{${pageFields}}}`,
+              token,
+            );
+            if (debug) dbg[`business_pages_${token.slice(0, 6)}`] = r2.body;
+            const biz = r2.body?.business ?? {};
+            for (const k of ["owned_pages", "client_pages", "pages"] as const) {
+              const arr = biz?.[k]?.data;
+              if (Array.isArray(arr)) arr.forEach(push);
+            }
+          }
 
-
-      // 4) Last resort: scan ads of this ad account for any referenced page_id
-      if (items.length === 0) {
-        const r4 = await metaGet(
-          `/${acct}/ads?fields=creative{object_story_spec{page_id}}&limit=200`,
-          META_ACCESS_TOKEN,
-        );
-        if (debug) dbg.ads_pages = r4.body;
-        const pageIds = new Set<string>();
-        if (Array.isArray(r4.body?.data)) {
-          for (const ad of r4.body.data) {
-            const pid = ad?.creative?.object_story_spec?.page_id;
-            if (pid) pageIds.add(String(pid));
+          // Last resort: scan ads of this ad account for any referenced page_id.
+          if (items.length === 0) {
+            const r4 = await metaGet(
+              `/${acct}/ads?fields=creative{object_story_spec{page_id}}&limit=200`,
+              token,
+            );
+            if (debug) dbg[`ads_pages_${token.slice(0, 6)}`] = r4.body;
+            const pageIds = new Set<string>();
+            if (Array.isArray(r4.body?.data)) {
+              for (const ad of r4.body.data) {
+                const pid = ad?.creative?.object_story_spec?.page_id;
+                if (pid) pageIds.add(String(pid));
+              }
+            }
+            for (const pid of pageIds) {
+              const rp = await metaGet(`/${pid}?fields=${pageFields}`, token);
+              if (rp.ok && rp.body?.id) push(rp.body);
+            }
           }
         }
-        for (const pid of pageIds) {
-          const rp = await metaGet(`/${pid}?fields=${pageFields}`, META_ACCESS_TOKEN);
-          if (rp.ok && rp.body?.id) push(rp.body);
+      };
+
+      for (const token of tokens) {
+        await fetchPagesForToken(token);
+        if (items.length > 0) break;
+      }
+
+      if (cabinetMeta?.pageId) {
+        const savedId = cabinetMeta.pageId;
+        if (!seen.has(savedId)) {
+          const savedName = cabinetMeta.pageName || `${cabinetMeta.name} · из кабинета`;
+          push({ id: savedId, name: savedName });
+          for (const token of tokens) {
+            const rp = await metaGet(`/${savedId}?fields=${pageFields}`, token);
+            if (rp.ok && rp.body?.id) {
+              push(rp.body);
+              break;
+            }
+          }
         }
       }
 
@@ -441,7 +534,7 @@ Deno.serve(async (req) => {
         return jsonResponse({
           items: [],
           warning:
-            "Не удалось найти Facebook-страницы. Проверьте, что Meta-токен (или System User) имеет права pages_show_list / pages_manage_ads и привязан к Business Manager этого рекламного кабинета.",
+            "Не удалось найти Facebook-страницы. Проверьте Ad Account ID в кабинете и права Meta-токена (pages_show_list, pages_manage_ads).",
         });
       }
       return jsonResponse({ items });
@@ -557,34 +650,53 @@ Deno.serve(async (req) => {
     if (kind === "lead_forms") {
       if (!pageId) return jsonResponse({ error: "pageId is required" }, 400);
 
-      // Lead forms require a Page Access Token, not a User Token.
-      // Fetch the page token first, then use it for the leadgen_forms call.
-      const pageTokenResp = await metaGet(
-        `/${pageId}?fields=access_token`,
-        META_ACCESS_TOKEN,
+      const tokens = Array.from(
+        new Set([cabinetMeta?.accessToken, ...metaTokens].filter(Boolean) as string[]),
       );
-      const pageToken: string | undefined = pageTokenResp.body?.access_token;
+      let items: Array<{ id: string; name: string; status: string; leads_count: number }> = [];
+      let warning: string | undefined;
 
-      const tokenToUse = pageToken ?? META_ACCESS_TOKEN;
-      const r = await metaGet(
-        `/${pageId}/leadgen_forms?fields=id,name,status,leads_count&limit=200`,
-        tokenToUse,
-      );
-      if (!r.ok) {
-        // Soft-fail: return empty list with a warning instead of 502
-        // (otherwise UI shows a blank-screen error). Common cause: token
-        // lacks pages_manage_ads / leads_retrieval, or page has no forms.
-        const warning = r.body?.error?.message ??
-          "Не удалось получить лид-формы (проверьте права токена Meta: pages_show_list, pages_read_engagement, leads_retrieval).";
-        return jsonResponse({ items: [], warning });
+      for (const userToken of tokens) {
+        const pageTokenResp = await metaGet(
+          `/${pageId}?fields=access_token`,
+          userToken,
+        );
+        const pageToken: string | undefined = pageTokenResp.body?.access_token;
+        const tokenToUse = pageToken ?? userToken;
+        const r = await metaGet(
+          `/${pageId}/leadgen_forms?fields=id,name,status,leads_count&limit=200`,
+          tokenToUse,
+        );
+        if (r.ok && Array.isArray(r.body?.data)) {
+          items = r.body.data.map((f: any) => ({
+            id: String(f.id),
+            name: f.name,
+            status: f.status,
+            leads_count: Number(f.leads_count ?? 0),
+          }));
+          if (items.length > 0) break;
+        } else {
+          warning = r.body?.error?.message ??
+            "Не удалось получить лид-формы (проверьте права токена Meta: pages_manage_ads, leads_retrieval).";
+        }
       }
-      const items = (r.body?.data ?? []).map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        status: f.status,
-        leads_count: Number(f.leads_count ?? 0),
-      }));
-      return jsonResponse({ items });
+
+      const savedFormId = String(
+        (cabinetMeta as { lead_form_id?: string | null })?.lead_form_id ??
+          cabinetMeta?.config?.leadFormId ??
+          cabinetMeta?.config?.lead_form_id ??
+          "",
+      ).trim();
+      if (savedFormId && !items.some((f) => f.id === savedFormId)) {
+        items.unshift({
+          id: savedFormId,
+          name: `${savedFormId} (из кабинета)`,
+          status: "ACTIVE",
+          leads_count: 0,
+        });
+      }
+
+      return jsonResponse({ items, ...(warning && items.length === 0 ? { warning } : {}) });
     }
 
     return jsonResponse({ error: `Unknown kind: ${kind}` }, 400);

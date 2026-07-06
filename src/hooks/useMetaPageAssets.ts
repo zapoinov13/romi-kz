@@ -66,7 +66,6 @@ interface Params {
   enabled?: boolean;
 }
 
-
 // 60s in-memory cache
 const cache = new Map<string, { ts: number; data: any[] }>();
 const TTL = 60_000;
@@ -83,6 +82,7 @@ export function useMetaPageAssets<K extends AssetKind>({
   const [data, setData] = useState<ItemMap[K][]>([]);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
   const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}|${igId ?? ""}|${cabinetId ?? ""}`;
@@ -90,33 +90,35 @@ export function useMetaPageAssets<K extends AssetKind>({
   const fetchData = useCallback(
     async (force = false) => {
       if (!enabled) return;
-      if (kind === "whatsapp" && !pageId && !actId) return;
-      if (kind === "pixels" && !actId) return;
+      if (kind === "whatsapp" && !pageId && !actId && !cabinetId) return;
+      if (kind === "pixels" && !actId && !cabinetId) return;
       if (kind === "pixel_events" && !pixelId) return;
       if (kind === "lead_forms" && !pageId) return;
-      if (kind === "pages" && !actId) return;
+      if (kind === "pages" && !actId && !cabinetId) return;
       if (kind === "ig_media" && !igId) return;
 
       const cached = cache.get(cacheKey);
       if (!force && cached && Date.now() - cached.ts < TTL) {
         setData(cached.data);
+        setWarning(null);
         return;
       }
 
       const myId = ++reqIdRef.current;
       setLoading(true);
       setError(null);
+      setWarning(null);
 
-      const params = new URLSearchParams({ kind });
-      if (actId) params.set("actId", actId);
-      if (pageId) params.set("pageId", pageId);
-      if (pixelId) params.set("pixelId", pixelId);
-      if (igId) params.set("igId", igId);
-      if (cabinetId) params.set("cabinetId", cabinetId);
+      const body: Record<string, string> = { kind };
+      if (actId) body.actId = actId;
+      if (pageId) body.pageId = pageId;
+      if (pixelId) body.pixelId = pixelId;
+      if (igId) body.igId = igId;
+      if (cabinetId) body.cabinetId = cabinetId;
 
       const { data: resp, error: invokeErr } = await supabase.functions.invoke(
-        `meta-page-assets?${params.toString()}`,
-        { method: "GET" },
+        "meta-page-assets",
+        { method: "POST", body },
       );
 
       if (myId !== reqIdRef.current) return;
@@ -137,8 +139,13 @@ export function useMetaPageAssets<K extends AssetKind>({
       }
 
       const items = (resp?.items ?? []) as ItemMap[K][];
+      const respWarning = typeof resp?.warning === "string" ? resp.warning : null;
       cache.set(cacheKey, { ts: Date.now(), data: items });
       setData(items);
+      setWarning(respWarning);
+      if (respWarning && items.length === 0) {
+        setError(respWarning);
+      }
       setLoading(false);
     },
     [cacheKey, kind, actId, pageId, pixelId, igId, cabinetId, enabled],
@@ -149,6 +156,5 @@ export function useMetaPageAssets<K extends AssetKind>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey, enabled]);
 
-  return { data, isLoading, error, refetch: () => fetchData(true) };
+  return { data, isLoading, error, warning, refetch: () => fetchData(true) };
 }
-

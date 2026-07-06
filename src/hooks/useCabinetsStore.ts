@@ -9,7 +9,16 @@ import {
 } from "@/lib/cabinetSync";
 import type { AdCabinet } from "@/types/ads";
 
-const toCabinet = (r: any): AdCabinet => ({
+const toCabinet = (r: any): AdCabinet => {
+  const cfg = (r.config && typeof r.config === "object") ? (r.config as Record<string, unknown>) : {};
+  const pickStr = (...vals: unknown[]): string | undefined => {
+    for (const v of vals) {
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return undefined;
+  };
+
+  return {
   id: r.id,
   name: r.name,
   externalId: r.external_id ?? "",
@@ -26,16 +35,16 @@ const toCabinet = (r: any): AdCabinet => ({
   dailyBudget: r.daily_budget != null ? Number(r.daily_budget) : 0,
   currency: r.currency ?? "USD",
   // Meta
-  adAccountId: String(r.ad_account_id ?? r.external_id ?? "").trim() || undefined,
-  pageId: r.page_id ?? undefined,
-  pageName: r.page_name ?? undefined,
-  instagramId: r.instagram_id ?? undefined,
+  adAccountId: pickStr(r.ad_account_id, cfg.adAccountId, cfg.ad_account_id, r.external_id),
+  pageId: pickStr(r.page_id, cfg.pageId, cfg.page_id),
+  pageName: pickStr(r.page_name, cfg.pageName, cfg.page_name),
+  instagramId: pickStr(r.instagram_id, cfg.instagramId, cfg.instagram_id),
   // Трекинг
   telegramGroupId: r.telegram_group_id ?? undefined,
-  whatsappNumber: r.whatsapp_number ?? undefined,
-  pixelId: r.pixel_id ?? undefined,
-  pixelEvent: r.pixel_event ?? "Lead",
-  websiteUrl: r.website_url ?? undefined,
+  whatsappNumber: pickStr(r.whatsapp_number, cfg.whatsappNumber, cfg.whatsapp_number),
+  pixelId: pickStr(r.pixel_id, cfg.pixelId, cfg.pixel_id),
+  pixelEvent: pickStr(r.pixel_event, cfg.pixelEvent, cfg.pixel_event) ?? "Lead",
+  websiteUrl: pickStr(r.website_url, cfg.websiteUrl, cfg.website_url),
   // Заметки
   brief: r.brief ?? undefined,
   // Унаследованные
@@ -44,7 +53,7 @@ const toCabinet = (r: any): AdCabinet => ({
   businessId: r.business_id ?? undefined,
   campaignObjective: r.campaign_objective ?? undefined,
   optimizationGoal: r.optimization_goal ?? undefined,
-  leadFormId: r.lead_form_id ?? undefined,
+  leadFormId: pickStr(r.lead_form_id, cfg.leadFormId, cfg.lead_form_id),
   startTime: r.start_time ?? undefined,
   endTime: r.end_time ?? undefined,
   daysOfWeek: r.days_of_week ?? [1, 2, 3, 4, 5, 6, 7],
@@ -65,7 +74,8 @@ const toCabinet = (r: any): AdCabinet => ({
   creativeMediaUrls: r.creative_media_urls ?? [],
   landingUrl: r.landing_url ?? undefined,
   utmTemplate: r.utm_template ?? undefined,
-});
+};
+};
 
 const toDbPatch = (patch: Partial<AdCabinet>): Record<string, unknown> => {
   const out: Record<string, unknown> = {};

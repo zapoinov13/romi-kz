@@ -19,6 +19,7 @@ type Goal = "whatsapp" | "site-leads" | "meta-form" | "traffic";
 interface Props {
   goal: Goal;
   cabinet: AdCabinet | undefined;
+  pageId?: string;
   whatsappId: string;
   setWhatsappId: (v: string) => void;
   pixelId: string;
@@ -72,6 +73,7 @@ const FieldShell = ({
 const GoalAssetsPicker = ({
   goal,
   cabinet,
+  pageId: pageIdProp,
   whatsappId,
   setWhatsappId,
   pixelId,
@@ -82,21 +84,22 @@ const GoalAssetsPicker = ({
   setLeadFormId,
 }: Props) => {
   const actId = resolveCabinetActId(cabinet);
-  const pageId = cabinet?.pageId;
+  const pageId = pageIdProp || cabinet?.pageId;
+  const cabinetId = cabinet?.id;
 
   const wa = useMetaPageAssets({
     kind: "whatsapp",
     pageId,
     actId,
-    cabinetId: cabinet?.id,
-    enabled: goal === "whatsapp" && (!!pageId || !!actId),
+    cabinetId,
+    enabled: goal === "whatsapp" && (!!pageId || !!actId || !!cabinetId),
   });
 
   const pixels = useMetaPageAssets({
     kind: "pixels",
     actId,
-    cabinetId: cabinet?.id,
-    enabled: goal === "site-leads" && !!actId,
+    cabinetId,
+    enabled: goal === "site-leads" && (!!actId || !!cabinetId),
   });
 
   const events = useMetaPageAssets({
@@ -108,6 +111,7 @@ const GoalAssetsPicker = ({
   const forms = useMetaPageAssets({
     kind: "lead_forms",
     pageId,
+    cabinetId,
     enabled: goal === "meta-form" && !!pageId,
   });
 
@@ -139,6 +143,16 @@ const GoalAssetsPicker = ({
     return out;
   }, [pixels.data, cabinet?.pixelId]);
 
+  const formOptions = useMemo(() => {
+    const seen = new Set(forms.data.map((f) => f.id));
+    const out = [...forms.data];
+    const saved = cabinet?.leadFormId?.trim();
+    if (saved && !seen.has(saved)) {
+      out.unshift({ id: saved, name: `${saved} (из кабинета)`, status: "ACTIVE", leads_count: 0 });
+    }
+    return out;
+  }, [forms.data, cabinet?.leadFormId]);
+
   useEffect(() => {
     if (goal !== "whatsapp" || whatsappId) return;
     const saved = cabinet?.whatsappNumber?.trim();
@@ -165,11 +179,21 @@ const GoalAssetsPicker = ({
     }
   }, [goal, cabinet?.pixelEvent, pixelEvent, setPixelEvent]);
 
+  useEffect(() => {
+    if (goal !== "meta-form" || leadFormId) return;
+    const saved = cabinet?.leadFormId?.trim();
+    if (saved) {
+      setLeadFormId(saved);
+      return;
+    }
+    if (formOptions.length === 1) setLeadFormId(formOptions[0].id);
+  }, [goal, leadFormId, cabinet?.leadFormId, formOptions, setLeadFormId]);
+
   if (!cabinet) return null;
   if (goal === "traffic") return null;
 
   if (goal === "whatsapp") {
-    if (!pageId && !actId) {
+    if (!pageId && !actId && !cabinetId) {
       return (
         <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">
           Заполните Page ID или Ad Account ID в настройках кабинета — без них нельзя получить WhatsApp-номера.
@@ -214,7 +238,7 @@ const GoalAssetsPicker = ({
   }
 
   if (goal === "site-leads") {
-    if (!actId) {
+    if (!actId && !cabinetId) {
       return (
         <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">
           Заполните Ad Account ID в настройках кабинета.
@@ -285,7 +309,7 @@ const GoalAssetsPicker = ({
   if (!pageId) {
     return (
       <div className="rounded-xl border border-warning/40 bg-warning/5 p-3 text-xs text-warning">
-        Заполните Page ID в настройках кабинета.
+        Сначала выберите Facebook-страницу — лид-формы привязаны к странице.
       </div>
     );
   }
@@ -302,14 +326,14 @@ const GoalAssetsPicker = ({
             placeholder={
               forms.isLoading
                 ? "Загрузка..."
-                : forms.data.length === 0
+                : formOptions.length === 0
                   ? "У страницы нет лид-форм"
                   : "Выберите форму"
             }
           />
         </SelectTrigger>
         <SelectContent>
-          {forms.data.map((f) => (
+          {formOptions.map((f) => (
             <SelectItem key={f.id} value={f.id}>
               {f.name}
               {f.status === "ACTIVE" ? "" : ` (${f.status})`}
