@@ -1,7 +1,7 @@
 {
-  "git_sha": "4067149",
-  "git_sha_full": "40671495a1e7fe28ae3de0b18556607e549898f1",
-  "updated_at": "2026-07-06T05:07:19Z",
-  "label": "Упростил окно кабинета",
+  "git_sha": "76ded1e",
+  "git_sha_full": "76ded1e3cdb8c2e1eb23f3edb64b1ee331fbed40",
+  "updated_at": "2026-07-06T05:12:23Z",
+  "label": "Скрыл не привязанные страницы",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
