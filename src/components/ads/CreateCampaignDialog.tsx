@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Rocket, Upload, CheckCircle2, Sparkles, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -659,6 +659,18 @@ const CreateCampaignDialog = ({
     enabled: !!(cabinetActId || selectedCabinet?.id),
   });
 
+  const pageOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; category?: string }>();
+    for (const p of pagesAssets.data) map.set(p.id, p);
+    if (selectedCabinet?.pageId && !map.has(selectedCabinet.pageId)) {
+      map.set(selectedCabinet.pageId, {
+        id: selectedCabinet.pageId,
+        name: selectedCabinet.pageName || `${selectedCabinet.pageId} · из настроек`,
+      });
+    }
+    return Array.from(map.values());
+  }, [pagesAssets.data, selectedCabinet?.pageId, selectedCabinet?.pageName]);
+
   // При смене кабинета сбрасываем выбранную страницу на дефолтную из настроек кабинета.
   useEffect(() => {
     setPageId(selectedCabinet?.pageId ?? "");
@@ -675,6 +687,11 @@ const CreateCampaignDialog = ({
     if (pageId) return;
     if (pagesAssets.data.length > 0) setPageId(pagesAssets.data[0].id);
   }, [pagesAssets.data, pageId]);
+
+  useEffect(() => {
+    if (pageId || pageOptions.length === 0) return;
+    setPageId(pageOptions[0].id);
+  }, [pageOptions, pageId]);
 
   // «Эффективная» страница — то, что реально уйдёт в запуск.
   const effectivePageId = pageId || selectedCabinet?.pageId || "";
@@ -1318,14 +1335,7 @@ const CreateCampaignDialog = ({
                       <SelectValue placeholder={pagesAssets.isLoading ? "Загрузка…" : "Выберите страницу"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Если дефолтная страница кабинета не вернулась через API — всё равно покажем её. */}
-                      {selectedCabinet.pageId &&
-                        !pagesAssets.data.some((p) => p.id === selectedCabinet.pageId) && (
-                          <SelectItem value={selectedCabinet.pageId}>
-                            {selectedCabinet.pageName || selectedCabinet.pageId} · из настроек
-                          </SelectItem>
-                        )}
-                      {pagesAssets.data.map((p) => (
+                      {pageOptions.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name}
                           {p.category ? ` · ${p.category}` : ""}
@@ -1333,7 +1343,12 @@ const CreateCampaignDialog = ({
                       ))}
                     </SelectContent>
                   </Select>
-                  {pagesAssets.error && (
+                  {pagesAssets.warning && pageOptions.length > 0 && (
+                    <div className="text-[11px] text-amber-600 dark:text-amber-400">
+                      {pagesAssets.warning}
+                    </div>
+                  )}
+                  {pagesAssets.error && pageOptions.length === 0 && (
                     <div className="text-[11px] text-destructive">{pagesAssets.error}</div>
                   )}
                 </div>

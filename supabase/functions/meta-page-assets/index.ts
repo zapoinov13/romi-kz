@@ -5,6 +5,13 @@ import {
   createUserClient,
 } from "../_lib/auth.ts";
 import { resolveMetaTokens } from "../_lib/meta_tokens.ts";
+import {
+  CABINET_META_SELECT,
+  enrichCabinetMeta,
+  resolveAdAccountId,
+  resolvePageId,
+  type CabinetMetaRow,
+} from "../_lib/cabinet_meta_resolve.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,25 +102,29 @@ function pickConfigStr(config: Record<string, unknown>, ...keys: string[]): stri
 async function loadCabinetMeta(
   admin: ReturnType<typeof createClient>,
   cabinetId: string | null,
+  metaTokens: string[],
 ) {
   if (!cabinetId) return null;
   const { data: cab } = await admin
     .from("ad_cabinets")
-    .select("id, name, ad_account_id, external_id, page_id, page_name, access_token, lead_form_id, config, project_id")
+    .select(CABINET_META_SELECT)
     .eq("id", cabinetId)
     .maybeSingle();
   if (!cab) return null;
-  const cfg = (cab.config ?? {}) as Record<string, unknown>;
-  const adAccountId = String(cab.ad_account_id ?? cab.external_id ?? "")
-    .trim()
-    || pickConfigStr(cfg, "adAccountId", "ad_account_id", "adAccountID");
-  const pageId = String(cab.page_id ?? "").trim()
-    || pickConfigStr(cfg, "pageId", "page_id");
-  const pageName = String(cab.page_name ?? "").trim()
-    || pickConfigStr(cfg, "pageName", "page_name");
-  const accessToken = String(cab.access_token ?? "").trim()
-    || pickConfigStr(cfg, "accessToken", "access_token");
-  return { ...cab, adAccountId, pageId, pageName, accessToken, config: cfg };
+  const enriched = await enrichCabinetMeta(admin, cab as CabinetMetaRow, metaTokens);
+  if (!enriched) return null;
+  const cfg = (enriched.config ?? {}) as Record<string, unknown>;
+  return {
+    ...enriched,
+    adAccountId: normalizeActId(resolveAdAccountId(enriched)),
+    pageId: resolvePageId(enriched),
+    pageName: enriched.page_name
+      || pickConfigStr(cfg, "pageName", "page_name")
+      || null,
+    accessToken: String(enriched.access_token ?? "").trim()
+      || pickConfigStr(cfg, "accessToken", "access_token"),
+    config: cfg,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -150,7 +161,7 @@ Deno.serve(async (req) => {
 
     if (!kind) return jsonResponse({ error: "kind is required" }, 400);
 
-    const cabinetMeta = await loadCabinetMeta(admin, cabinetId);
+    const cabinetMeta = await loadCabinetMeta(admin, cabinetId, metaTokens);
     if (!actId && cabinetMeta?.adAccountId) actId = cabinetMeta.adAccountId;
 
     const isDiscovery =
@@ -465,7 +476,18 @@ Deno.serve(async (req) => {
         new Set([cabinetMeta?.accessToken, ...metaTokens].filter(Boolean) as string[]),
       );
 
+      // Сразу показываем страницу из кабинета / IG — даже если Graph API недоступен.
+      if (cabinetMeta?.pageId) {
+        push({
+          id: cabinetMeta.pageId,
+          name: cabinetMeta.pageName || `${cabinetMeta.name ?? "Кабинет"} · из настроек`,
+        });
+      }
+
+      let hadApiPages = false;
+
       const fetchPagesForToken = async (token: string) => {
+        const before = seen.size;
         if (acct) {
           const r1 = await metaGet(
             `/${acct}/promote_pages?fields=${pageFields}&limit=200`,
@@ -474,7 +496,18 @@ Deno.serve(async (req) => {
           if (debug) dbg[`promote_pages_${token.slice(0, 6)}`] = r1.body;
           if (r1.ok && Array.isArray(r1.body?.data)) r1.body.data.forEach(push);
 
-          if (items.length === 0) {
+          if (seen.size === before) {
+            const rAssigned = await metaGet(
+              `/${acct}/assigned_pages?fields=${pageFields}&limit=200`,
+              token,
+            );
+            if (debug) dbg[`assigned_pages_${token.slice(0, 6)}`] = rAssigned.body;
+            if (rAssigned.ok && Array.isArray(rAssigned.body?.data)) {
+              rAssigned.body.data.forEach(push);
+            }
+          }
+
+          if (seen.size === before) {
             const r2 = await metaGet(
               `/${acct}?fields=business{owned_pages{${pageFields}},client_pages{${pageFields}},pages{${pageFields}}}`,
               token,
@@ -487,8 +520,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Last resort: scan ads of this ad account for any referenced page_id.
-          if (items.length === 0) {
+          if (seen.size === before) {
             const r4 = await metaGet(
               `/${acct}/ads?fields=creative{object_story_spec{page_id}}&limit=200`,
               token,
@@ -507,24 +539,34 @@ Deno.serve(async (req) => {
             }
           }
         }
+
+        if (seen.size === before) {
+          const r3 = await metaGet(
+            `/me/accounts?fields=${pageFields}&limit=200`,
+            token,
+          );
+          if (debug) dbg[`me_accounts_${token.slice(0, 6)}`] = r3.body;
+          if (Array.isArray(r3.body?.data)) r3.body.data.forEach(push);
+        }
+
+        if (seen.size > before) hadApiPages = true;
       };
 
       for (const token of tokens) {
         await fetchPagesForToken(token);
-        if (items.length > 0) break;
+        if (hadApiPages) break;
       }
 
-      if (cabinetMeta?.pageId) {
-        const savedId = cabinetMeta.pageId;
-        if (!seen.has(savedId)) {
-          const savedName = cabinetMeta.pageName || `${cabinetMeta.name} · из кабинета`;
-          push({ id: savedId, name: savedName });
-          for (const token of tokens) {
-            const rp = await metaGet(`/${savedId}?fields=${pageFields}`, token);
-            if (rp.ok && rp.body?.id) {
-              push(rp.body);
-              break;
-            }
+      // Обогатим сохранённую страницу метаданными из Graph, если получится.
+      if (cabinetMeta?.pageId && tokens.length > 0) {
+        for (const token of tokens) {
+          const rp = await metaGet(
+            `/${cabinetMeta.pageId}?fields=${pageFields}`,
+            token,
+          );
+          if (rp.ok && rp.body?.id) {
+            push(rp.body);
+            break;
           }
         }
       }
@@ -534,7 +576,14 @@ Deno.serve(async (req) => {
         return jsonResponse({
           items: [],
           warning:
-            "Не удалось найти Facebook-страницы. Проверьте Ad Account ID в кабинете и права Meta-токена (pages_show_list, pages_manage_ads).",
+            "Не удалось найти Facebook-страницы. Укажите Page ID в карточке кабинета или переподключите Meta (Настройки → Facebook) с правами pages_show_list и pages_manage_ads.",
+        });
+      }
+      if (!hadApiPages && cabinetMeta?.pageId) {
+        return jsonResponse({
+          items,
+          warning:
+            "Показана страница из настроек кабинета. Для полного списка переподключите Meta с правами pages_manage_ads.",
         });
       }
       return jsonResponse({ items });

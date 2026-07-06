@@ -161,6 +161,8 @@ export function useMetaPageAssets<K extends AssetKind>({
       setWarning(respWarning);
       if (respWarning && items.length === 0) {
         setError(respWarning);
+      } else {
+        setError(null);
       }
       setLoading(false);
     },
