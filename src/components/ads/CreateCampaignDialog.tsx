@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Rocket, Upload, CheckCircle2, Sparkles, ChevronDown } from "lucide-react";
+import { Rocket, Upload, CheckCircle2, Sparkles, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
