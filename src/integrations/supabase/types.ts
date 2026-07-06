@@ -5078,11 +5078,13 @@ export type Database = {
     Views: {
       ad_cabinets_safe: {
         Row: {
+          access_token_present: boolean | null
           ad_account_id: string | null
           auto_launch_enabled: boolean | null
           brief: string | null
           campaign_objective: string | null
           city: string | null
+          config: Json | null
           created_at: string | null
           created_by: string | null
           creative_cta: string | null
@@ -5131,11 +5133,13 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          access_token_present?: boolean | null
           ad_account_id?: string | null
           auto_launch_enabled?: boolean | null
           brief?: string | null
           campaign_objective?: string | null
           city?: string | null
+          config?: Json | null
           created_at?: string | null
           created_by?: string | null
           creative_cta?: string | null
@@ -5184,11 +5188,13 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          access_token_present?: boolean | null
           ad_account_id?: string | null
           auto_launch_enabled?: boolean | null
           brief?: string | null
           campaign_objective?: string | null
           city?: string | null
+          config?: Json | null
           created_at?: string | null
           created_by?: string | null
           creative_cta?: string | null
@@ -5259,6 +5265,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      automation_settings_safe: {
+        Row: {
+          auto_msg_24h_enabled: boolean | null
+          auto_msg_24h_hours: number | null
+          auto_msg_24h_template_key: string | null
+          cron_secret_present: boolean | null
+          followup_2h_enabled: boolean | null
+          followup_2h_minutes: number | null
+          id: boolean | null
+          meta_access_token_present: boolean | null
+          revival_7d_days: number | null
+          revival_7d_enabled: boolean | null
+          revival_7d_template_key: string | null
+          sipuni_enabled: boolean | null
+          sipuni_operator: string | null
+          sipuni_token_present: boolean | null
+          sipuni_user: string | null
+          telephony_provider: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_msg_24h_enabled?: boolean | null
+          auto_msg_24h_hours?: number | null
+          auto_msg_24h_template_key?: string | null
+          cron_secret_present?: boolean | null
+          followup_2h_enabled?: boolean | null
+          followup_2h_minutes?: number | null
+          id?: boolean | null
+          meta_access_token_present?: boolean | null
+          revival_7d_days?: number | null
+          revival_7d_enabled?: boolean | null
+          revival_7d_template_key?: string | null
+          sipuni_enabled?: boolean | null
+          sipuni_operator?: string | null
+          sipuni_token_present?: boolean | null
+          sipuni_user?: string | null
+          telephony_provider?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_msg_24h_enabled?: boolean | null
+          auto_msg_24h_hours?: number | null
+          auto_msg_24h_template_key?: string | null
+          cron_secret_present?: boolean | null
+          followup_2h_enabled?: boolean | null
+          followup_2h_minutes?: number | null
+          id?: boolean | null
+          meta_access_token_present?: boolean | null
+          revival_7d_days?: number | null
+          revival_7d_enabled?: boolean | null
+          revival_7d_template_key?: string | null
+          sipuni_enabled?: boolean | null
+          sipuni_operator?: string | null
+          sipuni_token_present?: boolean | null
+          sipuni_user?: string | null
+          telephony_provider?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       crm_stats_health: {
         Row: {
@@ -5840,6 +5906,7 @@ export type Database = {
         Args: { p_ad_id: string; p_since?: string; p_until?: string }
         Returns: Json
       }
+      get_my_profile: { Args: never; Returns: Json }
       get_project_intake_token: {
         Args: { p_project_id: string }
         Returns: string

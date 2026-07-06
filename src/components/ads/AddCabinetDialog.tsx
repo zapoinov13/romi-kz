@@ -4,9 +4,7 @@ import {
   CheckCircle2,
   Crosshair,
   Facebook,
-  Link2,
   Loader2,
-  MessageSquare,
   Shield,
   XCircle,
 } from "lucide-react";
@@ -22,13 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
 import { DEFAULT_META_UTM_TEMPLATE } from "@/lib/utmDefaults";
 import type { AdCabinet } from "@/types/ads";
@@ -314,82 +306,10 @@ const AddCabinetDialog = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel icon={Link2}>Страница</FieldLabel>
-                    <Select
-                      value={pageId || "__none__"}
-                      onValueChange={(v) => {
-                        if (v === "__none__") {
-                          setPageId("");
-                          setPageName("");
-                          setInstagramId("");
-                          return;
-                        }
-                        setPageId(v);
-                        setInstagramId("");
-                      }}
-                    >
-                      <SelectTrigger className={inputCls}>
-                        <SelectValue placeholder={pagesAssets.isLoading ? "Загрузка…" : "Позже"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Позже</SelectItem>
-                        {pagesAssets.data.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <p className="rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+                  Страницу, Instagram и Pixel можно подключить позже - при запуске кампании.
+                </p>
 
-                  <div className="space-y-1.5">
-                    <FieldLabel icon={MessageSquare}>Instagram</FieldLabel>
-                    {igAssets.data.length > 0 ? (
-                      <Select
-                        value={instagramId || "__none__"}
-                        onValueChange={(v) => setInstagramId(v === "__none__" ? "" : v)}
-                      >
-                        <SelectTrigger className={inputCls}>
-                          <SelectValue placeholder="Позже" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Позже</SelectItem>
-                          {igAssets.data.map((ig) => (
-                            <SelectItem key={(ig as { id: string }).id} value={(ig as { id: string }).id}>
-                              @{(ig as { username?: string; id: string }).username ?? (ig as { id: string }).id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={instagramId}
-                        onChange={(e) => setInstagramId(e.target.value)}
-                        placeholder={pageId ? "ID вручную" : "Сначала страница"}
-                        className={inputCls}
-                        disabled={!pageId}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <FieldLabel icon={Crosshair}>Pixel</FieldLabel>
-                  <Select
-                    value={pixelId || "__none__"}
-                    onValueChange={(v) => setPixelId(v === "__none__" ? "" : v)}
-                  >
-                    <SelectTrigger className={inputCls}>
-                      <SelectValue placeholder="Позже" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Позже</SelectItem>
-                      {pixelsAssets.data.map((px) => (
-                        <SelectItem key={px.id} value={px.id}>{px.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 <Button
                   type="button"
