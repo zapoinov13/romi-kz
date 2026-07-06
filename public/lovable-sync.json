@@ -1,7 +1,7 @@
 {
-  "git_sha": "807ed67",
-  "git_sha_full": "807ed675c4aa53955973ecb51eda5c8e6d03dc17",
-  "updated_at": "2026-07-06T05:30:47Z",
-  "label": "Fixed greenapi-webhook auth",
+  "git_sha": "5ae11a0",
+  "git_sha_full": "5ae11a062fdfe38806a432d38aa717c22d644c81",
+  "updated_at": "2026-07-06T10:52:04+05:00",
+  "label": "fix(ads): load pages and lead forms when creating campaign",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
