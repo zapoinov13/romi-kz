@@ -42,12 +42,30 @@ export function MetaConnectSettings() {
   const load = async () => {
     setChecking(true);
     setError(null);
-    const { data, error: err } = await supabase.functions.invoke("meta-connect-token", {
-      body: { action: "list" },
-    });
-    if (err) setError(err.message);
-    else setTokens(data?.tokens ?? []);
-    setChecking(false);
+    try {
+      const { data, error: err } = await supabase.functions.invoke("meta-connect-token", {
+        body: { action: "list" },
+      });
+      if (err) {
+        setError(err.message);
+        setTokens([]);
+        return;
+      }
+      if (data?.error) {
+        setError(String(data.error));
+        setTokens([]);
+        return;
+      }
+      setTokens(Array.isArray(data?.tokens) ? data.tokens : []);
+      if (data?.warning) {
+        setError(String(data.warning));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось загрузить Meta-токены");
+      setTokens([]);
+    } finally {
+      setChecking(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -143,6 +161,12 @@ export function MetaConnectSettings() {
           </Badge>
         )}
       </div>
+
+      {error && !showManual && (
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="mb-4">
         <Button
