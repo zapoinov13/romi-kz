@@ -1,7 +1,7 @@
 {
-  "git_sha": "19547af",
-  "git_sha_full": "19547afdf9e0f077b492cf7b4a26beb03e719854",
-  "updated_at": "2026-07-06T05:54:08Z",
-  "label": "Fixed missing icon imports",
+  "git_sha": "c5ea748",
+  "git_sha_full": "c5ea74878d3f899559282c1cd0fd178bc286908d",
+  "updated_at": "2026-07-06T11:07:09+05:00",
+  "label": "fix(meta): meta-connect-token boot without _lib imports",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
