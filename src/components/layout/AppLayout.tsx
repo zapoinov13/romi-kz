@@ -1,8 +1,10 @@
 import type { CSSProperties } from "react";
+import { useEffect } from "react";
 import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { scheduleCorePrefetch } from "@/lib/routePrefetch";
 import AppSidebar from "./AppSidebar";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MetaTopBar } from "./MetaTopBar";
@@ -15,6 +17,10 @@ interface AppLayoutProps {
 }
 
 const AppLayout = ({ children }: AppLayoutProps) => {
+  useEffect(() => {
+    scheduleCorePrefetch();
+  }, []);
+
   return (
     <ContentFactoryGalleryProvider>
       <SidebarProvider

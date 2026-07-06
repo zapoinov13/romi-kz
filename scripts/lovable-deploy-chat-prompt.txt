@@ -1,24 +1,67 @@
-Синхронизируй проект с GitHub: zapoinov13/romi-kz, ветка main (последний коммит).
+Синхронизируй с GitHub zapoinov13/romi-kz ветка main (последний коммит).
+Supabase: rgttklitvvqsnlsakvzr. Frontend уже на Vercel — деплой только Supabase.
 
-Supabase project ref: rgttklitvvqsnlsakvzr
+═══════════════════════════════════════════════════════════
+БЛОК A — SQL Editor (по порядку, idempotent)
+═══════════════════════════════════════════════════════════
+1. scripts/lovable-security-scan-fixes.sql
+2. scripts/lovable-set-cron-secret.sql
+3. scripts/lovable-meta-oauth-setup.sql
+4. scripts/lovable-meta-leads-sync.sql
+5. scripts/lovable-sales-analytics-ad-name.sql
+6. scripts/lovable-lead-form-attribution.sql
+7. scripts/lovable-greenapi-ingest.sql
+8. scripts/lovable-whatsapp-cabinet-bind.sql
 
-КРИТИЧНО — исправление RUNTIME_ERROR edge functions:
+Проверка:
+  SELECT cron_secret_present FROM automation_settings WHERE id=true;
+  SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE '%meta%';
 
-1) SQL Editor — выполни целиком scripts/lovable-greenapi-ingest.sql
-   (функция greenapi_ingest — без неё CRM не получает WA-сообщения через Vercel).
+═══════════════════════════════════════════════════════════
+БЛОК B — Edge Functions (redeploy ALL, verify_jwt=true кроме webhook)
+═══════════════════════════════════════════════════════════
+P0 (критично):
+  meta-page-assets      — страницы + лид-формы (POST body, cabinetId)
+  meta-connect-token    — БЕЗ _lib импортов (самодостаточная)
+  meta-oauth-start
+  meta-oauth-callback
+  meta-leads-sync
+  lead-intake
+  greenapi-webhook      — verify_jwt=false
+  greenapi-proxy
+  greenapi-sync-name
+  launch-campaign
 
-2) SQL Editor — scripts/lovable-whatsapp-cabinet-bind.sql (если ещё не делали).
+P1:
+  meta-daily-sync
+  meta-structure-sync
+  meta-launch-cabinet
+  meta-validate-cabinet
+  sipuni-call
 
-3) Edge Functions — redeploy с verify_jwt=false:
-   - greenapi-proxy (исправлен: без _lib import, default webhook → Vercel)
-   - greenapi-webhook (исправлен синтаксис InstanceConfig)
+Secrets обязательны:
+  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
+  META_APP_ID, META_APP_SECRET (для OAuth)
+  Green API — в whatsapp_config
 
-4) Green API webhook URL:
-   https://romi-kz.vercel.app/api/wa-webhook
-   incoming webhook = yes
+═══════════════════════════════════════════════════════════
+БЛОК C — Cron
+═══════════════════════════════════════════════════════════
+meta-leads-sync: */10 * * * * → POST meta-leads-sync + x-cron-secret
 
-5) Проверка:
-   POST https://romi-kz.vercel.app/api/wa-webhook body {"typeWebhook":"test"}
-   → {"ok":true,"skipped":"test"}
+═══════════════════════════════════════════════════════════
+БЛОК D — Внешние URL
+═══════════════════════════════════════════════════════════
+Green API webhook: https://romi-kz.vercel.app/api/wa-webhook
+Meta OAuth redirect: https://rgttklitvvqsnlsakvzr.supabase.co/functions/v1/meta-oauth-callback
 
-Publish → Update после Git sync.
+═══════════════════════════════════════════════════════════
+БЛОК E — Приёмка
+═══════════════════════════════════════════════════════════
+1. Настройки → Meta: список токенов без blank screen
+2. Создать кампанию: страницы + лид-формы подгружаются
+3. POST meta-leads-sync → imported > 0 (после reconnect Meta)
+4. Security Scan → 0 Critical
+5. WA test: POST wa-webhook {"typeWebhook":"test"} → ok
+
+Publish → Update после sync.

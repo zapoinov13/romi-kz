@@ -105,3 +105,20 @@ export function prefetchRoute(path: string) {
     load().catch(() => prefetched.delete(key));
   });
 }
+
+const CORE_ROUTES = ["/ads", "/crm", "/metrics", "/analytics/sales", "/settings"] as const;
+
+/** Prefetch the heaviest screens after login so navigation feels instant. */
+export function prefetchCoreRoutes() {
+  for (const path of CORE_ROUTES) prefetchRoute(path);
+}
+
+export function scheduleCorePrefetch() {
+  if (typeof window === "undefined") return;
+  const run = () => prefetchCoreRoutes();
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(run, { timeout: 2500 });
+  } else {
+    window.setTimeout(run, 1200);
+  }
+}

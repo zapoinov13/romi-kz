@@ -143,10 +143,38 @@ const toDbPatch = (patch: Partial<AdCabinet>): Record<string, unknown> => {
   return out;
 };
 
+const cabinetsCacheKey = (projectId: string | null) => `mv:cabinets:${projectId ?? "all"}`;
+
+function readCabinetsCache(projectId: string | null): AdCabinet[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(cabinetsCacheKey(projectId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as AdCabinet[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCabinetsCache(projectId: string | null, rows: AdCabinet[]) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(cabinetsCacheKey(projectId), JSON.stringify(rows));
+  } catch {
+    /* quota */
+  }
+}
+
 export function useCabinetsStore() {
   const { user } = useAuth();
   const { activeId: projectId } = useProjectsStore();
-  const [cabinets, setCabinets] = useState<AdCabinet[]>(() => []);
+  const [cabinets, setCabinets] = useState<AdCabinet[]>(() => readCabinetsCache(projectId));
+
+  useEffect(() => {
+    const cached = readCabinetsCache(projectId);
+    if (cached.length > 0) setCabinets(cached);
+  }, [projectId]);
 
   const refetch = useCallback(async () => {
     // Read from safe view — credentials (access_token, app_id, business_id,
@@ -158,7 +186,9 @@ export function useCabinetsStore() {
       q = q.or(`project_id.eq.${projectId},project_id.is.null`);
     }
     const { data } = await q;
-    setCabinets((data ?? []).map(toCabinet));
+    const rows = (data ?? []).map(toCabinet);
+    setCabinets(rows);
+    writeCabinetsCache(projectId, rows);
   }, [projectId]);
 
   useEffect(() => { void refetch(); }, [refetch]);

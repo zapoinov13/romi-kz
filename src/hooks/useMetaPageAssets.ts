@@ -66,9 +66,22 @@ interface Params {
   enabled?: boolean;
 }
 
-// 60s in-memory cache
+// In-memory cache for Meta page assets (pages, forms, pixels…)
 const cache = new Map<string, { ts: number; data: any[] }>();
-const TTL = 60_000;
+const DEFAULT_TTL = 60_000;
+const LONG_TTL = 5 * 60_000;
+const TTL_BY_KIND: Partial<Record<AssetKind, number>> = {
+  pages: LONG_TTL,
+  lead_forms: LONG_TTL,
+  pixels: LONG_TTL,
+  whatsapp: LONG_TTL,
+  instagram: LONG_TTL,
+  pixel_events: LONG_TTL,
+};
+
+function cacheTtl(kind: AssetKind) {
+  return TTL_BY_KIND[kind] ?? DEFAULT_TTL;
+}
 
 export function useMetaPageAssets<K extends AssetKind>({
   kind,
@@ -86,6 +99,7 @@ export function useMetaPageAssets<K extends AssetKind>({
   const reqIdRef = useRef(0);
 
   const cacheKey = `${kind}|${actId ?? ""}|${pageId ?? ""}|${pixelId ?? ""}|${igId ?? ""}|${cabinetId ?? ""}`;
+  const ttl = cacheTtl(kind);
 
   const fetchData = useCallback(
     async (force = false) => {
@@ -98,9 +112,11 @@ export function useMetaPageAssets<K extends AssetKind>({
       if (kind === "ig_media" && !igId) return;
 
       const cached = cache.get(cacheKey);
-      if (!force && cached && Date.now() - cached.ts < TTL) {
+      if (!force && cached && Date.now() - cached.ts < ttl) {
         setData(cached.data);
         setWarning(null);
+        setLoading(false);
+        setError(null);
         return;
       }
 
@@ -148,8 +164,17 @@ export function useMetaPageAssets<K extends AssetKind>({
       }
       setLoading(false);
     },
-    [cacheKey, kind, actId, pageId, pixelId, igId, cabinetId, enabled],
+    [cacheKey, kind, actId, pageId, pixelId, igId, cabinetId, enabled, ttl],
   );
+
+  useEffect(() => {
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < ttl) {
+      setData(cached.data);
+      setLoading(false);
+      setError(null);
+    }
+  }, [cacheKey, ttl]);
 
   useEffect(() => {
     fetchData(false);
