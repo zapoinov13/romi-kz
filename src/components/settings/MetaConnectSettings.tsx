@@ -43,7 +43,7 @@ export function MetaConnectSettings() {
     setChecking(true);
     setError(null);
     const { data, error: err } = await supabase.functions.invoke("meta-connect-token", {
-      method: "GET",
+      body: { action: "list" },
     });
     if (err) setError(err.message);
     else setTokens(data?.tokens ?? []);
