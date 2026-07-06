@@ -412,15 +412,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3) /me/accounts — pages the token user (or System User) manages directly
-      if (items.length === 0) {
-        const r3 = await metaGet(
-          `/me/accounts?fields=${pageFields}&limit=200`,
-          META_ACCESS_TOKEN,
-        );
-        if (debug) dbg.me_accounts = r3.body;
-        if (Array.isArray(r3.body?.data)) r3.body.data.forEach(push);
-      }
+      // NOTE: /me/accounts fallback intentionally removed - оно возвращает ВСЕ
+      // страницы пользователя токена, а нам нужны только страницы этого кабинета.
+
 
       // 4) Last resort: scan ads of this ad account for any referenced page_id
       if (items.length === 0) {
