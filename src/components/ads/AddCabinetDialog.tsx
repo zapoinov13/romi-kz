@@ -4,9 +4,7 @@ import {
   CheckCircle2,
   Crosshair,
   Facebook,
-  Link2,
   Loader2,
-  MessageSquare,
   Shield,
   XCircle,
 } from "lucide-react";
@@ -22,13 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { cn } from "@/lib/utils";
 import { DEFAULT_META_UTM_TEMPLATE } from "@/lib/utmDefaults";
 import type { AdCabinet } from "@/types/ads";
