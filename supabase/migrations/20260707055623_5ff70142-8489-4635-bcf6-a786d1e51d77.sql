@@ -1,0 +1,1 @@
+-- see /tmp/all.sql content inlined below

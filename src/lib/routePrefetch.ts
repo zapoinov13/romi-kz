@@ -116,9 +116,12 @@ export function prefetchCoreRoutes() {
 export function scheduleCorePrefetch() {
   if (typeof window === "undefined") return;
   const run = () => prefetchCoreRoutes();
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(run, { timeout: 2500 });
+  const w = window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+  };
+  if (typeof w.requestIdleCallback === "function") {
+    w.requestIdleCallback(run, { timeout: 2500 });
   } else {
-    window.setTimeout(run, 1200);
+    w.setTimeout(run, 1200);
   }
 }
