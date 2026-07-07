@@ -1,7 +1,7 @@
 {
-  "git_sha": "68c21e6",
-  "git_sha_full": "68c21e6663733f409a690e9761d0edd80a7f5b57",
-  "updated_at": "2026-07-06T11:49:07+05:00",
-  "label": "fix(meta): harden meta-connect-token for Lovable edge boot",
+  "git_sha": "f5fbf93",
+  "git_sha_full": "f5fbf93f02b1597fad1e53ca1c7f2dff773732f9",
+  "updated_at": "2026-07-07T05:57:00Z",
+  "label": "Синхронизировал с GitHub main",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
