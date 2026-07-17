@@ -6,6 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Lead } from "@/types/crm";
 import { leadSlaMinutes, slaTone } from "@/hooks/useCrmAnalytics";
 import { resolveLeadSource } from "@/lib/leadSource";
+import { extractAdNameFromUtm } from "@/lib/salesAdName";
+import { looksLikeMetaAdId } from "@/lib/salesAnalyticsMetrics";
 
 interface LeadCardProps {
   lead: Lead;
@@ -65,6 +67,12 @@ function LeadCardImpl({
   const tone = slaTone(sla);
   const showSlaTimer = highlightSla || (!lead.firstResponseAt && (lead.stageId === "new" || lead.stageId === "no_answer"));
   const sourceMeta = resolveLeadSource(lead);
+  const creativeLabel = extractAdNameFromUtm(lead.utm);
+  const campaignLabel =
+    lead.utm?.campaign && !looksLikeMetaAdId(lead.utm.campaign)
+      ? lead.utm.campaign
+      : null;
+  const attrLabel = creativeLabel ?? campaignLabel ?? null;
 
   useSyncExternalStore(subscribeAutoMoved, getAutoMovedSnapshot, getAutoMovedSnapshot);
   const autoMoved = isRecentlyAutoMoved(lead.id);
@@ -145,13 +153,17 @@ function LeadCardImpl({
         </span>
       </div>
 
-      {(lead.utm?.campaign || lead.utm?.source) && (
+      {attrLabel && (
         <div
           className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground"
-          title={`utm_source: ${lead.utm?.source ?? "—"} · utm_campaign: ${lead.utm?.campaign ?? "—"}`}
+          title={
+            creativeLabel
+              ? `Креатив: ${creativeLabel}`
+              : `utm_campaign: ${lead.utm?.campaign ?? "—"}`
+          }
         >
           <Tag className="h-3 w-3 shrink-0 opacity-60" />
-          <span className="truncate">{lead.utm?.campaign ?? lead.utm?.source}</span>
+          <span className="truncate">{attrLabel}</span>
         </div>
       )}
 

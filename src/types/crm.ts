@@ -11,8 +11,17 @@ export type UtmTags = {
   source?: string;   // utm_source
   medium?: string;   // utm_medium
   campaign?: string; // utm_campaign
-  content?: string;  // utm_content
+  content?: string;  // utm_content (= ad.id или имя)
   term?: string;     // utm_term
+  /** Название объявления/креатива — пишется при intake (Meta / CTWA / lead-intake) */
+  ad_name?: string;
+  headline?: string;
+  /** Дубли ключей, если intake кладёт префикс utm_ */
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 };
 
 export type StageHistoryEntry = {

@@ -5,6 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Lead } from "@/types/crm";
 import { cn } from "@/lib/utils";
+import {
+  extractAdNameFromUtm,
+  extractMetaAdIdFromLead,
+  lookupAdName,
+  registerAdName,
+  resolveLeadAdName,
+} from "@/lib/salesAdName";
 
 interface CreativeInfo {
   adId: string;
@@ -22,6 +29,9 @@ interface CreativeInfo {
  * Блок «Откуда пришёл лид» — показывает конкретный креатив Meta
  * (превью + название + кампания) с прямым переходом в карточку креатива
  * и в воронку по этому креативу.
+ *
+ * Название резолвится так же, как в «Аналитике продаж»:
+ * meta_creatives → ad_campaigns → utm.ad_name / headline.
  */
 export function LeadAttribution({ lead }: { lead: Lead }) {
   const [info, setInfo] = useState<CreativeInfo | null>(null);
@@ -29,12 +39,16 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
   const [syncing, setSyncing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const adId = lead.metaAdId ?? null;
+  const adId =
+    extractMetaAdIdFromLead(lead.metaAdId, lead.utm, lead.phone) ??
+    lead.metaAdId ??
+    null;
   const campaignId = lead.metaCampaignId ?? null;
+  const utmFallbackName = extractAdNameFromUtm(lead.utm);
 
   useEffect(() => {
     let cancelled = false;
-    if (!adId && !campaignId) {
+    if (!adId && !campaignId && !utmFallbackName) {
       setInfo(null);
       return;
     }
@@ -42,6 +56,9 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
     (async () => {
       let creative: CreativeInfo | null = null;
       let creativeCampaignId: string | null = null;
+      const creativeNames = new Map<string, string>();
+      const campaignAdNames = new Map<string, string>();
+
       if (adId) {
         const { data, error } = await supabase
           .from("meta_creatives")
@@ -50,6 +67,7 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
           .maybeSingle();
         if (error) console.warn("[LeadAttribution] meta_creatives fetch failed", error);
         if (data) {
+          if (data.name) registerAdName(creativeNames, data.ad_id, data.name);
           creative = {
             adId: data.ad_id,
             name: data.name,
@@ -62,7 +80,42 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
           };
           creativeCampaignId = data.campaign_id ?? null;
         }
+
+        // Fallback: локальная таблица ad_campaigns (имя при запуске/синке)
+        if (!lookupAdName(creativeNames, adId)) {
+          const { data: ac, error: acErr } = await supabase
+            .from("ad_campaigns")
+            .select("meta_ad_id, ad_name, headline")
+            .eq("meta_ad_id", adId)
+            .maybeSingle();
+          if (acErr) console.warn("[LeadAttribution] ad_campaigns fetch failed", acErr);
+          const label = (ac?.ad_name ?? "").trim() || (ac?.headline ?? "").trim();
+          if (label) registerAdName(campaignAdNames, adId, label);
+        }
       }
+
+      const resolvedName =
+        resolveLeadAdName(adId, lead.utm, {
+          creatives: creativeNames,
+          campaigns: campaignAdNames,
+        }) ??
+        utmFallbackName ??
+        null;
+
+      if (creative) {
+        creative.name = resolvedName ?? creative.name;
+      } else if (resolvedName || adId || campaignId) {
+        creative = {
+          adId: adId ?? "",
+          name: resolvedName,
+          thumbnailUrl: null,
+          imageUrl: null,
+          posterUrl: null,
+          creativeType: null,
+          effectiveStatus: null,
+        };
+      }
+
       const campId = creativeCampaignId ?? campaignId;
       if (campId) {
         const { data: camp, error: campError } = await supabase
@@ -74,8 +127,8 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
         if (camp && creative) creative.campaignName = camp.name;
         else if (camp && !creative) {
           creative = {
-            adId: "",
-            name: null,
+            adId: adId ?? "",
+            name: resolvedName,
             thumbnailUrl: null,
             imageUrl: null,
             posterUrl: null,
@@ -85,15 +138,16 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
           };
         }
       }
+
       if (!cancelled) {
         setInfo(creative);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [adId, campaignId, reloadKey]);
+  }, [adId, campaignId, reloadKey, utmFallbackName, lead.utm]);
 
-  if (!adId && !campaignId) return null;
+  if (!adId && !campaignId && !utmFallbackName) return null;
 
   const thumb = info?.imageUrl || info?.thumbnailUrl || info?.posterUrl || null;
   const isVideo = info?.creativeType === "video";
@@ -101,7 +155,11 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
   const TypeIcon = isVideo ? Video : isCarousel ? Layers : ImageIcon;
   const creativeHref = adId ? `/ads?tab=creatives&ad=${adId}` : null;
   const funnelHref = adId ? `/analytics/creatives?ad=${adId}` : null;
-  const missingCreative = !!adId && !info?.name && !loading;
+  const displayName =
+    info?.name?.trim() ||
+    utmFallbackName ||
+    (adId ? "Объявление без названия" : "Креатив не найден");
+  const missingCreative = !!adId && !info?.name && !loading && !utmFallbackName;
 
   const handleSync = async () => {
     setSyncing(true);
@@ -126,7 +184,6 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
       </div>
 
       <div className="flex items-start gap-3 px-3 py-2.5">
-        {/* Preview tile — clickable */}
         {creativeHref ? (
           <Link
             to={creativeHref}
@@ -136,7 +193,7 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
             {thumb ? (
               <img
                 src={thumb}
-                alt={info?.name ?? "creative"}
+                alt={displayName}
                 className="h-full w-full object-cover transition group-hover:scale-105"
                 loading="lazy"
                 referrerPolicy="no-referrer"
@@ -162,10 +219,8 @@ export function LeadAttribution({ lead }: { lead: Lead }) {
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 text-sm font-semibold leading-tight" title={info?.name ?? undefined}>
-            {loading
-              ? "Загружаем креатив…"
-              : (info?.name || (adId ? `Креатив ${adId}` : "Креатив не найден"))}
+          <div className="line-clamp-2 text-sm font-semibold leading-tight" title={displayName}>
+            {loading ? "Загружаем креатив…" : displayName}
           </div>
           {info?.campaignName && (
             <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground" title={info.campaignName}>

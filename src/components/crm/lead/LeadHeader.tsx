@@ -143,6 +143,13 @@ const UTM_LABELS: Record<string, string> = {
   campaign: "campaign",
   content: "content",
   term: "term",
+  ad_name: "ad_name",
+  headline: "headline",
+  utm_source: "source",
+  utm_medium: "medium",
+  utm_campaign: "campaign",
+  utm_content: "content",
+  utm_term: "term",
 };
 
 function UtmStrip({ lead }: { lead: Lead }) {

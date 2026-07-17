@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Lead, LeadStage } from "@/types/crm";
+import { extractAdNameFromUtm } from "@/lib/salesAdName";
+import { looksLikeMetaAdId } from "@/lib/salesAnalyticsMetrics";
 
 interface ClientsViewProps {
   leads: Lead[];
@@ -193,34 +195,43 @@ export function ClientsView({ leads, stages, onOpenLead }: ClientsViewProps) {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs">
-                      {l.utm?.source || l.utm?.campaign ? (
-                        <div
-                          className="flex max-w-[200px] flex-col gap-0.5"
-                          title={[
-                            l.utm?.source && `source: ${l.utm.source}`,
-                            l.utm?.medium && `medium: ${l.utm.medium}`,
-                            l.utm?.campaign && `campaign: ${l.utm.campaign}`,
-                            l.utm?.content && `content: ${l.utm.content}`,
-                            l.utm?.term && `term: ${l.utm.term}`,
-                          ]
-                            .filter(Boolean)
-                            .join("\n")}
-                        >
-                          <span className="inline-flex items-center gap-1 truncate text-primary">
-                            <Tag className="h-3 w-3 shrink-0" />
-                            <span className="truncate font-semibold">
-                              {l.utm?.campaign ?? l.utm?.source}
+                      {(() => {
+                        const creativeLabel = extractAdNameFromUtm(l.utm);
+                        const campaignLabel =
+                          l.utm?.campaign && !looksLikeMetaAdId(l.utm.campaign)
+                            ? l.utm.campaign
+                            : null;
+                        const primary = creativeLabel ?? campaignLabel ?? l.utm?.source;
+                        if (!primary) {
+                          return <span className="text-muted-foreground">—</span>;
+                        }
+                        return (
+                          <div
+                            className="flex max-w-[200px] flex-col gap-0.5"
+                            title={[
+                              creativeLabel && `креатив: ${creativeLabel}`,
+                              l.utm?.source && `source: ${l.utm.source}`,
+                              l.utm?.medium && `medium: ${l.utm.medium}`,
+                              l.utm?.campaign && `campaign: ${l.utm.campaign}`,
+                              l.utm?.content && `content: ${l.utm.content}`,
+                              l.utm?.ad_name && `ad_name: ${l.utm.ad_name}`,
+                              l.utm?.term && `term: ${l.utm.term}`,
+                            ]
+                              .filter(Boolean)
+                              .join("\n")}
+                          >
+                            <span className="inline-flex items-center gap-1 truncate text-primary">
+                              <Tag className="h-3 w-3 shrink-0" />
+                              <span className="truncate font-semibold">{primary}</span>
                             </span>
-                          </span>
-                          {l.utm?.medium && (
-                            <span className="truncate text-[10px] text-muted-foreground">
-                              {l.utm.source ?? "—"} / {l.utm.medium}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                            {l.utm?.medium && (
+                              <span className="truncate text-[10px] text-muted-foreground">
+                                {l.utm.source ?? "—"} / {l.utm.medium}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {l.amount > 0 ? `${l.amount.toLocaleString("ru-RU")} $` : "—"}
