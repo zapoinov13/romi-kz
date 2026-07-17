@@ -1,7 +1,7 @@
 {
-  "git_sha": "f5fbf93",
-  "git_sha_full": "f5fbf93f02b1597fad1e53ca1c7f2dff773732f9",
-  "updated_at": "2026-07-07T05:57:00Z",
-  "label": "Синхронизировал с GitHub main",
+  "git_sha": "258fa3c",
+  "git_sha_full": "258fa3c8fd41d6cf357f503703a2af1ff9c43149",
+  "updated_at": "2026-07-17T21:31:41+05:00",
+  "label": "fix(crm): resolve creative name on lead card from Meta + UTM",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
