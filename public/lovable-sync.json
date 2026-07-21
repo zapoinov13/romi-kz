@@ -1,7 +1,7 @@
 {
-  "git_sha": "258fa3c",
-  "git_sha_full": "258fa3c8fd41d6cf357f503703a2af1ff9c43149",
-  "updated_at": "2026-07-17T21:31:41+05:00",
-  "label": "fix(crm): resolve creative name on lead card from Meta + UTM",
+  "git_sha": "197ff8b",
+  "git_sha_full": "197ff8b958d583dce6c9444a6a0082a9edf9a36b",
+  "updated_at": "2026-07-21T07:39:45+05:00",
+  "label": "feat(whatsapp): Meta Coexistence without Green API",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
