@@ -16,6 +16,7 @@ export type ModuleKey =
   | "crm"
   | "metrics"
   | "sales_analytics"
+  | "finance"
   | "settings"
   // legacy keys (читаем, но в UI не показываем)
   | "factory"
@@ -26,6 +27,7 @@ export const MODULES: { key: ModuleKey; label: string; description: string }[] =
   { key: "crm", label: "CRM", description: "Воронка, чаты, сделки" },
   { key: "metrics", label: "Таблица РНП", description: "Показатели по дням" },
   { key: "sales_analytics", label: "Аналитика продаж", description: "Сквозная аналитика" },
+  { key: "finance", label: "Финансы", description: "Юнит-экономика и планы" },
   { key: "settings", label: "Настройки", description: "Команда и интеграции" },
 ];
 
@@ -49,7 +51,7 @@ export type TeamMember = {
 
 export function defaultModulesForRole(role: TeamRole): ModuleKey[] {
   if (role === "admin") return [...ALL_MODULE_KEYS];
-  if (role === "director") return ["ads", "crm", "metrics", "sales_analytics"];
+  if (role === "director") return ["ads", "crm", "metrics", "sales_analytics", "finance"];
   return ["ads", "metrics"];
 }
 

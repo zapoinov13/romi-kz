@@ -31,16 +31,29 @@ const MONTHS_RU = [
   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 
-import { fmtMoney } from "@/lib/format";
-
 const fmt = (n: number) => {
   if (!isFinite(n) || isNaN(n)) return "—";
-  return Math.round(n).toLocaleString("en-US");
+  return Math.round(n).toLocaleString("ru-RU");
 };
+
+/** Деньги в калькуляторе — тенге (ручной ввод пользователя). */
 const fmtT = (n: number) => {
   if (!isFinite(n) || isNaN(n)) return "—";
-  return fmtMoney(n);
+  return `${Math.round(n).toLocaleString("ru-RU")} ₸`;
 };
+
+/**
+ * Нормализация конверсии: пользователь может ввести и долю, и проценты.
+ * 0.2 → 20%, 0.33 → 33%, 20 → 20%. Значения меньше 1 трактуем как долю.
+ */
+const normCr = (v: number) => {
+  if (!isFinite(v) || v <= 0) return 0;
+  const pct = v < 1 ? v * 100 : v;
+  return Math.min(100, pct);
+};
+
+const fmtPct = (pct: number) =>
+  pct % 1 === 0 ? String(pct) : pct.toFixed(1).replace(".", ",");
 
 type Tab = "decomp" | "agency" | "dynamics";
 type DecompMode = "budget" | "revenue";
@@ -165,22 +178,26 @@ const Finance = () => {
     }
   }, [monthCursor, getPlan]);
 
+  // 0.2 и 20 означают одно и то же — 20%
+  const cr1 = normCr(crLeadVisit);
+  const cr2 = normCr(crVisitSale);
+
   const calc = useMemo(() => {
     const safe = (n: number) => (isFinite(n) && !isNaN(n) ? n : 0);
     if (mode === "budget") {
       const leads = cpl > 0 ? safe(budget / cpl) : 0;
-      const visits = leads * (crLeadVisit / 100);
-      const sales = visits * (crVisitSale / 100);
+      const visits = leads * (cr1 / 100);
+      const sales = visits * (cr2 / 100);
       const rev = sales * avgCheck;
       return { budget, leads, visits, sales, revenue: rev };
     }
     // mode === "revenue" — обратный счёт: сколько нужно вложить, чтобы получить эту выручку
     const sales = avgCheck > 0 ? safe(revenue / avgCheck) : 0;
-    const visits = crVisitSale > 0 ? safe(sales / (crVisitSale / 100)) : 0;
-    const leads = crLeadVisit > 0 ? safe(visits / (crLeadVisit / 100)) : 0;
+    const visits = cr2 > 0 ? safe(sales / (cr2 / 100)) : 0;
+    const leads = cr1 > 0 ? safe(visits / (cr1 / 100)) : 0;
     const requiredBudget = leads * cpl;
     return { budget: requiredBudget, leads, visits, sales, revenue };
-  }, [mode, budget, revenue, cpl, crLeadVisit, crVisitSale, avgCheck]);
+  }, [mode, budget, revenue, cpl, cr1, cr2, avgCheck]);
 
   const cpv = calc.visits > 0 ? calc.budget / calc.visits : 0;
   const cac = calc.sales > 0 ? calc.budget / calc.sales : 0;
@@ -199,8 +216,8 @@ const Finance = () => {
       sales: Math.round(calc.sales),
       revenue: Math.round(calc.revenue),
       avgCheck,
-      crLeadVisit,
-      crVisitSale,
+      crLeadVisit: cr1,
+      crVisitSale: cr2,
     });
     toast.success(`План на ${monthLabel} сохранён`, {
       description: "Перенесён в Таблицу показателей",
@@ -281,36 +298,36 @@ const Finance = () => {
               <SmartInput
                 icon={Wallet} label="Бюджет на месяц"
                 hint="Сколько готовы вложить в рекламу"
-                value={budget} onChange={setBudget} suffix="$"
+                value={budget} onChange={setBudget} suffix="₸"
               />
             ) : (
               <SmartInput
                 icon={Target} label="Целевая выручка"
                 hint="Сколько хотим заработать за месяц"
-                value={revenue} onChange={setRevenue} suffix="$"
+                value={revenue} onChange={setRevenue} suffix="₸"
               />
             )}
             <SmartInput
               icon={DollarSign} label="Стоимость лида (CPL)"
               hint="Цена одной заявки"
-              value={cpl} onChange={setCpl} suffix="$"
+              value={cpl} onChange={setCpl} suffix="₸"
             />
             <SmartInput
               icon={Percent} label="CR лид → диагностика"
-              hint="Какой процент лидов доходит до диагностики"
+              hint={`Процент лидов, дошедших до диагностики${cr1 > 0 ? ` · считаем как ${fmtPct(cr1)}%` : ""}`}
               value={crLeadVisit} onChange={(v) => setCrLeadVisit(Math.min(100, Math.max(0, v)))}
               suffix="%"
             />
             <SmartInput
               icon={Percent} label="CR диагностика → продажа"
-              hint="Какой процент диагностик закрывается в продажу"
+              hint={`Процент диагностик, закрытых в продажу${cr2 > 0 ? ` · считаем как ${fmtPct(cr2)}%` : ""}`}
               value={crVisitSale} onChange={(v) => setCrVisitSale(Math.min(100, Math.max(0, v)))}
               suffix="%"
             />
             <SmartInput
               icon={Receipt} label="Средний чек"
               hint="Сколько платит один клиент"
-              value={avgCheck} onChange={setAvgCheck} suffix="$"
+              value={avgCheck} onChange={setAvgCheck} suffix="₸"
             />
           </div>
 
@@ -331,11 +348,11 @@ const Finance = () => {
                   />,
                   <FunnelStep
                     key="l" step={2} icon={UserPlus} label="Лиды"
-                    value={fmt(calc.leads)} sub={`CR ${crLeadVisit}% → диагностика`}
+                    value={fmt(calc.leads)} sub={`CR ${fmtPct(cr1)}% → диагностика`}
                   />,
                   <FunnelStep
                     key="v" step={3} icon={Users} label="Диагностики"
-                    value={fmt(calc.visits)} sub={`CR ${crVisitSale}% → продажа`}
+                    value={fmt(calc.visits)} sub={`CR ${fmtPct(cr2)}% → продажа`}
                   />,
                   <FunnelStep
                     key="s" step={4} icon={Target} label="Продажи"

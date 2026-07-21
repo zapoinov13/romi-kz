@@ -4,6 +4,7 @@ import {
   Settings,
   Table2,
   Target,
+  Wallet,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { prefetchRoute } from "@/lib/routePrefetch";
@@ -76,6 +77,17 @@ const analytics: NavItem[] = [
   },
 ];
 
+const finance: NavItem[] = [
+  {
+    title: "Финансы",
+    hint: "Юнит-экономика и планы",
+    url: "/finance",
+    icon: Wallet,
+    module: "finance",
+    match: (p) => p === "/finance" || p.startsWith("/finance/"),
+  },
+];
+
 const system: NavItem[] = [
   {
     title: "Настройки",
@@ -91,6 +103,7 @@ const GROUPS = [
   { label: "Маркетинг", items: marketing },
   { label: "Продажи", items: sales },
   { label: "Аналитика", items: analytics },
+  { label: "Финансы", items: finance },
 ];
 
 function isItemActive(item: NavItem, pathname: string): boolean {
