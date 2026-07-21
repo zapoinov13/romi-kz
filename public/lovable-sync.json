@@ -1,7 +1,7 @@
 {
-  "git_sha": "40eff40",
-  "git_sha_full": "40eff40bc776b90969f3145acf712a590ea150b2",
-  "updated_at": "2026-07-21T08:00:34+05:00",
-  "label": "feat(finance): раздел Финансы в сайдбаре + фикс юнит-экономики",
+  "git_sha": "393b05b",
+  "git_sha_full": "393b05b557e674bb06a032c16829dfda783957dc",
+  "updated_at": "2026-07-21T08:08:50+05:00",
+  "label": "fix(finance): убрать вкладки агентской аналитики и динамики",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
