@@ -837,26 +837,36 @@ export function useCrmStore() {
     const safeChannel: CommChannel = (ch && (allowedChannels as readonly string[]).includes(ch))
       ? (ch as CommChannel) : "whatsapp";
 
-    // For WhatsApp — send via Green API proxy. Webhook will mirror it back,
-    // but to make UI snappy we also insert immediately.
+    // For WhatsApp — send via Meta Cloud API (Coexistence). Webhook may mirror
+    // the outbound message; we also insert immediately for snappy UI.
     let deliveryStatus: "sent" | "failed" = "sent";
     let externalId: string | null = null;
     if (safeChannel === "whatsapp") {
       const lead = leads.find((l) => l.id === leadId);
       const phone = lead?.phone ?? "";
       try {
-        const { data, error } = await supabase.functions.invoke("greenapi-proxy", {
-          body: { action: "sendMessage", phone, message: text },
+        const { sendWaCloudMessage } = await import("@/lib/whatsappCloud");
+        const data = await sendWaCloudMessage({
+          projectId: lead?.cabinetId ? (projectId ?? "") : (projectId ?? ""),
+          cabinetId: lead?.cabinetId,
+          leadId,
+          phone,
+          message: text,
         });
-        const idMessage = (data as { data?: { idMessage?: string } } | null)?.data?.idMessage ?? null;
-        const ok =
-          !error &&
-          (data as { ok?: boolean } | null)?.ok !== false &&
-          !!idMessage;
-        if (!ok) deliveryStatus = "failed";
-        externalId = idMessage;
-      } catch {
+        const wamid = data?.wamid ?? null;
+        const ok = data?.ok !== false && !!wamid && !data?.error;
+        if (!ok) {
+          deliveryStatus = "failed";
+          if (data?.code === "WA_NOT_CONNECTED" || data?.error) {
+            toast.error(data.error ?? "WhatsApp не подключён", {
+              description: "Настройки → WhatsApp",
+            });
+          }
+        }
+        externalId = wamid;
+      } catch (e) {
         deliveryStatus = "failed";
+        toast.error(e instanceof Error ? e.message : "Не удалось отправить в WhatsApp");
       }
     }
 
@@ -902,7 +912,7 @@ export function useCrmStore() {
         ),
       );
     }
-  }, [user?.id, leads]);
+  }, [user?.id, leads, projectId]);
 
   // ---------- growth ----------
   const togglePin = useCallback(async (leadId: string) => {

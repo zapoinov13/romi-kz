@@ -526,11 +526,6 @@ const Crm = () => {
       <ConnectWhatsAppDialog
         open={waOpen}
         onOpenChange={setWaOpen}
-        current={whatsapp}
-        onConnect={(cfg) => {
-          setWhatsapp(cfg);
-          toast.success("WhatsApp подключён");
-        }}
       />
     </main>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -8,36 +8,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
-import type { WhatsAppConfig } from "@/types/crm";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  current: WhatsAppConfig;
-  onConnect: (cfg: WhatsAppConfig) => void;
 }
 
-export function ConnectWhatsAppDialog({
-  open,
-  onOpenChange,
-  current,
-  onConnect,
-}: Props) {
-  const [phone, setPhone] = useState(current.phone ?? "");
-  const [name, setName] = useState(current.displayName ?? "");
+/** Redirects to Settings → WhatsApp (Meta Coexistence). No fake "connected" state. */
+export function ConnectWhatsAppDialog({ open, onOpenChange }: Props) {
+  const navigate = useNavigate();
 
-  const submit = () => {
-    if (!phone.trim()) return;
-    onConnect({
-      connected: true,
-      phone: phone.trim(),
-      displayName: name.trim() || undefined,
-      connectedAt: new Date().toISOString(),
-    });
+  const go = () => {
     onOpenChange(false);
+    navigate("/settings?tab=whatsapp");
   };
 
   return (
@@ -51,48 +35,22 @@ export function ConnectWhatsAppDialog({
             Подключить WhatsApp Business
           </DialogTitle>
           <DialogDescription>
-            Все входящие заявки будут попадать в воронку и в раздел чатов.
+            Подключение через официальный Meta: QR в приложении WhatsApp Business,
+            привязка к проекту и кабинету. Все новые входящие попадут в CRM на этап «Новая».
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="wa-phone">Номер WhatsApp Business</Label>
-            <Input
-              id="wa-phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+7 700 000 00 00"
-              maxLength={32}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="wa-name">Имя бизнеса (необязательно)</Label>
-            <Input
-              id="wa-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="MarkVision AI"
-              maxLength={80}
-            />
-          </div>
-
-          <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 text-xs text-muted-foreground">
-            После подключения вы получите QR-код для авторизации в WhatsApp
-            Business API. Все диалоги будут синхронизированы с CRM.
-          </div>
+        <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 text-xs text-muted-foreground">
+          Откроется раздел Настройки → WhatsApp. Выберите проект и кабинет, затем
+          нажмите «Подключить WhatsApp Business».
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Отмена
           </Button>
-          <Button
-            onClick={submit}
-            disabled={!phone.trim()}
-            className="bg-gradient-primary text-primary-foreground"
-          >
-            Подключить
+          <Button onClick={go} className="bg-gradient-primary text-primary-foreground">
+            Перейти к подключению
           </Button>
         </DialogFooter>
       </DialogContent>

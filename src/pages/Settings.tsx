@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
-import { GreenApiSettings } from "@/components/settings/GreenApiSettings";
+import { WhatsAppSettings } from "@/components/settings/WhatsAppSettings";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
 import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PipelinesSettings } from "@/components/settings/PipelinesSettings";
@@ -104,14 +104,14 @@ export default function Settings() {
       <PageHeader
         icon={SettingsIcon}
         title="Настройки"
-        description="Команда, Meta, Green API WhatsApp и интеграции"
+        description="Команда, Meta, WhatsApp и интеграции"
       />
 
       <Tabs defaultValue={defaultTab} key={defaultTab} className="mt-6 w-full">
         <TabsList className="mb-5 flex h-auto w-full flex-wrap justify-start gap-1 bg-card/40 p-1">
           <TabsTrigger value="team" className="gap-2"><Users2 className="h-3.5 w-3.5" /> Команда</TabsTrigger>
           <TabsTrigger value="meta" className="gap-2"><Facebook className="h-3.5 w-3.5" /> Facebook / Meta</TabsTrigger>
-          <TabsTrigger value="whatsapp" className="gap-2"><MessageCircle className="h-3.5 w-3.5" /> Green API</TabsTrigger>
+          <TabsTrigger value="whatsapp" className="gap-2"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</TabsTrigger>
           <TabsTrigger value="telegram-ads" className="gap-2"><Megaphone className="h-3.5 w-3.5" /> Telegram для рекламы</TabsTrigger>
           <TabsTrigger value="openai" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> OpenAI</TabsTrigger>
           <TabsTrigger value="crm" className="gap-2"><GitBranch className="h-3.5 w-3.5" /> CRM</TabsTrigger>
@@ -224,7 +224,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="whatsapp" className="mt-0">
-          <GreenApiSettings />
+          <WhatsAppSettings />
         </TabsContent>
 
         <TabsContent value="telegram-ads" className="mt-0">
