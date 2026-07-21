@@ -1,15 +1,12 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Calculator,
   DollarSign,
-  LineChart,
   Save,
   Target,
   TrendingUp,
   UserPlus,
   Users,
   Wallet,
-  CircleDollarSign,
   ArrowRight,
   Percent,
   Receipt,
@@ -21,8 +18,6 @@ import { cn } from "@/lib/utils";
 import { useFinancePlans, monthKey } from "@/hooks/useFinancePlan";
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import type { ReportPeriodRange } from "@/hooks/useReportData";
-import AgencyAnalytics from "@/components/finance/AgencyAnalytics";
-const MonthlyDynamics = lazy(() => import("@/components/finance/MonthlyDynamics"));
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 
@@ -55,7 +50,6 @@ const normCr = (v: number) => {
 const fmtPct = (pct: number) =>
   pct % 1 === 0 ? String(pct) : pct.toFixed(1).replace(".", ",");
 
-type Tab = "decomp" | "agency" | "dynamics";
 type DecompMode = "budget" | "revenue";
 
 interface SmartInputProps {
@@ -152,7 +146,6 @@ const FunnelArrow = () => (
 );
 
 const Finance = () => {
-  const [tab, setTab] = useState<Tab>("decomp");
   const [mode, setMode] = useState<DecompMode>("budget");
   const [period, setPeriod] = useState<ReportPeriodRange>(() => monthRange(new Date()));
   const monthCursor = period.from;
@@ -229,42 +222,11 @@ const Finance = () => {
       <PageHeader
         icon={Wallet}
         title="Финансы"
-        description="Юнит-экономика, агентская аналитика и динамика"
+        description="Калькулятор юнит-экономики"
       />
 
-      <div className="mt-5 inline-flex flex-wrap rounded-xl border border-border/60 bg-card/60 p-1">
-        {([
-          { id: "decomp", label: "Декомпозиция", icon: Calculator },
-          { id: "agency", label: "Агентская аналитика", icon: CircleDollarSign },
-          { id: "dynamics", label: "Динамика по месяцам", icon: LineChart },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              tab === t.id
-                ? "bg-success/15 text-success"
-                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-            )}
-          >
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "agency" && <AgencyAnalytics />}
-      {tab === "dynamics" && (
-        <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-muted/30" />}>
-          <MonthlyDynamics />
-        </Suspense>
-      )}
-
-      {tab === "decomp" && (
-        <>
-          {/* Mode switch */}
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+      {/* Mode switch */}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="inline-flex rounded-xl border border-border/60 bg-card/60 p-1">
               {([
                 { id: "budget" as const, label: "От бюджета", icon: Wallet },
@@ -423,8 +385,6 @@ const Finance = () => {
               </Button>
             </div>
           </div>
-        </>
-      )}
     </PageContainer>
   );
 };
