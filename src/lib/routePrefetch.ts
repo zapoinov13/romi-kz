@@ -21,6 +21,8 @@ export const routeImports = {
   Finance: () => import("@/pages/Finance"),
   Reports: () => import("@/pages/Reports"),
   Settings: () => import("@/pages/Settings"),
+  PrivacyPolicy: () => import("@/pages/PrivacyPolicy"),
+  TermsOfService: () => import("@/pages/TermsOfService"),
   SettingsConnection: () => import("@/pages/SettingsConnection"),
   ProjectStrategy: () => import("@/pages/ProjectStrategy"),
   ClientDashboard: () => import("@/pages/ClientDashboard"),
@@ -76,6 +78,14 @@ export function prefetchRoute(path: string) {
       break;
     case "/settings":
       loaders.push(routeImports.Settings);
+      break;
+    case "/privacy":
+    case "/privacy-policy":
+      loaders.push(routeImports.PrivacyPolicy);
+      break;
+    case "/terms":
+    case "/terms-of-service":
+      loaders.push(routeImports.TermsOfService);
       break;
     case "/settings/connection":
       loaders.push(routeImports.SettingsConnection);

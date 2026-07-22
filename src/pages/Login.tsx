@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { MarketingPanel } from "@/components/auth/MarketingPanel";
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -20,8 +20,17 @@ export default function Login() {
   return (
     <div className="grid h-screen w-full grid-cols-1 overflow-hidden lg:grid-cols-[1.1fr_1fr]">
       <MarketingPanel />
-      <div className="flex h-full items-center justify-center bg-white px-6 py-8 sm:px-10">
+      <div className="relative flex h-full flex-col items-center justify-center bg-white px-6 py-8 sm:px-10">
         <AuthForm />
+        <p className="absolute bottom-5 left-0 right-0 px-6 text-center text-[11px] text-muted-foreground">
+          <Link to="/privacy" className="hover:text-foreground hover:underline">
+            Политика конфиденциальности
+          </Link>
+          <span className="mx-2 opacity-40">·</span>
+          <Link to="/terms" className="hover:text-foreground hover:underline">
+            Пользовательское соглашение
+          </Link>
+        </p>
       </div>
     </div>
   );

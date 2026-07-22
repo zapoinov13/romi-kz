@@ -31,6 +31,8 @@ const SalesAnalytics = lazy(routeImports.SalesAnalytics);
 const Finance = lazy(routeImports.Finance);
 const Reports = lazy(routeImports.Reports);
 const Settings = lazy(routeImports.Settings);
+const PrivacyPolicy = lazy(routeImports.PrivacyPolicy);
+const TermsOfService = lazy(routeImports.TermsOfService);
 const ResetPassword = lazy(routeImports.ResetPassword);
 const ProjectStrategy = lazy(routeImports.ProjectStrategy);
 const ClientDashboard = lazy(routeImports.ClientDashboard);
@@ -69,6 +71,10 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/client/:token" element={<ClientDashboard />} />
               <Route path="/" element={<RequireAuth><HomeRedirect /></RequireAuth>} />
               <Route path="/dashboard" element={<RequireAuth><HomeRedirect /></RequireAuth>} />
