@@ -1,7 +1,7 @@
 {
-  "git_sha": "393b05b",
-  "git_sha_full": "393b05b557e674bb06a032c16829dfda783957dc",
-  "updated_at": "2026-07-21T08:08:50+05:00",
-  "label": "fix(finance): убрать вкладки агентской аналитики и динамики",
+  "git_sha": "e44c9c3",
+  "git_sha_full": "e44c9c31297226ec5bd35e11e718f9ce48fb28e7",
+  "updated_at": "2026-07-22T17:50:27+05:00",
+  "label": "feat: публичные /privacy и /terms для Meta App Review",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
