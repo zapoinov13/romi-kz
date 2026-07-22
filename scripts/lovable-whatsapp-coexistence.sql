@@ -69,12 +69,20 @@ CREATE POLICY "wa_accounts_select" ON public.whatsapp_accounts
 
 -- No direct INSERT/UPDATE/DELETE for clients — only via SECURITY DEFINER RPCs / service_role
 REVOKE ALL ON public.whatsapp_accounts FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.whatsapp_accounts TO service_role;
+
+-- Flag without exposing access_token to clients
+ALTER TABLE public.whatsapp_accounts
+  ADD COLUMN IF NOT EXISTS access_token_present boolean
+  GENERATED ALWAYS AS (
+    access_token IS NOT NULL AND length(btrim(access_token)) > 0
+  ) STORED;
+
 GRANT SELECT (
   id, project_id, cabinet_id, waba_id, phone_number_id,
   display_phone, display_name, onboarding_mode, connected, connected_at,
-  created_by, created_at, updated_at
+  created_by, created_at, updated_at, access_token_present
 ) ON public.whatsapp_accounts TO authenticated;
-GRANT ALL ON public.whatsapp_accounts TO service_role;
 
 CREATE OR REPLACE VIEW public.whatsapp_accounts_safe
 WITH (security_invoker = true) AS
@@ -92,7 +100,7 @@ SELECT
   created_by,
   created_at,
   updated_at,
-  (access_token IS NOT NULL AND length(access_token) > 0) AS access_token_present
+  COALESCE(access_token_present, false) AS access_token_present
 FROM public.whatsapp_accounts;
 
 GRANT SELECT ON public.whatsapp_accounts_safe TO authenticated;

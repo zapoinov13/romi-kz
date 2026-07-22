@@ -1,0 +1,64 @@
+Синхронизируй с GitHub zapoinov13/romi-kz ветка main (последний коммит).
+Supabase project: rgttklitvvqsnlsakvzr.
+Frontend уже на Vercel — деплой ТОЛЬКО Edge Functions + Secrets. SQL уже выполнен (whatsapp_accounts).
+
+═══════════════════════════════════════════════════════════
+БЛОК A — Secrets (Cloud → Secrets / Edge Function Secrets)
+═══════════════════════════════════════════════════════════
+Поставь или обнови:
+
+META_APP_ID=3006883863036605
+META_APP_SECRET=<App Secret из Meta App Settings → Basic>
+META_APP_WEBHOOK_SECRET=<тот же App Secret>
+META_WA_WEBHOOK_VERIFY_TOKEN=romi_wa_verify_2026
+META_GRAPH_VERSION=v21.0
+WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID=<Config ID из Meta → WhatsApp → Embedded Signup, если уже есть>
+
+═══════════════════════════════════════════════════════════
+БЛОК B — Deploy Edge Functions (из репозитория)
+═══════════════════════════════════════════════════════════
+Задеплой эти функции из папки supabase/functions/ (код уже в main):
+
+1. wa-cloud-webhook     — ОБЯЗАТЕЛЬНО verify_jwt = false
+2. wa-embedded-config   — verify_jwt = true (по умолчанию)
+3. wa-complete
+4. wa-status
+5. wa-disconnect
+6. wa-send
+
+Файлы:
+- supabase/functions/wa-cloud-webhook/index.ts
+- supabase/functions/wa-embedded-config/index.ts
+- supabase/functions/wa-complete/index.ts
+- supabase/functions/wa-status/index.ts
+- supabase/functions/wa-disconnect/index.ts
+- supabase/functions/wa-send/index.ts
+- supabase/functions/_lib/wa_cloud.ts
+- supabase/functions/_lib/auth.ts
+- supabase/functions/_lib/meta_connect_helpers.ts
+
+В config.toml уже есть:
+[functions.wa-cloud-webhook]
+verify_jwt = false
+
+═══════════════════════════════════════════════════════════
+БЛОК C — Проверка после деплоя
+═══════════════════════════════════════════════════════════
+1. GET https://rgttklitvvqsnlsakvzr.supabase.co/functions/v1/wa-cloud-webhook
+   → JSON {"ok":true,...}, НЕ 404
+
+2. Meta App → WhatsApp → Configuration → Webhook:
+   Callback URL:
+   https://rgttklitvvqsnlsakvzr.supabase.co/functions/v1/wa-cloud-webhook
+   Verify token: romi_wa_verify_2026
+   Subscribe: messages, smb_message_echoes, smb_app_state_sync
+
+3. Privacy / Terms (уже на Vercel):
+   https://romi-kz.vercel.app/privacy
+   https://romi-kz.vercel.app/terms
+
+═══════════════════════════════════════════════════════════
+БЛОК D — Приёмка в ROMI
+═══════════════════════════════════════════════════════════
+Настройки → WhatsApp → проект + кабинет → Подключить WhatsApp Business → QR
+Входящее сообщение → лид CRM этап «Новая»
