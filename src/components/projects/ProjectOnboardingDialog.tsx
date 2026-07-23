@@ -178,42 +178,11 @@ export function ProjectOnboardingDialog({ open, onOpenChange }: Props) {
           city: city.trim() || null,
           online: true,
         };
-        const { data: cabData, error: cabErr } = await supabase
+        const { error: cabErr } = await supabase
           .from("ad_cabinets")
-          .insert(cabRow as never)
-          .select("id")
-          .single();
+          .insert(cabRow as never);
         if (cabErr) {
           toast.error("Кабинет не сохранён: " + cabErr.message);
-        } else if (cabData?.id) {
-          // Зеркалим в client config supabase для n8n + content factory.
-          // Чувствительные поля (access_token) больше не возвращаются клиенту
-          // из БД, поэтому берём их напрямую из локального ввода пользователя.
-          const { syncCabinetToClientConfig } = await import(
-            "@/lib/cabinetSync"
-          );
-          await syncCabinetToClientConfig({
-            id: cabData.id as string,
-            name: (cabRow.name as string) ?? "",
-            externalId: (cabRow.external_id as string) ?? "",
-            online: true,
-            type: cabType as "Личный" | "Агентский",
-            spend: 0, leads: 0, leadCost: 0, sales: 0, revenue: 0,
-            city: (cabRow.city as string) ?? undefined,
-            dailyBudget: 0,
-            currency: "USD",
-            adAccountId: (cabRow.ad_account_id as string) ?? undefined,
-            pageId: (cabRow.page_id as string) ?? undefined,
-            pageName: undefined,
-            instagramId: (cabRow.instagram_id as string) ?? undefined,
-            telegramGroupId: undefined,
-            whatsappNumber: (cabRow.whatsapp_number as string) ?? undefined,
-            pixelId: (cabRow.pixel_id as string) ?? undefined,
-            pixelEvent: (cabRow.pixel_event as string) ?? "Lead",
-            websiteUrl: (cabRow.website_url as string) ?? undefined,
-            brief: undefined,
-            accessToken: (cabRow.access_token as string) ?? undefined,
-          } as unknown as Parameters<typeof syncCabinetToClientConfig>[0]);
         }
       }
 

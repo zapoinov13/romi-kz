@@ -789,20 +789,11 @@ export function useCrmStore() {
     patchLeadLocal(leadId, (l) => ({ ...l, stageId: stageKey, lastActivityAt: new Date().toISOString() }));
     await supabase.from("leads").update({ stage_id: sid }).eq("id", leadId);
 
-    // Параллельно дёргаем CAPI на нового Supabase — он сам решит, слать ли Schedule/Purchase в Meta.
+    // CAPI на основном Supabase (Lovable / rgtt) — не на szfg.
     try {
-      const NEW_URL = (import.meta.env.VITE_CLIENT_SUPABASE_URL as string | undefined) || "";
-      const NEW_KEY = (import.meta.env.VITE_CLIENT_SUPABASE_PUBLISHABLE_KEY as string | undefined) || "";
-      if (!NEW_URL || !NEW_KEY) return;
       const lead = leads.find((l) => l.id === leadId);
-      void fetch(`${NEW_URL}/functions/v1/crm-stage-capi`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${NEW_KEY}`,
-          apikey: NEW_KEY,
-        },
-        body: JSON.stringify({
+      void supabase.functions.invoke("crm-stage-capi", {
+        body: {
           lead_id: leadId,
           stage_key: stageKey,
           cabinet_id: lead?.cabinetId,
@@ -815,8 +806,7 @@ export function useCrmStore() {
             fbc: (lead?.utm as { fbc?: string } | undefined)?.fbc,
             fbp: (lead?.utm as { fbp?: string } | undefined)?.fbp,
           },
-        }),
-        keepalive: true,
+        },
       }).catch((err) => {
         console.warn("[useCrmStore.moveLead] CAPI sync failed (fire-and-forget)", err);
       });

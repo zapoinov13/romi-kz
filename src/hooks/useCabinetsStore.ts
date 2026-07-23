@@ -3,10 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
-import {
-  syncCabinetToClientConfig,
-  deleteCabinetFromClientConfig,
-} from "@/lib/cabinetSync";
 import type { AdCabinet } from "@/types/ads";
 
 const toCabinet = (r: any): AdCabinet => {
@@ -210,15 +206,6 @@ export function useCabinetsStore() {
       .select("id")
       .single();
     if (error) throw error;
-    // Зеркалим в client config supabase (туда смотрят n8n + content factory).
-    // Используем серверный id (real UUID), а не c.id — фронт может слать
-    // временный slug, реальный id выдаёт DB.
-    if (data?.id) {
-      // Чувствительные поля (access_token и пр.) теперь не возвращаются
-      // клиенту из БД, поэтому собираем строку для зеркалирования из локального
-      // объекта `c`, у которого токен уже есть (его только что ввёл админ).
-      await syncCabinetToClientConfig({ ...c, id: data.id as string });
-    }
     await refetch();
     return (data?.id as string) ?? null;
   }, [user?.id, refetch, projectId]);
@@ -229,27 +216,11 @@ export function useCabinetsStore() {
       .update(toDbPatch(patch) as any)
       .eq("id", id);
     if (error) throw error;
-    // Перезеркалить актуальный снимок строки. Читаем безопасное представление
-    // (без access_token и др. секретов), а секретные поля берём из patch, если
-    // пользователь их менял в этом запросе.
-    const { data: safeRow } = await supabase
-      .from("ad_cabinets_safe" as any)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-    if (safeRow) {
-      const merged = toCabinet(safeRow);
-      if (patch.accessToken !== undefined) merged.accessToken = patch.accessToken;
-      if (patch.appId !== undefined) merged.appId = patch.appId;
-      if (patch.businessId !== undefined) merged.businessId = patch.businessId;
-      await syncCabinetToClientConfig(merged);
-    }
     await refetch();
   }, [refetch]);
 
   const removeCabinet = useCallback(async (id: string) => {
     await supabase.from("ad_cabinets").delete().eq("id", id);
-    await deleteCabinetFromClientConfig(id);
     await refetch();
   }, [refetch]);
 
