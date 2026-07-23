@@ -1,7 +1,7 @@
 {
-  "git_sha": "d1de140",
-  "git_sha_full": "d1de1408e3a7914108bc0e8a2ccb8f440079b0c3",
-  "updated_at": "2026-07-22T18:07:30+05:00",
-  "label": "chore(whatsapp): Lovable deploy prompt + safe view fix",
+  "git_sha": "a242bc0",
+  "git_sha_full": "a242bc05ac343723860132a4764c1cc372b5d841",
+  "updated_at": "2026-07-23T11:42:27+05:00",
+  "label": "fix: отключить запись ROMI в szfg (Clony)",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
