@@ -226,6 +226,7 @@ export function LeadChatPanel({ lead, chats, whatsappConnected, stageTitle, onSe
       <div className="mt-2 flex items-center gap-2">
         <Input
           ref={inputRef}
+          data-lead-chat-input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {

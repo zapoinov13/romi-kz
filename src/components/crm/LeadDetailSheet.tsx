@@ -60,6 +60,7 @@ export function LeadDetailSheet({
   const isMobile = useIsMobile();
   const [tab, setTab] = useState("deal");
   const [comments, setComments] = useState<InternalComment[]>([]);
+  const [chatFocusToken, setChatFocusToken] = useState(0);
 
   useLeadChatSync(lead?.id, open, onRefreshLeadChats);
 
@@ -98,6 +99,10 @@ export function LeadDetailSheet({
 
   const stageTitle = stages.find((s) => s.id === lead.stageId)?.title;
   const leadChats = chats.filter((c) => c.leadId === lead.id);
+  const openChat = () => {
+    if (isMobile) setTab("chat");
+    setChatFocusToken((n) => n + 1);
+  };
 
   const handleChangeStage = (sid: string) => {
     if (sid === lead.stageId) return;
@@ -121,15 +126,15 @@ export function LeadDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-none"
+        className="flex h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden border-l border-border/70 bg-background p-0 pb-[env(safe-area-inset-bottom)] sm:max-w-none"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>{lead.name}</SheetTitle>
         </SheetHeader>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(420px,520px)_1fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(420px,540px)_1fr]">
           {/* LEFT: lead fields */}
-          <div className="flex min-h-0 flex-col border-r border-border/60">
+          <div className="flex min-h-0 flex-col border-r border-border/60 bg-background">
             <div className="flex-1 overflow-y-auto">
               <div className="px-5 pt-5">
                 <LeadHeader
@@ -140,6 +145,7 @@ export function LeadDetailSheet({
                   onTogglePin={() => onTogglePin(lead.id)}
                   onAssign={(aid) => onAssign(lead.id, aid)}
                   onChangeStage={handleChangeStage}
+                  onOpenChat={openChat}
                 />
               </div>
 
@@ -151,19 +157,35 @@ export function LeadDetailSheet({
                   onScheduleVisit={(iso) => onSetVisit(lead.id, iso)}
                   onMarkPaid={(method, amount, opts) => onMarkPaid(lead.id, method, amount, opts)}
                   onClose={() => onRequestReject(lead.id)}
+                  onOpenChat={openChat}
                   busySlots={busySlots}
                 />
               </div>
 
               <Tabs value={tab} onValueChange={setTab} className="flex flex-col px-5 pt-3 pb-4">
-                <TabsList className={cn("grid w-full", isMobile ? "grid-cols-6" : "grid-cols-5")}>
-                  <TabsTrigger value="deal" className="gap-1 px-1 text-[10px] sm:text-xs"><ShoppingCart className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Сделка</span></TabsTrigger>
-                  <TabsTrigger value="tasks" className="gap-1 px-1 text-[10px] sm:text-xs"><ListChecks className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Задачи</span></TabsTrigger>
-                  <TabsTrigger value="comments" className="gap-1 px-1 text-[10px] sm:text-xs"><MessageSquareLock className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Коммент.</span></TabsTrigger>
-                  <TabsTrigger value="profile" className="gap-1 px-1 text-[10px] sm:text-xs"><User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Профиль</span></TabsTrigger>
-                  <TabsTrigger value="log" className="gap-1 px-1 text-[10px] sm:text-xs"><History className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Лог</span></TabsTrigger>
+                <TabsList className={cn(
+                  "grid h-auto w-full gap-0.5 rounded-xl bg-secondary/50 p-1",
+                  isMobile ? "grid-cols-6" : "grid-cols-5",
+                )}>
+                  <TabsTrigger value="deal" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                    <ShoppingCart className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Сделка</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="tasks" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                    <ListChecks className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Задачи</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="comments" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                    <MessageSquareLock className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Коммент.</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="profile" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                    <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Профиль</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="log" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                    <History className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Лог</span>
+                  </TabsTrigger>
                   {isMobile && (
-                    <TabsTrigger value="chat" className="gap-1 px-1 text-[10px] sm:text-xs"><MessageSquare className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Чат</span></TabsTrigger>
+                    <TabsTrigger value="chat" className="gap-1 rounded-lg px-1 py-2 text-[10px] data-[state=active]:shadow-sm sm:text-xs">
+                      <MessageSquare className="h-3.5 w-3.5 shrink-0" /><span className="truncate">Чат</span>
+                    </TabsTrigger>
                   )}
                 </TabsList>
 
@@ -201,6 +223,7 @@ export function LeadDetailSheet({
                         whatsappConnected={whatsapp.connected}
                         stageTitle={stageTitle}
                         onSend={(txt) => onSendMessage(lead.id, txt)}
+                        focusToken={chatFocusToken}
                       />
                     </TabsContent>
                   )}
@@ -208,22 +231,25 @@ export function LeadDetailSheet({
               </Tabs>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-card/40 px-5 py-3 backdrop-blur-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => {
                     if (confirm("Удалить лида?")) {
                       onDelete(lead.id);
                       onOpenChange(false);
                     }
                   }}
-                  className="text-destructive hover:text-destructive"
+                  className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />Удалить
                 </Button>
                 <Button
                   variant="outline"
+                  size="sm"
+                  className="gap-1.5"
                   onClick={() => {
                     if (confirm(
                       "Убрать в личные?\n\nЭто не клиент — заявка пришла из вашей личной переписки. " +
@@ -239,17 +265,30 @@ export function LeadDetailSheet({
                   <EyeOff className="h-4 w-4" />Убрать в личные
                 </Button>
               </div>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Закрыть</Button>
+              <Button variant="secondary" size="sm" onClick={() => onOpenChange(false)}>Закрыть</Button>
             </div>
           </div>
 
-          <div className="hidden min-h-0 flex-col bg-muted/20 lg:flex">
-            <div className="flex items-center gap-2 border-b border-border/60 px-5 py-3">
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Чат с клиентом</span>
+          <div className="hidden min-h-0 flex-col bg-gradient-to-b from-muted/30 to-muted/10 lg:flex">
+            <div className="flex items-center gap-2 border-b border-border/60 bg-background/60 px-5 py-3 backdrop-blur-sm">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-[#25D366]/15 text-[#128C7E]">
+                <MessageSquare className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">Чат с клиентом</div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                  {lead.phone || "без номера"}
+                  {whatsapp.connected ? " · WhatsApp online" : " · WhatsApp offline"}
+                </div>
+              </div>
               {stageTitle && (
-                <span className="ml-auto text-xs text-muted-foreground">{stageTitle}</span>
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  {stageTitle}
+                </span>
               )}
+              <span className="rounded-full bg-secondary px-2 py-1 text-[11px] tabular-nums text-muted-foreground">
+                {leadChats.length} сообщ.
+              </span>
             </div>
             <div className="flex min-h-0 flex-1 flex-col">
               <LeadChatPanel
@@ -258,6 +297,7 @@ export function LeadDetailSheet({
                 whatsappConnected={whatsapp.connected}
                 stageTitle={stageTitle}
                 onSend={(t) => onSendMessage(lead.id, t)}
+                focusToken={chatFocusToken}
               />
             </div>
           </div>
