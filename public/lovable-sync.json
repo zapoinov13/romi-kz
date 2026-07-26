@@ -1,7 +1,7 @@
 {
-  "git_sha": "a242bc0",
-  "git_sha_full": "a242bc05ac343723860132a4764c1cc372b5d841",
-  "updated_at": "2026-07-23T11:42:27+05:00",
-  "label": "fix: отключить запись ROMI в szfg (Clony)",
+  "git_sha": "738532d",
+  "git_sha_full": "738532d2f3bdb4da14206bd5dbfb39572f8de0ef",
+  "updated_at": "2026-07-26T21:47:36+05:00",
+  "label": "fix(crm): live lead board sync and soft-fail greenapi name sync",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
