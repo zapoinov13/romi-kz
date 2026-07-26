@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AddMemberDialog } from "@/components/settings/AddMemberDialog";
 import { MetaConnectSettings } from "@/components/settings/MetaConnectSettings";
-import { WhatsAppSettings } from "@/components/settings/WhatsAppSettings";
+import { WhatsAppWebCard } from "@/components/settings/WhatsAppWebCard";
 import { ProjectAdsTelegramSettings } from "@/components/settings/ProjectAdsTelegramSettings";
 import { OpenAiKeySettings } from "@/components/settings/OpenAiKeySettings";
 import { PipelinesSettings } from "@/components/settings/PipelinesSettings";
@@ -224,7 +224,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="whatsapp" className="mt-0">
-          <WhatsAppSettings />
+          <WhatsAppWebCard />
         </TabsContent>
 
         <TabsContent value="telegram-ads" className="mt-0">

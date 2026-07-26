@@ -1,0 +1,6 @@
+sessions/
+node_modules/
+.tmp-*
+lid-map.json
+.env
+.env.*

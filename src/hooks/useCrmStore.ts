@@ -92,6 +92,10 @@ type CommRow = {
   channel: string | null; content: string | null; status: string | null;
   template_key: string | null; is_draft: boolean; is_auto: boolean;
   created_by: string | null; created_at: string;
+  media_url?: string | null;
+  media_kind?: string | null;
+  media_mime?: string | null;
+  media_filename?: string | null;
 };
 
 type EventRow = {
@@ -132,11 +136,15 @@ function commToChat(r: CommRow): ChatMessage | null {
       ? (r.status === "missed" ? "missed" : (r.direction === "in" ? "incoming" : "outgoing"))
       : undefined,
     templateKey: r.template_key ?? undefined,
+    mediaUrl: r.media_url ?? null,
+    mediaKind: r.media_kind ?? null,
+    mediaMime: r.media_mime ?? null,
+    mediaFilename: r.media_filename ?? null,
   };
 }
 
 const COMM_SELECT =
-  "id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at";
+  "id,lead_id,type,direction,channel,content,status,template_key,is_draft,is_auto,created_by,created_at,media_url,media_kind,media_mime,media_filename";
 
 function leadRowToFrontIndexed(
   r: LeadRow,
@@ -827,36 +835,27 @@ export function useCrmStore() {
     const safeChannel: CommChannel = (ch && (allowedChannels as readonly string[]).includes(ch))
       ? (ch as CommChannel) : "whatsapp";
 
-    // For WhatsApp — send via Meta Cloud API (Coexistence). Webhook may mirror
-    // the outbound message; we also insert immediately for snappy UI.
+    // WhatsApp — через WA Web (Baileys). Без Cloud / Green API.
     let deliveryStatus: "sent" | "failed" = "sent";
     let externalId: string | null = null;
     if (safeChannel === "whatsapp") {
       const lead = leads.find((l) => l.id === leadId);
       const phone = lead?.phone ?? "";
       try {
-        const { sendWaCloudMessage } = await import("@/lib/whatsappCloud");
-        const data = await sendWaCloudMessage({
-          projectId: lead?.cabinetId ? (projectId ?? "") : (projectId ?? ""),
-          cabinetId: lead?.cabinetId,
+        if (!projectId) throw new Error("Нет активного проекта");
+        const { sendWaWebMessage } = await import("@/lib/whatsappWeb");
+        const data = await sendWaWebMessage({
+          projectId,
           leadId,
           phone,
-          message: text,
+          text,
         });
-        const wamid = data?.wamid ?? null;
-        const ok = data?.ok !== false && !!wamid && !data?.error;
-        if (!ok) {
-          deliveryStatus = "failed";
-          if (data?.code === "WA_NOT_CONNECTED" || data?.error) {
-            toast.error(data.error ?? "WhatsApp не подключён", {
-              description: "Настройки → WhatsApp",
-            });
-          }
-        }
-        externalId = wamid;
+        externalId = data.command_id ? `waweb:${data.command_id}` : null;
       } catch (e) {
         deliveryStatus = "failed";
-        toast.error(e instanceof Error ? e.message : "Не удалось отправить в WhatsApp");
+        toast.error(e instanceof Error ? e.message : "Не удалось отправить в WhatsApp", {
+          description: "Настройки → WhatsApp → QR",
+        });
       }
     }
 

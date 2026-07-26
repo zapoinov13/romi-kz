@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, Lead } from "@/types/crm";
+import { ChatMediaBubble } from "@/components/crm/ChatMediaBubble";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { AiSuggestButton } from "../AiSuggestButton";
 import { TemplatePicker } from "./TemplatePicker";
@@ -159,7 +160,14 @@ export function LeadChatPanel({ lead, chats, whatsappConnected, stageTitle, onSe
                   "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
                   m.fromMe ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-secondary",
                 )}>
-                  <div className="whitespace-pre-wrap">{m.text}</div>
+                  <ChatMediaBubble
+                    content={m.text}
+                    mediaUrl={m.mediaUrl}
+                    mediaKind={m.mediaKind}
+                    mediaMime={m.mediaMime}
+                    mediaFilename={m.mediaFilename}
+                    className="whitespace-pre-wrap"
+                  />
                   <div className="mt-1 flex items-center justify-end gap-1 text-[10px] opacity-70">
                     {m.templateKey && <span className="mr-1 rounded bg-background/30 px-1">шаблон</span>}
                     {new Date(m.at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}

@@ -17,6 +17,7 @@ import type { ChatMessage, Lead, LeadStage, WhatsAppConfig } from "@/types/crm";
 import { resolveLeadSource } from "@/lib/leadSource";
 import { getStageIcon, stageColorClasses } from "./StageIcon";
 import { AiSuggestButton } from "./AiSuggestButton";
+import { ChatMediaBubble } from "@/components/crm/ChatMediaBubble";
 
 interface ChatsViewProps {
   leads: Lead[];
@@ -289,7 +290,13 @@ export function ChatsView({
                           : "rounded-bl-sm bg-secondary text-foreground",
                       )}
                     >
-                      <div>{m.text}</div>
+                      <ChatMediaBubble
+                        content={m.text}
+                        mediaUrl={m.mediaUrl}
+                        mediaKind={m.mediaKind}
+                        mediaMime={m.mediaMime}
+                        mediaFilename={m.mediaFilename}
+                      />
                       <div
                         className={cn(
                           "mt-1 flex items-center justify-end gap-1 text-[10px] opacity-70",

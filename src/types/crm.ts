@@ -148,6 +148,10 @@ export type ChatMessage = {
   callDurationSec?: number;
   /** Key of the template used to compose the message, if any */
   templateKey?: string;
+  mediaUrl?: string | null;
+  mediaKind?: string | null;
+  mediaMime?: string | null;
+  mediaFilename?: string | null;
 };
 
 export type WhatsAppConfig = {
