@@ -176,9 +176,8 @@ BEGIN
       WHERE id = v_lead AND (phone IS NULL OR phone LIKE 'lid:%');
     END IF;
 
-    -- create lead on inbound (phone OR lid)
-    IF v_lead IS NULL AND v_direction = 'in'::public.communication_direction
-       AND (v_digits IS NOT NULL OR v_lid IS NOT NULL) THEN
+    -- create lead on any message (in or out) when phone or lid known
+    IF v_lead IS NULL AND (v_digits IS NOT NULL OR v_lid IS NOT NULL) THEN
       SELECT p.id INTO v_pipe
       FROM public.pipelines p
       WHERE p.project_id = v_project AND p.is_default = true
@@ -221,7 +220,6 @@ BEGIN
         'ok', true, 'skipped', true,
         'reason', CASE
           WHEN v_pipe IS NULL OR v_stage IS NULL THEN 'no_pipeline_stage'
-          WHEN v_direction = 'out'::public.communication_direction THEN 'no_lead_for_out'
           ELSE 'lead_create_failed'
         END
       );

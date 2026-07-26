@@ -98,7 +98,7 @@ function jidToLid(jid) {
 }
 
 /** Prefer real PN over WhatsApp LID (linked id). */
-function resolveMessagePhone(projectId, msg) {
+function resolveMessagePhone(projectId, msg, sock = null) {
   const key = msg?.key || {};
   const candidates = [
     key.remoteJidAlt,
@@ -112,6 +112,7 @@ function resolveMessagePhone(projectId, msg) {
     jidToLid(key.remoteJid) ||
     jidToLid(key.participant) ||
     jidToLid(key.senderLid) ||
+    jidToLid(key.remoteJidAlt) ||
     null;
   for (const jid of candidates) {
     const phone = jidToPhone(String(jid || ""));
@@ -123,6 +124,21 @@ function resolveMessagePhone(projectId, msg) {
   if (lid) {
     const mapped = resolveLid(lid);
     if (mapped) return { phone: mapped, lid };
+    // Baileys internal LID↔PN map (when available)
+    try {
+      const mapping = sock?.signalRepository?.lidMapping;
+      const pnJid =
+        mapping?.getPNForLID?.( `${lid}@lid`) ||
+        mapping?.getPNForLID?.(lid) ||
+        null;
+      const phone = jidToPhone(String(pnJid || ""));
+      if (phone) {
+        rememberLid(lid, phone);
+        return { phone, lid };
+      }
+    } catch {
+      /* ignore */
+    }
   }
   return { phone: null, lid };
 }
@@ -167,7 +183,7 @@ async function openSocket(projectId, { forcePair = false } = {}) {
     auth: state,
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
-    syncFullHistory: false,
+    syncFullHistory: true,
     markOnlineOnConnect: false,
     getMessage: async () => undefined,
   });
@@ -288,6 +304,20 @@ async function openSocket(projectId, { forcePair = false } = {}) {
     }
   });
 
+  // Catch-up history after linking (cap to avoid flooding CRM).
+  sock.ev.on("messaging-history.set", async (payload) => {
+    const messages = payload?.messages || [];
+    log.info({ projectId, count: messages.length }, "messaging-history.set");
+    const recent = messages.slice(-100);
+    for (const msg of recent) {
+      try {
+        await handleIncoming(projectId, sock, msg);
+      } catch (e) {
+        log.error({ err: e, projectId }, "history ingest failed");
+      }
+    }
+  });
+
   return sock;
 }
 
@@ -299,13 +329,15 @@ async function handleIncoming(projectId, sock, msg) {
   const remote = msg.key.remoteJid || "";
   if (remote.endsWith("@g.us") || remote.endsWith("@broadcast") || remote === "status@broadcast") return;
 
-  const { phone, lid } = resolveMessagePhone(projectId, msg);
+  const { phone, lid } = resolveMessagePhone(projectId, msg, sock);
   if (!phone && !lid) {
     log.warn({
       projectId,
       remoteJid: msg.key?.remoteJid,
       remoteJidAlt: msg.key?.remoteJidAlt,
       senderPn: msg.key?.senderPn,
+      participantPn: msg.key?.participantPn,
+      senderLid: msg.key?.senderLid,
     }, "skip message: no phone/lid");
     return;
   }
@@ -387,13 +419,17 @@ async function handleIncoming(projectId, sock, msg) {
     log.warn({ err: e }, "media download skipped");
   }
 
-  await bridge("ingest", payload);
+  const res = await bridge("ingest", payload);
   log.info({
     projectId,
     phone: phone || null,
     lid: lid || null,
     direction: fromMe ? "out" : "in",
     externalId,
+    leadId: res.lead_id || null,
+    skipped: res.skipped || false,
+    reason: res.reason || null,
+    deduped: res.deduped || false,
   }, "ingested");
 }
 
