@@ -1,0 +1,15 @@
+Синхронизируй с GitHub zapoinov13/romi-kz (ветка cursor/whatsapp-web-baileys или main — где есть свежий greenapi-sync-name).
+
+Supabase: rgttklitvvqsnlsakvzr.
+Frontend уже на Vercel — SQL не нужен. Только redeploy edge function.
+
+Задача:
+Передеплой ТОЛЬКО supabase/functions/greenapi-sync-name/index.ts
+
+Зачем:
+Функция больше не должна отвечать HTTP 400 при ошибке getContactInfo / LID-телефонах —
+иначе Lovable показывает Runtime error + blank screen.
+Ожидаемое поведение: soft-skip → всегда HTTP 200 с { ok: true, skipped: true }.
+
+verify_jwt: как было (true).
+Publish / Update после деплоя.

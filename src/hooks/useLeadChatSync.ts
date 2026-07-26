@@ -6,7 +6,7 @@ import { useProjectsStore } from "@/hooks/useProjectsStore";
 /**
  * Keep an open lead chat in sync: Supabase Realtime (filtered) + short polling fallback.
  * Webhook inserts often miss the global CRM channel when RLS/replica lag — this fixes live UI.
- * Also pulls WhatsApp profile name via Green API getContactInfo (not phonebook label).
+ * Optionally pulls WhatsApp profile name via Green API getContactInfo (skipped for WA Web / LID).
  */
 export function useLeadChatSync(
   leadId: string | null | undefined,
@@ -16,6 +16,7 @@ export function useLeadChatSync(
 ) {
   const { activeId: projectId } = useProjectsStore();
   const syncedRef = useRef<string | null>(null);
+  const greenApiOkRef = useRef<boolean | null>(null);
 
   const reload = useCallback(
     (id: string) => {
@@ -28,21 +29,66 @@ export function useLeadChatSync(
     [refresh],
   );
 
+  const hasGreenApi = useCallback(async (): Promise<boolean> => {
+    if (greenApiOkRef.current !== null) return greenApiOkRef.current;
+    if (!projectId) {
+      greenApiOkRef.current = false;
+      return false;
+    }
+    try {
+      // Prefer WhatsApp Web — no Green API name sync needed.
+      const { data: web } = await supabase
+        .from("whatsapp_web_sessions" as never)
+        .select("status")
+        .eq("project_id", projectId)
+        .eq("status", "connected")
+        .limit(1);
+      if (Array.isArray(web) && web.length > 0) {
+        greenApiOkRef.current = false;
+        return false;
+      }
+
+      const { data: ga } = await supabase
+        .from("whatsapp_config_safe")
+        .select("id_instance, api_token_present, connected")
+        .eq("project_id", projectId)
+        .limit(1)
+        .maybeSingle();
+      const row = ga as {
+        id_instance?: string | null;
+        api_token_present?: boolean | null;
+        connected?: boolean | null;
+      } | null;
+      greenApiOkRef.current = !!(row?.id_instance && row.api_token_present && row.connected);
+      return greenApiOkRef.current;
+    } catch {
+      greenApiOkRef.current = false;
+      return false;
+    }
+  }, [projectId]);
+
   const syncWaName = useCallback(
     async (id: string) => {
       try {
-        await supabase.functions.invoke("greenapi-sync-name", {
+        if (!(await hasGreenApi())) return;
+        const { error } = await supabase.functions.invoke("greenapi-sync-name", {
           body: {
             lead_id: id,
             project_id: projectId ?? undefined,
           },
         });
+        // Soft-fail — never surface as UI runtime error (Lovable blank screen).
+        if (error) return;
       } catch {
         /* best-effort */
       }
     },
-    [projectId],
+    [projectId, hasGreenApi],
   );
+
+  useEffect(() => {
+    greenApiOkRef.current = null;
+  }, [projectId]);
 
   useEffect(() => {
     if (!enabled || !leadId) return;

@@ -90,7 +90,10 @@ async function getUserId(req: Request): Promise<string | null> {
   }
 }
 
-async function lookupWaCreds(projectId: string | null, cabinetId: string | null): Promise<Creds | { error: string; status: number }> {
+async function lookupWaCreds(
+  projectId: string | null,
+  cabinetId: string | null,
+): Promise<Creds | { error: string; status: number; skipped?: boolean }> {
   type WaRow = {
     id_instance: string | null;
     api_token: string | null;
@@ -114,10 +117,10 @@ async function lookupWaCreds(projectId: string | null, cabinetId: string | null)
   if (!row?.id_instance && ENV_ID && ENV_TOKEN) {
     return { idInstance: ENV_ID, apiToken: ENV_TOKEN, baseUrl: validateGreenApiBaseUrl(ENV_URL) };
   }
-  if (!row?.id_instance) return { error: "Green API not configured", status: 400 };
+  if (!row?.id_instance) return { error: "Green API not configured", status: 200, skipped: true };
 
   const apiToken = (row.api_token ?? "").trim() || (row.id_instance === ENV_ID ? ENV_TOKEN : "");
-  if (!apiToken) return { error: "Green API token missing", status: 400 };
+  if (!apiToken) return { error: "Green API token missing", status: 200, skipped: true };
   return {
     idInstance: row.id_instance!,
     apiToken,
@@ -125,7 +128,11 @@ async function lookupWaCreds(projectId: string | null, cabinetId: string | null)
   };
 }
 
-async function resolveCreds(req: Request, projectId: string | null, cabinetId: string | null): Promise<Creds | { error: string; status: number }> {
+async function resolveCreds(
+  req: Request,
+  projectId: string | null,
+  cabinetId: string | null,
+): Promise<Creds | { error: string; status: number; skipped?: boolean }> {
   if (isServiceRoleRequest(req)) return lookupWaCreds(projectId, cabinetId);
 
   const userId = await getUserId(req);
@@ -160,17 +167,27 @@ async function getContactInfo(creds: Creds, chatId: string) {
 async function syncLeadName(creds: Creds, leadId: string) {
   const sb = admin();
   const { data: lead, error } = await sb.from("leads").select("id, phone, name, channel, source").eq("id", leadId).maybeSingle();
-  if (error || !lead) return { ok: false, error: "Lead not found" };
+  if (error || !lead) return { ok: true, skipped: true, reason: "Lead not found" };
 
   const row = lead as { phone?: string | null; name?: string | null; channel?: string | null; source?: string | null };
-  const isWa = row.channel === "whatsapp" || row.source === "whatsapp" || !!String(row.phone ?? "").replace(/\D/g, "");
+  const phoneRaw = String(row.phone ?? "").trim();
+  // WhatsApp Web LID placeholders are not Green API chatIds — never call getContactInfo.
+  if (/^lid:/i.test(phoneRaw) || /@lid\b/i.test(phoneRaw)) {
+    return { ok: true, skipped: true, reason: "lid_placeholder" };
+  }
+
+  const isWa = row.channel === "whatsapp" || row.source === "whatsapp" || !!phoneRaw.replace(/\D/g, "");
   if (!isWa) return { ok: true, skipped: true };
 
-  const digits = String(row.phone ?? "").replace(/\D/g, "");
-  if (digits.length < 8) return { ok: false, error: "Invalid phone" };
+  const digits = phoneRaw.replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 15) {
+    return { ok: true, skipped: true, reason: "Invalid phone" };
+  }
 
   const r = await getContactInfo(creds, `${digits}@c.us`);
-  if (!r.ok) return { ok: false, error: `getContactInfo HTTP ${r.status}` };
+  // Soft-fail: Green API 400/404 is normal for unknown contacts — never 4xx the edge response
+  // (Lovable treats edge 400 as a blank-screen runtime error).
+  if (!r.ok) return { ok: true, skipped: true, reason: `getContactInfo HTTP ${r.status}` };
 
   const next = pickWaDisplayName(r.data);
   const contactName = (r.data.contactName ?? "").trim();
@@ -204,11 +221,16 @@ Deno.serve(async (req) => {
     const projectId = typeof body.project_id === "string" ? body.project_id : null;
     const cabinetId = typeof body.cabinet_id === "string" ? body.cabinet_id : null;
     const credsOrErr = await resolveCreds(req, projectId, cabinetId);
-    if ("error" in credsOrErr) return json({ error: credsOrErr.error }, credsOrErr.status);
+    if ("error" in credsOrErr) {
+      if (credsOrErr.skipped) {
+        return json({ ok: true, skipped: true, reason: credsOrErr.error }, 200);
+      }
+      return json({ ok: false, error: credsOrErr.error }, credsOrErr.status);
+    }
     const creds = credsOrErr;
 
     if (body.batch === true) {
-      if (!projectId) return json({ error: "project_id required" }, 400);
+      if (!projectId) return json({ ok: false, error: "project_id required" }, 400);
       const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
       const { data: leadRows } = await admin()
         .from("leads")
@@ -221,6 +243,8 @@ Deno.serve(async (req) => {
       for (const row of (leadRows ?? []) as { id: string; name?: string | null; phone?: string | null; channel?: string | null; source?: string | null }[]) {
         const isWa = row.channel === "whatsapp" || row.source === "whatsapp";
         if (!isWa) continue;
+        const phoneRaw = String(row.phone ?? "").trim();
+        if (/^lid:/i.test(phoneRaw) || /@lid\b/i.test(phoneRaw)) continue;
         const current = (row.name ?? "").trim();
         const isPhone = /^\+?\d[\d\s()-]{7,}$/.test(current);
         if (!isPhonebookLabel(current) && !isPhone && current) continue;
@@ -233,9 +257,10 @@ Deno.serve(async (req) => {
     }
 
     const leadId = String(body.lead_id ?? body.leadId ?? "").trim();
-    if (!leadId) return json({ error: "lead_id required" }, 400);
+    if (!leadId) return json({ ok: false, error: "lead_id required" }, 400);
     const result = await syncLeadName(creds, leadId);
-    return json(result, result.ok ? 200 : 400);
+    // Always 200 for sync outcomes — soft skips must not surface as Lovable runtime errors.
+    return json(result, 200);
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }

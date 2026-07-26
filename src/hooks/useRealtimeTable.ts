@@ -37,7 +37,9 @@ export function useRealtimeTable(
         { event: "*", schema: "public", table },
         fire,
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") fire();
+      });
     return () => {
       if (timer) clearTimeout(timer);
       void supabase.removeChannel(channel);

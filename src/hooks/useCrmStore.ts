@@ -466,9 +466,80 @@ export function useCrmStore() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "communications" }, (payload) => {
         appendCommRow(payload.new as CommRow);
       })
-      .subscribe();
+      .subscribe((status) => {
+        // After reconnect / channel errors — pull once so the board is not stuck.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          void refetchLeads();
+        }
+      });
 
     return () => { void supabase.removeChannel(channel); };
+  }, [projectId, stageIdMap.idToKey, refetchLeads]);
+
+  // Soft live sync for the board (same idea as useLeadChatSync).
+  // Lovable Realtime often misses SECURITY DEFINER inserts from wa_web_worker —
+  // without this, new leads appear only after a full page reload.
+  useEffect(() => {
+    if (!projectId) return;
+
+    let busy = false;
+    const softCheck = async () => {
+      if (busy) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (stageIdMap.idToKey.size === 0) return;
+
+      busy = true;
+      try {
+        let q = supabase
+          .from("leads")
+          .select("id, last_activity_at, created_at")
+          .eq("is_personal", false)
+          .order("last_activity_at", { ascending: false })
+          .limit(40);
+        q = q.or(`project_id.eq.${projectId},project_id.is.null`);
+
+        const { data, error } = await q;
+        if (error || !data?.length) return;
+        if (projectIdRef.current !== projectId) return;
+
+        const known = leadsRef.current;
+        const knownIds = new Set(known.map((l) => l.id));
+        if (data.some((r) => !knownIds.has(r.id))) {
+          void refetchLeads();
+          return;
+        }
+
+        let maxLocal = 0;
+        for (const l of known) {
+          const t = Date.parse(l.lastActivityAt || l.createdAt || "");
+          if (Number.isFinite(t) && t > maxLocal) maxLocal = t;
+        }
+        const hasFresher = data.some((r) => {
+          const t = Date.parse(r.last_activity_at || r.created_at || "");
+          return Number.isFinite(t) && t > maxLocal + 800;
+        });
+        if (hasFresher) void refetchLeads();
+      } finally {
+        busy = false;
+      }
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void softCheck();
+    };
+
+    void softCheck();
+    const interval = window.setInterval(() => {
+      void softCheck();
+    }, 4000);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, [projectId, stageIdMap.idToKey, refetchLeads]);
 
   // Debounced full sync — подстраховка после пачки webhook-событий.
