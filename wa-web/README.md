@@ -33,9 +33,11 @@ pm2 save
 
 | Secret | Назначение |
 |--------|------------|
-| `WA_WEB_WORKER_KEY` | тот же ключ, что у daemon |
-| `SUPABASE_SERVICE_ROLE_KEY` | запись в БД Lovable `rgtt…` |
+| `WA_WEB_WORKER_KEY` | тот же ключ, что у daemon и в `wa_web_config` |
 | `VITE_SUPABASE_URL` | уже есть |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | уже есть |
+
+**Service role не нужен** (Lovable): запись через RPC `wa_web_worker`.
 
 ## SQL
 

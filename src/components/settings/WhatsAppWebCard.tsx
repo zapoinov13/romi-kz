@@ -234,6 +234,13 @@ export function WhatsAppWebCard() {
             </div>
           )}
 
+          {status === "pairing" && !showQr && workerOnline && (
+            <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Генерируем QR… обычно 2–5 секунд. Если долго — нажмите «Показать QR» ещё раз.
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => void handlePair()}

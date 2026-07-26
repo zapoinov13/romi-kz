@@ -18,20 +18,38 @@ function cors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 
-function admin(): SupabaseClient {
+/** Anon/publishable client — writes go via SECURITY DEFINER RPC or user RLS. */
+function publicDb(): SupabaseClient {
   const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing");
+  const key =
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ??
+    process.env.SUPABASE_ANON_KEY?.trim();
+  if (!url || !key) throw new Error("VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY missing");
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
+function workerKey(): string {
+  return process.env.WA_WEB_WORKER_KEY?.trim() ?? "";
+}
+
 function workerKeyOk(req: VercelRequest): boolean {
-  const expected = process.env.WA_WEB_WORKER_KEY?.trim();
+  const expected = workerKey();
   if (!expected) return false;
   const got = String(req.headers["x-wa-web-key"] ?? "").trim();
   return !!got && got === expected;
+}
+
+async function workerRpc(action: string, body: Body): Promise<Record<string, unknown>> {
+  const db = publicDb();
+  const { data, error } = await db.rpc("wa_web_worker", {
+    p_key: workerKey(),
+    p_action: action,
+    p_body: body,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? { ok: true }) as Record<string, unknown>;
 }
 
 function digits(phone: string | null | undefined): string {
@@ -149,7 +167,11 @@ async function findOrCreateLead(opts: {
 
   let stage = await getDefaultStage(opts.db, opts.projectId);
   if (!stage) {
-    await opts.db.rpc("ensure_project_pipeline", { p_project_id: opts.projectId }).catch(() => null);
+    try {
+      await opts.db.rpc("ensure_project_pipeline", { p_project_id: opts.projectId });
+    } catch {
+      /* ignore */
+    }
     stage = await getDefaultStage(opts.db, opts.projectId);
   }
   if (!stage) return null;
@@ -220,7 +242,8 @@ async function userClient(req: VercelRequest): Promise<{
   });
   const { data: userData, error } = await userDb.auth.getUser();
   if (error || !userData.user) return { error: "Unauthorized", status: 401 };
-  return { db: admin(), userId: userData.user.id, authHeader };
+  // User-scoped client (RLS) — no service_role needed on Lovable projects.
+  return { db: userDb, userId: userData.user.id, authHeader };
 }
 
 async function canAccessProject(db: SupabaseClient, userId: string, projectId: string) {
@@ -299,113 +322,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!action) return res.status(400).json({ error: "action required" });
 
   try {
-    // ── Worker actions ──────────────────────────────────────────
+    // ── Worker actions (RPC, no service_role) ───────────────────
     if (workerKeyOk(req)) {
-      const db = admin();
-
-      if (action === "heartbeat") {
-        const projectId = typeof body.project_id === "string" ? body.project_id : null;
-        const now = new Date().toISOString();
-        if (projectId) {
-          await ensureSession(db, projectId);
-          await db
-            .from("whatsapp_web_sessions")
-            .update({ worker_heartbeat_at: now, updated_at: now })
-            .eq("project_id", projectId);
-        } else {
-          await db
-            .from("whatsapp_web_sessions")
-            .update({ worker_heartbeat_at: now, updated_at: now })
-            .in("status", ["connected", "pairing"]);
-        }
-        return res.status(200).json({ ok: true, at: now });
-      }
-
-      if (action === "list_sessions") {
-        const { data } = await db
-          .from("whatsapp_web_sessions")
-          .select("id, project_id, status, phone, display_name, qr_expires_at, worker_heartbeat_at")
-          .in("status", ["connected", "pairing"]);
-        return res.status(200).json({ ok: true, sessions: data ?? [] });
-      }
-
-      if (action === "push_qr") {
-        const projectId = String(body.project_id ?? "");
-        const qrData = String(body.qr_data ?? "");
-        if (!projectId || !qrData) return res.status(400).json({ error: "project_id, qr_data required" });
-        await ensureSession(db, projectId);
-        const expires = new Date(Date.now() + 60_000).toISOString();
-        await db
-          .from("whatsapp_web_sessions")
-          .update({
-            status: "pairing",
-            qr_data: qrData,
-            qr_expires_at: expires,
-            last_error: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("project_id", projectId);
-        return res.status(200).json({ ok: true, qr_expires_at: expires });
-      }
-
-      if (action === "set_state") {
-        const projectId = String(body.project_id ?? "");
-        const status = String(body.status ?? "");
-        if (!projectId || !["disconnected", "pairing", "connected", "error"].includes(status)) {
-          return res.status(400).json({ error: "project_id + valid status required" });
-        }
-        await ensureSession(db, projectId);
-        const patch: Record<string, unknown> = {
-          status,
-          updated_at: new Date().toISOString(),
-          last_error: typeof body.last_error === "string" ? body.last_error : null,
-        };
-        if (typeof body.phone === "string") {
-          const pn = normalizeWaPhone(body.phone) ?? digits(body.phone);
-          patch.phone = pn ? `+${pn}` : body.phone;
-        }
-        if (typeof body.display_name === "string") patch.display_name = body.display_name;
-        if (status === "connected") {
-          patch.paired_at = new Date().toISOString();
-          patch.qr_data = null;
-          patch.qr_expires_at = null;
-        }
-        if (status === "disconnected") {
-          patch.qr_data = null;
-          patch.qr_expires_at = null;
-        }
-        await db.from("whatsapp_web_sessions").update(patch).eq("project_id", projectId);
-        return res.status(200).json({ ok: true });
-      }
-
-      if (action === "claim") {
-        const limit = Math.min(Number(body.limit) || 20, 50);
-        const { data: pending } = await db
-          .from("whatsapp_web_commands")
-          .select("*")
-          .eq("status", "pending")
-          .order("created_at", { ascending: true })
-          .limit(limit);
-        return res.status(200).json({ ok: true, commands: pending ?? [] });
-      }
-
-      if (action === "ack") {
-        const id = String(body.command_id ?? body.id ?? "");
-        const status = String(body.status ?? "");
-        if (!id || !["done", "failed"].includes(status)) {
-          return res.status(400).json({ error: "command_id + status done|failed required" });
-        }
-        await db
-          .from("whatsapp_web_commands")
-          .update({
-            status,
-            result: body.result ?? null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", id);
-        return res.status(200).json({ ok: true });
-      }
-
       if (action === "ingest") {
         const projectId = String(body.project_id ?? "");
         if (!projectId) return res.status(400).json({ error: "project_id required" });
@@ -422,76 +340,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : extractLid(rawFrom);
         const name = typeof body.name === "string" ? body.name : null;
 
-        if (!phoneDigits && !lid) {
-          return res.status(400).json({ error: "need phone or whatsapp_lid", skipped: true });
-        }
-
-        // Don't create lead from LID-only without phone
-        const leadId = await findOrCreateLead({
-          db,
-          projectId,
-          phoneDigits,
-          lid,
-          name,
-          createIfMissing: direction === "in" && !!phoneDigits,
-        });
-        if (!leadId) {
-          return res.status(200).json({
-            ok: true,
-            skipped: true,
-            reason: phoneDigits ? "lead_create_failed" : "lid_only_no_lead",
-          });
-        }
-
-        if (externalId) {
-          const { data: exists } = await db
-            .from("communications")
-            .select("id")
-            .eq("external_id", externalId)
-            .maybeSingle();
-          if (exists?.id) return res.status(200).json({ ok: true, deduped: true, lead_id: leadId });
-        }
-
-        let media: { url: string; kind: string; mime: string; filename: string } | null = null;
+        let mediaUrl: string | null = null;
+        let mediaKind: string | null = null;
+        let mediaMime: string | null = null;
+        let mediaFilename: string | null = null;
         if (body.media_base64 || body.media) {
           const mediaObj = (body.media && typeof body.media === "object" ? body.media : {}) as Body;
-          media = await uploadMedia(db, projectId, {
+          const media = await uploadMedia(publicDb(), projectId, {
             base64: String(body.media_base64 ?? mediaObj.base64 ?? ""),
             mime: String(body.media_mime ?? mediaObj.mime ?? "application/octet-stream"),
             filename: String(body.media_filename ?? mediaObj.filename ?? "file"),
             kind: String(body.media_kind ?? mediaObj.kind ?? "document"),
           });
+          if (media) {
+            mediaUrl = media.url;
+            mediaKind = media.kind;
+            mediaMime = media.mime;
+            mediaFilename = media.filename;
+          }
         }
 
-        await db.from("communications").insert({
-          lead_id: leadId,
-          type: "message",
+        const out = await workerRpc("ingest", {
+          project_id: projectId,
           direction,
-          channel: "whatsapp",
-          content: text,
-          status: direction === "in" ? "delivered" : "sent",
-          is_draft: false,
-          is_auto: false,
+          text,
           external_id: externalId,
-          media_url: media?.url ?? null,
-          media_kind: media?.kind ?? null,
-          media_mime: media?.mime ?? null,
-          media_filename: media?.filename ?? null,
+          phone: phoneDigits,
+          whatsapp_lid: lid,
+          name,
+          media_url: mediaUrl,
+          media_kind: mediaKind,
+          media_mime: mediaMime,
+          media_filename: mediaFilename,
         });
+        return res.status(200).json(out);
+      }
 
-        const now = new Date().toISOString();
-        const actPatch: Record<string, unknown> = { last_activity_at: now };
-        if (direction === "in") actPatch.last_inbound_at = now;
-        else actPatch.last_outbound_at = now;
-        await db.from("leads").update(actPatch).eq("id", leadId);
-
-        return res.status(200).json({ ok: true, lead_id: leadId });
+      const passthrough = ["heartbeat", "list_sessions", "push_qr", "set_state", "claim", "ack"];
+      if (passthrough.includes(action)) {
+        const payload: Body = { ...body };
+        if (action === "set_state" && typeof payload.phone === "string") {
+          const pn = normalizeWaPhone(payload.phone) ?? digits(payload.phone);
+          payload.phone = pn ? `+${pn}` : payload.phone;
+        }
+        const out = await workerRpc(action, payload);
+        return res.status(200).json(out);
       }
 
       return res.status(400).json({ error: `unknown worker action: ${action}` });
     }
 
-    // ── User actions (JWT) ──────────────────────────────────────
+    // ── User actions (JWT + RLS) ────────────────────────────────
     const auth = await userClient(req);
     if ("error" in auth) return res.status(auth.status).json({ error: auth.error });
 

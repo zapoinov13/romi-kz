@@ -38,7 +38,7 @@ if (!KEY) {
 
 fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-/** @type {Map<string, { sock: any, projectId: string }>} */
+/** @type {Map<string, { sock: any, projectId: string, connecting?: boolean }>} */
 const sockets = new Map();
 
 function loadLidMap() {
@@ -87,12 +87,44 @@ function jidToPhone(jid) {
   const user = jid.split("@")[0] || "";
   const num = user.split(":")[0] || "";
   const d = num.replace(/\D/g, "");
-  return d.length >= 8 && d.length <= 15 ? d : null;
+  // WhatsApp LID locals are often 13+ digits / start with 80 — not dialable.
+  if (d.length < 8 || d.length > 12 || d.startsWith("80")) return null;
+  return d;
 }
 
 function jidToLid(jid) {
   if (!jid || !String(jid).includes("@lid")) return null;
   return (String(jid).split("@")[0] || "").split(":")[0] || null;
+}
+
+/** Prefer real PN over WhatsApp LID (linked id). */
+function resolveMessagePhone(projectId, msg) {
+  const key = msg?.key || {};
+  const candidates = [
+    key.remoteJidAlt,
+    key.participantAlt,
+    key.senderPn,
+    key.participantPn,
+    key.remoteJid,
+    key.participant,
+  ];
+  let lid =
+    jidToLid(key.remoteJid) ||
+    jidToLid(key.participant) ||
+    jidToLid(key.senderLid) ||
+    null;
+  for (const jid of candidates) {
+    const phone = jidToPhone(String(jid || ""));
+    if (phone) {
+      if (lid) rememberLid(lid, phone);
+      return { phone, lid };
+    }
+  }
+  if (lid) {
+    const mapped = resolveLid(lid);
+    if (mapped) return { phone: mapped, lid };
+  }
+  return { phone: null, lid };
 }
 
 async function ffmpegToM4a(inputBuf) {
@@ -114,11 +146,19 @@ async function ffmpegToM4a(inputBuf) {
   }
 }
 
-async function openSocket(projectId) {
-  if (sockets.has(projectId)) return sockets.get(projectId).sock;
+async function openSocket(projectId, { forcePair = false } = {}) {
+  const existing = sockets.get(projectId);
+  if (existing?.sock && !forcePair) return existing.sock;
+  if (existing?.connecting && !forcePair) return null;
 
   const authDir = path.join(SESSIONS_DIR, projectId);
+  if (forcePair) {
+    fs.rmSync(authDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(authDir, { recursive: true });
+
+  sockets.set(projectId, { sock: null, projectId, connecting: true });
+
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
@@ -129,9 +169,10 @@ async function openSocket(projectId) {
     printQRInTerminal: false,
     syncFullHistory: false,
     markOnlineOnConnect: false,
+    getMessage: async () => undefined,
   });
 
-  sockets.set(projectId, { sock, projectId });
+  sockets.set(projectId, { sock, projectId, connecting: false });
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -139,7 +180,7 @@ async function openSocket(projectId) {
     try {
       const { connection, lastDisconnect, qr } = update;
       if (qr) {
-        const dataUrl = await qrcode.toDataURL(qr);
+        const dataUrl = await qrcode.toDataURL(qr, { margin: 1, width: 320 });
         await bridge("push_qr", { project_id: projectId, qr_data: dataUrl });
         log.info({ projectId }, "QR pushed");
       }
@@ -151,7 +192,10 @@ async function openSocket(projectId) {
           status: "connected",
           phone: phone ? `+${phone}` : null,
           display_name: sock.user?.name || null,
+          last_error: null,
         });
+        const entry = sockets.get(projectId) || {};
+        sockets.set(projectId, { ...entry, sock, projectId, connecting: false });
         log.info({ projectId, phone }, "connected");
       }
       if (connection === "close") {
@@ -159,15 +203,27 @@ async function openSocket(projectId) {
           ? lastDisconnect.error.output?.statusCode
           : lastDisconnect?.error?.output?.statusCode;
         const loggedOut = code === DisconnectReason.loggedOut;
+        // 515 = restartRequired — normal right after QR scan / pairing.
+        const restartRequired = code === DisconnectReason.restartRequired || code === 515;
         sockets.delete(projectId);
-        await bridge("set_state", {
-          project_id: projectId,
-          status: "disconnected",
-          last_error: loggedOut ? "logged_out" : `close_${code ?? "unknown"}`,
-        }).catch(() => null);
-        log.warn({ projectId, code }, "socket closed");
-        if (!loggedOut) {
-          // will reopen on next list_sessions if still pairing/connected
+        if (loggedOut) {
+          await bridge("set_state", {
+            project_id: projectId,
+            status: "disconnected",
+            last_error: "logged_out",
+          }).catch(() => null);
+          log.warn({ projectId }, "logged out");
+        } else if (restartRequired) {
+          // Do NOT mark disconnected — UI would spin forever / lose QR flow.
+          log.info({ projectId, code }, "restart required — reconnecting");
+          setTimeout(() => {
+            openSocket(projectId).catch((e) => log.error({ err: e, projectId }, "reconnect after 515"));
+          }, 1500);
+        } else {
+          log.warn({ projectId, code }, "connection closed — retry soon");
+          setTimeout(() => {
+            openSocket(projectId).catch((e) => log.error({ err: e, projectId }, "reconnect"));
+          }, 4000);
         }
       }
     } catch (e) {
@@ -176,8 +232,8 @@ async function openSocket(projectId) {
   });
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify" && type !== "append") return;
-    for (const msg of messages) {
+    log.info({ projectId, type, count: messages?.length || 0 }, "messages.upsert");
+    for (const msg of messages || []) {
       try {
         await handleIncoming(projectId, sock, msg);
       } catch (e) {
@@ -188,10 +244,47 @@ async function openSocket(projectId) {
 
   sock.ev.on("contacts.upsert", (contacts) => {
     for (const c of contacts || []) {
-      const lid = jidToLid(c.id);
-      const pn = jidToPhone(c.id) || jidToPhone(c.notify) || null;
-      // Baileys may expose lid + phone via other fields in future
-      if (lid && pn) rememberLid(lid, pn);
+      try {
+        const id = c.id || c.lid;
+        const pn = jidToPhone(String(c.phoneNumber || c.id || ""));
+        if (id && String(id).includes("@lid") && pn) rememberLid(jidToLid(id), pn);
+        if (c.id && c.lid) {
+          const lid = jidToLid(c.lid) || String(c.lid).replace(/\D/g, "");
+          const phone = jidToPhone(c.id);
+          if (lid && phone) rememberLid(lid, phone);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  sock.ev.on("contacts.update", (updates) => {
+    for (const c of updates || []) {
+      try {
+        if (c.id && c.lid) {
+          const lid = jidToLid(c.lid) || String(c.lid).replace(/\D/g, "");
+          const phone = jidToPhone(c.id);
+          if (lid && phone) rememberLid(lid, phone);
+        }
+        if (c.lid && c.phoneNumber) {
+          const lid = jidToLid(c.lid) || String(c.lid).replace(/\D/g, "");
+          const phone = jidToPhone(String(c.phoneNumber));
+          if (lid && phone) rememberLid(lid, phone);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
+  sock.ev.on("chats.phoneNumberShare", ({ lid, jid }) => {
+    try {
+      const lidLocal = jidToLid(lid) || String(lid || "").replace(/\D/g, "");
+      const phone = jidToPhone(String(jid || ""));
+      if (lidLocal && phone) rememberLid(lidLocal, phone);
+    } catch {
+      /* ignore */
     }
   });
 
@@ -200,18 +293,22 @@ async function openSocket(projectId) {
 
 async function handleIncoming(projectId, sock, msg) {
   if (!msg?.key) return;
+  if (!msg?.message || msg.message.protocolMessage || msg.message.reactionMessage) return;
+
   const fromMe = !!msg.key.fromMe;
   const remote = msg.key.remoteJid || "";
-  if (remote.endsWith("@g.us") || remote.endsWith("@broadcast")) return;
+  if (remote.endsWith("@g.us") || remote.endsWith("@broadcast") || remote === "status@broadcast") return;
 
-  let phone = jidToPhone(remote);
-  let lid = jidToLid(remote);
-
-  // Alternative PN on some messages
-  const alt = msg.key.remoteJidAlt || msg.key.participantAlt || msg.senderPn;
-  if (!phone && alt) phone = jidToPhone(String(alt));
-  if (lid && !phone) phone = resolveLid(lid);
-  if (lid && phone) rememberLid(lid, phone);
+  const { phone, lid } = resolveMessagePhone(projectId, msg);
+  if (!phone && !lid) {
+    log.warn({
+      projectId,
+      remoteJid: msg.key?.remoteJid,
+      remoteJidAlt: msg.key?.remoteJidAlt,
+      senderPn: msg.key?.senderPn,
+    }, "skip message: no phone/lid");
+    return;
+  }
 
   const externalId = msg.key.id || null;
   let text = "";
@@ -226,6 +323,7 @@ async function handleIncoming(projectId, sock, msg) {
   else if (m.contactMessage) text = "[Контакт]";
   else if (m.locationMessage) text = "[Геолокация]";
   else text = "[Сообщение]";
+  if (!text) return;
 
   /** @type {Record<string, unknown>} */
   const payload = {
@@ -290,6 +388,13 @@ async function handleIncoming(projectId, sock, msg) {
   }
 
   await bridge("ingest", payload);
+  log.info({
+    projectId,
+    phone: phone || null,
+    lid: lid || null,
+    direction: fromMe ? "out" : "in",
+    externalId,
+  }, "ingested");
 }
 
 async function closeSocket(projectId, wipeAuth = false) {
@@ -313,8 +418,8 @@ async function handleCommand(cmd) {
   const action = cmd.action;
   try {
     if (action === "pair") {
-      await closeSocket(projectId, true);
-      await openSocket(projectId);
+      await closeSocket(projectId, false);
+      await openSocket(projectId, { forcePair: true });
       await bridge("ack", { command_id: cmd.id, status: "done", result: { ok: true } });
       return;
     }
@@ -330,6 +435,7 @@ async function handleCommand(cmd) {
       if (!phone || !text) throw new Error("phone/text required");
       let sock = sockets.get(projectId)?.sock;
       if (!sock) sock = await openSocket(projectId);
+      if (!sock) throw new Error("socket connecting, retry");
       const jid = `${phone}@s.whatsapp.net`;
       const sent = await sock.sendMessage(jid, { text });
       const wamid = sent?.key?.id || null;
@@ -364,7 +470,8 @@ async function tick() {
   const needed = new Set((sessions || []).map((s) => s.project_id));
 
   for (const projectId of needed) {
-    if (!sockets.has(projectId)) {
+    const entry = sockets.get(projectId);
+    if (!entry?.sock && !entry?.connecting) {
       try {
         await openSocket(projectId);
       } catch (e) {
@@ -381,8 +488,6 @@ async function tick() {
   // Close sockets for projects no longer pairing/connected
   for (const projectId of [...sockets.keys()]) {
     if (!needed.has(projectId)) {
-      // keep connected sockets if still in map but not listed — list only pairing|connected
-      // so closing others is correct
       await closeSocket(projectId, false);
     }
   }
