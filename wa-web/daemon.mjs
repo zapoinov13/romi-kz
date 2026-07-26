@@ -28,6 +28,11 @@ const KEY = process.env.WA_WEB_WORKER_KEY || "";
 const POLL_MS = Number(process.env.WA_WEB_POLL_MS) || 2500;
 const SESSIONS_DIR = path.join(__dirname, "sessions");
 const LID_MAP_PATH = path.join(__dirname, "lid-map.json");
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+const SUPABASE_ANON =
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  "";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info" });
 
@@ -160,6 +165,33 @@ async function ffmpegToM4a(inputBuf) {
     try { fs.unlinkSync(tmpIn); } catch { /* */ }
     try { fs.unlinkSync(tmpOut); } catch { /* */ }
   }
+}
+
+/** Upload media from VPS → Supabase Storage (avoids Vercel body size limit). */
+async function uploadChatMedia(projectId, buf, mime, filename) {
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    log.warn("SUPABASE_URL / anon key missing — cannot upload media from daemon");
+    return null;
+  }
+  if (!buf?.length) return null;
+  const safe = String(filename || "file").replace(/[^\w.\-]+/g, "_").slice(0, 80);
+  const objectPath = `${projectId}/${Date.now()}-${safe}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/crm-chat-media/${objectPath}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_ANON,
+      Authorization: `Bearer ${SUPABASE_ANON}`,
+      "Content-Type": mime || "application/octet-stream",
+      "x-upsert": "true",
+    },
+    body: buf,
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    log.warn({ status: res.status, errText: errText.slice(0, 200) }, "storage upload failed");
+    return null;
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/crm-chat-media/${objectPath}`;
 }
 
 async function openSocket(projectId, { forcePair = false } = {}) {
@@ -369,7 +401,7 @@ async function handleIncoming(projectId, sock, msg) {
     name: msg.pushName || null,
   };
 
-  // Media (best-effort)
+  // Media (best-effort) — upload on VPS, pass URL (not base64) to bridge
   try {
     const hasMedia =
       m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage || m.stickerMessage;
@@ -396,7 +428,13 @@ async function handleIncoming(projectId, sock, msg) {
               : "document";
       let filename =
         m.documentMessage?.fileName ||
-        (kind === "audio" ? "voice.m4a" : kind === "image" ? "image.jpg" : "file.bin");
+        (kind === "audio"
+          ? "voice.m4a"
+          : kind === "video"
+            ? "video.mp4"
+            : kind === "image"
+              ? "image.jpg"
+              : "file.bin");
 
       if (kind === "audio" && (mime.includes("ogg") || mime.includes("opus"))) {
         try {
@@ -408,11 +446,22 @@ async function handleIncoming(projectId, sock, msg) {
         }
       }
 
-      if (buf && Buffer.isBuffer(buf) && buf.length < 11 * 1024 * 1024) {
-        payload.media_base64 = buf.toString("base64");
-        payload.media_mime = mime;
+      if (buf && Buffer.isBuffer(buf) && buf.length > 0 && buf.length < 16 * 1024 * 1024) {
+        const url = await uploadChatMedia(projectId, buf, mime, filename);
         payload.media_kind = kind;
+        payload.media_mime = mime;
         payload.media_filename = filename;
+        if (url) {
+          payload.media_url = url;
+          log.info({ projectId, kind, bytes: buf.length }, "media uploaded");
+        } else {
+          // Fallback for small files only (Vercel body limit ~4.5MB)
+          if (buf.length < 2.5 * 1024 * 1024) {
+            payload.media_base64 = buf.toString("base64");
+          } else {
+            log.warn({ projectId, kind, bytes: buf.length }, "media upload failed and too large for base64 fallback");
+          }
+        }
       }
     }
   } catch (e) {
@@ -430,6 +479,8 @@ async function handleIncoming(projectId, sock, msg) {
     skipped: res.skipped || false,
     reason: res.reason || null,
     deduped: res.deduped || false,
+    mediaUrl: res.media_url || payload.media_url || null,
+    mediaKind: payload.media_kind || null,
   }, "ingested");
 }
 

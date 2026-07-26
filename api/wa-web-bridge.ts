@@ -340,11 +340,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : extractLid(rawFrom);
         const name = typeof body.name === "string" ? body.name : null;
 
-        let mediaUrl: string | null = null;
-        let mediaKind: string | null = null;
-        let mediaMime: string | null = null;
-        let mediaFilename: string | null = null;
-        if (body.media_base64 || body.media) {
+        let mediaUrl: string | null =
+          typeof body.media_url === "string" && body.media_url.trim() ? body.media_url.trim() : null;
+        let mediaKind: string | null =
+          typeof body.media_kind === "string" ? body.media_kind : null;
+        let mediaMime: string | null =
+          typeof body.media_mime === "string" ? body.media_mime : null;
+        let mediaFilename: string | null =
+          typeof body.media_filename === "string" ? body.media_filename : null;
+        if (!mediaUrl && (body.media_base64 || body.media)) {
           const mediaObj = (body.media && typeof body.media === "object" ? body.media : {}) as Body;
           const media = await uploadMedia(publicDb(), projectId, {
             base64: String(body.media_base64 ?? mediaObj.base64 ?? ""),
@@ -373,7 +377,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           media_mime: mediaMime,
           media_filename: mediaFilename,
         });
-        return res.status(200).json(out);
+        return res.status(200).json({ ...out, media_url: mediaUrl });
       }
 
       const passthrough = ["heartbeat", "list_sessions", "push_qr", "set_state", "claim", "ack"];
