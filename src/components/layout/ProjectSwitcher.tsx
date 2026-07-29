@@ -170,11 +170,14 @@ export function ProjectSwitcher({ collapsed, metaStyle = false }: Props) {
                     ) : null}
                     {isActive && <Check className="h-4 w-4 text-primary" />}
                   </button>
-                  {!p.isPrimary && (
+                  {projects.length > 1 && (
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!confirm(`Удалить проект «${p.name}»? Это необратимо.`)) return;
+                        const msg = p.isPrimary
+                          ? `Удалить основной проект «${p.name}»? Другой проект автоматически станет основным.`
+                          : `Удалить проект «${p.name}»? Это необратимо.`;
+                        if (!confirm(msg)) return;
                         try {
                           await removeProject(p.id);
                           toast.success(`Проект «${p.name}» удалён`);

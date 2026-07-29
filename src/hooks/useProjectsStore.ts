@@ -194,8 +194,30 @@ export function useProjectsStore() {
     async (id: string) => {
       const uid = session?.user?.id ?? user?.id;
       const target = projects.find((p) => p.id === id);
-      if (target?.isPrimary) {
-        throw new Error("Основной проект удалить нельзя");
+      if (!target) {
+        throw new Error("Проект не найден");
+      }
+      if (projects.length <= 1) {
+        throw new Error("Нельзя удалить единственный проект");
+      }
+
+      // If the target is primary, promote another project first.
+      if (target.isPrimary) {
+        const nextPrimary = projects.find((p) => p.id !== id);
+        if (!nextPrimary) {
+          throw new Error("Нельзя удалить единственный проект");
+        }
+        const { error: promoteErr } = await supabase
+          .from("projects")
+          .update({ is_primary: true })
+          .eq("id", nextPrimary.id);
+        if (promoteErr) throw new Error(promoteErr.message);
+
+        const { error: demoteErr } = await supabase
+          .from("projects")
+          .update({ is_primary: false })
+          .eq("id", id);
+        if (demoteErr) throw new Error(demoteErr.message);
       }
 
       const { data, error } = await supabase.from("projects").delete().eq("id", id).select("id");
