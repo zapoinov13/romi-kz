@@ -50,12 +50,14 @@ const toProject = (r: Row): Project => ({
 function describeProjectDeleteError(error: PostgrestError | null): string {
   if (!error) return "Не удалось удалить проект";
   const msg = error.message ?? "";
+  const details = (error.details ?? "").trim();
   const code = error.code ?? "";
   if (code === "42501" || /row-level security/i.test(msg) || /permission denied/i.test(msg)) {
     return "Нет прав на удаление. Выполните scripts/lovable-projects-delete-fix.sql в Supabase.";
   }
   if (/foreign key|violates foreign key/i.test(msg)) {
-    return "Сначала отключите интеграции проекта или обратитесь к администратору.";
+    const tail = details ? ` Детали: ${details}` : "";
+    return `База блокирует удаление зависимостями проекта. Выполните scripts/lovable-projects-delete-cascade-fix.sql в Supabase SQL Editor и повторите.${tail}`;
   }
   return msg || "Не удалось удалить проект";
 }
