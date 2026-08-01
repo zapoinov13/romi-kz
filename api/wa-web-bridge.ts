@@ -52,7 +52,7 @@ function workerKeyOk(req: VercelRequest): boolean {
 }
 
 async function workerRpc(action: string, body: Body): Promise<Record<string, unknown>> {
-  const db = publicDb();
+  const db = adminDb();
   const { data, error } = await db.rpc("wa_web_worker", {
     p_key: workerKey(),
     p_action: action,
