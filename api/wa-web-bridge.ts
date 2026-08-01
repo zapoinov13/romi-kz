@@ -18,13 +18,14 @@ function cors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 
-/** Anon/publishable client — writes go via SECURITY DEFINER RPC or user RLS. */
-function publicDb(): SupabaseClient {
-  const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const key =
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ??
-    process.env.SUPABASE_ANON_KEY?.trim();
-  if (!url || !key) throw new Error("VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY missing");
+
+
+
+/** Service-role client — worker RPC + chat media storage (never exposed to clients). */
+function adminDb(): SupabaseClient {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing");
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -42,7 +43,7 @@ function workerKeyOk(req: VercelRequest): boolean {
 }
 
 async function workerRpc(action: string, body: Body): Promise<Record<string, unknown>> {
-  const db = publicDb();
+  const db = adminDb();
   const { data, error } = await db.rpc("wa_web_worker", {
     p_key: workerKey(),
     p_action: action,
@@ -350,7 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           typeof body.media_filename === "string" ? body.media_filename : null;
         if (!mediaUrl && (body.media_base64 || body.media)) {
           const mediaObj = (body.media && typeof body.media === "object" ? body.media : {}) as Body;
-          const media = await uploadMedia(publicDb(), projectId, {
+          const media = await uploadMedia(adminDb(), projectId, {
             base64: String(body.media_base64 ?? mediaObj.base64 ?? ""),
             mime: String(body.media_mime ?? mediaObj.mime ?? "application/octet-stream"),
             filename: String(body.media_filename ?? mediaObj.filename ?? "file"),

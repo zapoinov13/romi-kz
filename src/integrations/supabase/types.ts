@@ -2055,6 +2055,10 @@ export type Database = {
           is_auto: boolean
           is_draft: boolean
           lead_id: string
+          media_filename: string | null
+          media_kind: string | null
+          media_mime: string | null
+          media_url: string | null
           status: string | null
           template_key: string | null
           type: Database["public"]["Enums"]["communication_type"]
@@ -2072,6 +2076,10 @@ export type Database = {
           is_auto?: boolean
           is_draft?: boolean
           lead_id: string
+          media_filename?: string | null
+          media_kind?: string | null
+          media_mime?: string | null
+          media_url?: string | null
           status?: string | null
           template_key?: string | null
           type: Database["public"]["Enums"]["communication_type"]
@@ -2089,6 +2097,10 @@ export type Database = {
           is_auto?: boolean
           is_draft?: boolean
           lead_id?: string
+          media_filename?: string | null
+          media_kind?: string | null
+          media_mime?: string | null
+          media_url?: string | null
           status?: string | null
           template_key?: string | null
           type?: Database["public"]["Enums"]["communication_type"]
@@ -3064,6 +3076,7 @@ export type Database = {
           stage_id: string
           updated_at: string
           utm: Json | null
+          whatsapp_lid: string | null
         }
         Insert: {
           age?: number | null
@@ -3112,6 +3125,7 @@ export type Database = {
           stage_id: string
           updated_at?: string
           utm?: Json | null
+          whatsapp_lid?: string | null
         }
         Update: {
           age?: number | null
@@ -3160,6 +3174,7 @@ export type Database = {
           stage_id?: string
           updated_at?: string
           utm?: Json | null
+          whatsapp_lid?: string | null
         }
         Relationships: [
           {
@@ -3167,6 +3182,27 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
             referencedColumns: ["id"]
           },
           {
@@ -4975,6 +5011,111 @@ export type Database = {
         }
         Relationships: []
       }
+      wa_web_config: {
+        Row: {
+          id: number
+          updated_at: string
+          worker_key: string
+        }
+        Insert: {
+          id?: number
+          updated_at?: string
+          worker_key: string
+        }
+        Update: {
+          id?: number
+          updated_at?: string
+          worker_key?: string
+        }
+        Relationships: []
+      }
+      whatsapp_accounts: {
+        Row: {
+          access_token: string | null
+          cabinet_id: string
+          connected: boolean
+          connected_at: string | null
+          created_at: string
+          created_by: string | null
+          display_name: string | null
+          display_phone: string | null
+          id: string
+          onboarding_mode: string
+          phone_number_id: string
+          project_id: string
+          updated_at: string
+          waba_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          cabinet_id: string
+          connected?: boolean
+          connected_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          display_phone?: string | null
+          id?: string
+          onboarding_mode?: string
+          phone_number_id: string
+          project_id: string
+          updated_at?: string
+          waba_id: string
+        }
+        Update: {
+          access_token?: string | null
+          cabinet_id?: string
+          connected?: boolean
+          connected_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_name?: string | null
+          display_phone?: string | null
+          id?: string
+          onboarding_mode?: string
+          phone_number_id?: string
+          project_id?: string
+          updated_at?: string
+          waba_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_accounts_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_config: {
         Row: {
           ads_only: boolean
@@ -5067,6 +5208,197 @@ export type Database = {
           },
           {
             foreignKeyName: "whatsapp_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_onboarding_states: {
+        Row: {
+          cabinet_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          project_id: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          cabinet_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          project_id: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          cabinet_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          project_id?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_onboarding_states_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_onboarding_states_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_onboarding_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_onboarding_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_onboarding_states_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_web_commands: {
+        Row: {
+          action: string
+          created_at: string
+          created_by: string | null
+          id: string
+          payload: Json
+          project_id: string
+          result: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payload?: Json
+          project_id: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payload?: Json
+          project_id?: string
+          result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_web_commands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_web_commands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_web_commands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_web_sessions: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          last_error: string | null
+          paired_at: string | null
+          phone: string | null
+          project_id: string
+          qr_data: string | null
+          qr_expires_at: string | null
+          status: string
+          updated_at: string
+          worker_heartbeat_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_error?: string | null
+          paired_at?: string | null
+          phone?: string | null
+          project_id: string
+          qr_data?: string | null
+          qr_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          worker_heartbeat_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_error?: string | null
+          paired_at?: string | null
+          phone?: string | null
+          project_id?: string
+          qr_data?: string | null
+          qr_expires_at?: string | null
+          status?: string
+          updated_at?: string
+          worker_heartbeat_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_web_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_web_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_web_sessions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects_public"
@@ -5758,6 +6090,93 @@ export type Database = {
           },
         ]
       }
+      whatsapp_accounts_safe: {
+        Row: {
+          access_token_present: boolean | null
+          cabinet_id: string | null
+          connected: boolean | null
+          connected_at: string | null
+          created_at: string | null
+          created_by: string | null
+          display_name: string | null
+          display_phone: string | null
+          id: string | null
+          onboarding_mode: string | null
+          phone_number_id: string | null
+          project_id: string | null
+          updated_at: string | null
+          waba_id: string | null
+        }
+        Insert: {
+          access_token_present?: never
+          cabinet_id?: string | null
+          connected?: boolean | null
+          connected_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          display_name?: string | null
+          display_phone?: string | null
+          id?: string | null
+          onboarding_mode?: string | null
+          phone_number_id?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          waba_id?: string | null
+        }
+        Update: {
+          access_token_present?: never
+          cabinet_id?: string | null
+          connected?: boolean | null
+          connected_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          display_name?: string | null
+          display_phone?: string | null
+          id?: string | null
+          onboarding_mode?: string | null
+          phone_number_id?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          waba_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_accounts_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_cabinet_id_fkey"
+            columns: ["cabinet_id"]
+            isOneToOne: false
+            referencedRelation: "ad_cabinets_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_tokens"
+            referencedColumns: ["project_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_config_safe: {
         Row: {
           ads_only: boolean | null
@@ -5864,6 +6283,19 @@ export type Database = {
         Args: { p_project_id: string; p_since?: string }
         Returns: Json
       }
+      bind_whatsapp_account: {
+        Args: {
+          p_access_token: string
+          p_cabinet_id: string
+          p_display_name?: string
+          p_display_phone?: string
+          p_onboarding_mode?: string
+          p_phone_number_id: string
+          p_project_id: string
+          p_waba_id: string
+        }
+        Returns: string
+      }
       bind_whatsapp_to_project: {
         Args: {
           p_api_token?: string
@@ -5948,9 +6380,17 @@ export type Database = {
         Returns: undefined
       }
       seed_demo_project: { Args: { p_project_name?: string }; Returns: Json }
+      unbind_whatsapp_account: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
       user_can_access_project: {
         Args: { _project_id: string }
         Returns: boolean
+      }
+      wa_web_worker: {
+        Args: { p_action: string; p_body?: Json; p_key: string }
+        Returns: Json
       }
     }
     Enums: {

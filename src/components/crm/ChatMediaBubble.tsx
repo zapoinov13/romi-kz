@@ -1,6 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, FileText, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+const BUCKET = "crm-chat-media";
+
+/** crm-chat-media - приватный бакет: путь достаём из ссылки и подписываем. */
+function objectPath(url: string): string | null {
+  const marker = `/${BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx >= 0) return url.slice(idx + marker.length).split("?")[0];
+  if (!/^https?:\/\//i.test(url)) return url.replace(/^\/+/, "");
+  return null;
+}
+
+/** Подписанная ссылка на приватный объект (обновляется по мере надобности). */
+function useSignedMediaUrl(mediaUrl?: string | null): string | null {
+  const [signed, setSigned] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mediaUrl) {
+      setSigned(null);
+      return;
+    }
+    const path = objectPath(mediaUrl);
+    if (!path) {
+      setSigned(mediaUrl);
+      return;
+    }
+    let alive = true;
+    void supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(path, 3600)
+      .then(({ data }) => {
+        if (alive) setSigned(data?.signedUrl ?? null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [mediaUrl]);
+
+  return signed;
+}
 
 type Props = {
   content?: string | null;
@@ -30,6 +71,7 @@ export function ChatMediaBubble({
   className,
 }: Props) {
   const [lightbox, setLightbox] = useState<"image" | "video" | null>(null);
+  const signedUrl = useSignedMediaUrl(mediaUrl);
 
   if (!mediaUrl) {
     return <span className={className}>{content || ""}</span>;
@@ -52,7 +94,7 @@ export function ChatMediaBubble({
           className="group relative block overflow-hidden rounded-lg text-left"
         >
           <img
-            src={mediaUrl}
+            src={signedUrl ?? undefined}
             alt={mediaFilename || "image"}
             className="max-h-64 max-w-full rounded-lg object-contain"
           />
@@ -66,8 +108,8 @@ export function ChatMediaBubble({
         <div className="min-w-[220px] rounded-xl bg-background/40 p-2">
           <p className="mb-1 text-[11px] font-medium opacity-70">Голосовое</p>
           <audio controls preload="metadata" className="w-full max-w-[280px]">
-            <source src={mediaUrl} type={mediaMime || "audio/mp4"} />
-            <a href={mediaUrl} target="_blank" rel="noreferrer" className="underline">
+            <source src={signedUrl ?? undefined} type={mediaMime || "audio/mp4"} />
+            <a href={signedUrl ?? "#"} target="_blank" rel="noreferrer" className="underline">
               Скачать аудио
             </a>
           </audio>
@@ -83,7 +125,7 @@ export function ChatMediaBubble({
             className="max-h-64 max-w-full rounded-lg bg-black"
             onDoubleClick={() => setLightbox("video")}
           >
-            <source src={mediaUrl} type={mediaMime || "video/mp4"} />
+            <source src={signedUrl ?? undefined} type={mediaMime || "video/mp4"} />
           </video>
           <button
             type="button"
@@ -98,7 +140,7 @@ export function ChatMediaBubble({
 
       {isDoc && (
         <a
-          href={mediaUrl}
+          href={signedUrl ?? "#"}
           target="_blank"
           rel="noreferrer"
           className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border/50 bg-background/40 px-3 py-2 text-sm hover:bg-background/70"
@@ -130,13 +172,13 @@ export function ChatMediaBubble({
           <div className="max-h-[90vh] max-w-[95vw]" onClick={(e) => e.stopPropagation()}>
             {lightbox === "image" ? (
               <img
-                src={mediaUrl}
+                src={signedUrl ?? undefined}
                 alt={mediaFilename || "image"}
                 className="max-h-[90vh] max-w-[95vw] rounded-lg object-contain"
               />
             ) : (
               <video
-                src={mediaUrl}
+                src={signedUrl ?? undefined}
                 controls
                 autoPlay
                 playsInline
