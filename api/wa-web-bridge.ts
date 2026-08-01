@@ -360,7 +360,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           typeof body.media_filename === "string" ? body.media_filename : null;
         if (!mediaUrl && (body.media_base64 || body.media)) {
           const mediaObj = (body.media && typeof body.media === "object" ? body.media : {}) as Body;
-          const media = await uploadMedia(publicDb(), projectId, {
+          const media = await uploadMedia(adminDb(), projectId, {
             base64: String(body.media_base64 ?? mediaObj.base64 ?? ""),
             mime: String(body.media_mime ?? mediaObj.mime ?? "application/octet-stream"),
             filename: String(body.media_filename ?? mediaObj.filename ?? "file"),
