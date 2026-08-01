@@ -29,10 +29,9 @@ const POLL_MS = Number(process.env.WA_WEB_POLL_MS) || 2500;
 const SESSIONS_DIR = path.join(__dirname, "sessions");
 const LID_MAP_PATH = path.join(__dirname, "lid-map.json");
 const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
-const SUPABASE_ANON =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  "";
+// Storage uploads require a privileged key: the crm-chat-media bucket is private
+// and anonymous writes are not allowed.
+const SUPABASE_STORAGE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const log = pino({ level: process.env.LOG_LEVEL || "info" });
 
@@ -169,8 +168,8 @@ async function ffmpegToM4a(inputBuf) {
 
 /** Upload media from VPS → Supabase Storage (avoids Vercel body size limit). */
 async function uploadChatMedia(projectId, buf, mime, filename) {
-  if (!SUPABASE_URL || !SUPABASE_ANON) {
-    log.warn("SUPABASE_URL / anon key missing — cannot upload media from daemon");
+  if (!SUPABASE_URL || !SUPABASE_STORAGE_KEY) {
+    log.warn("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing - cannot upload media from daemon");
     return null;
   }
   if (!buf?.length) return null;
@@ -179,8 +178,8 @@ async function uploadChatMedia(projectId, buf, mime, filename) {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/crm-chat-media/${objectPath}`, {
     method: "POST",
     headers: {
-      apikey: SUPABASE_ANON,
-      Authorization: `Bearer ${SUPABASE_ANON}`,
+      apikey: SUPABASE_STORAGE_KEY,
+      Authorization: `Bearer ${SUPABASE_STORAGE_KEY}`,
       "Content-Type": mime || "application/octet-stream",
       "x-upsert": "true",
     },
