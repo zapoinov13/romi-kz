@@ -18,17 +18,8 @@ function cors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 
-/** Anon/publishable client — writes go via SECURITY DEFINER RPC or user RLS. */
-function publicDb(): SupabaseClient {
-  const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
-  const key =
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ??
-    process.env.SUPABASE_ANON_KEY?.trim();
-  if (!url || !key) throw new Error("VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY missing");
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
+
+
 
 /** Service-role client — worker RPC + chat media storage (never exposed to clients). */
 function adminDb(): SupabaseClient {
