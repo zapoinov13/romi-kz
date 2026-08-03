@@ -5,6 +5,13 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type { AdCabinet } from "@/types/ads";
 
+/** act_123456 из любого написания ID рекламного аккаунта Meta. */
+const normalizeActId = (raw: string): string => {
+  const digits = String(raw ?? "").replace(/^act_/i, "").replace(/\D/g, "");
+  return digits ? `act_${digits}` : "";
+};
+
+
 const toCabinet = (r: any): AdCabinet => {
   const cfg = (r.config && typeof r.config === "object") ? (r.config as Record<string, unknown>) : {};
   const pickStr = (...vals: unknown[]): string | undefined => {
@@ -131,7 +138,7 @@ const toDbPatch = (patch: Partial<AdCabinet>): Record<string, unknown> => {
   }
   const ext = String(out.external_id ?? "").trim();
   const act = String(out.ad_account_id ?? "").trim();
-  const resolvedAct = act || ext;
+  const resolvedAct = normalizeActId(act || ext) || act || ext;
   if (resolvedAct) {
     out.external_id = resolvedAct;
     out.ad_account_id = resolvedAct;
@@ -194,9 +201,26 @@ export function useCabinetsStore() {
     if (!projectId) {
       throw new Error("Сначала создайте проект и сделайте его активным");
     }
+    const act = normalizeActId(c.adAccountId || c.externalId || "");
+
+    // Защита от дублей: тот же рекламный аккаунт нельзя добавить в проект дважды
+    if (act) {
+      const { data: dupe } = await supabase
+        .from("ad_cabinets_safe" as any)
+        .select("id, name")
+        .eq("project_id", projectId)
+        .eq("ad_account_id", act)
+        .limit(1);
+      const found = (dupe ?? [])[0] as { name?: string } | undefined;
+      if (found) {
+        throw new Error(`Этот кабинет уже добавлен: ${found.name ?? act}`);
+      }
+    }
+
     const dbRow = {
       ...toDbPatch(c),
       name: c.name,
+      ...(act ? { ad_account_id: act, external_id: act } : {}),
       created_by: user?.id ?? null,
       project_id: projectId,
     };
@@ -205,10 +229,16 @@ export function useCabinetsStore() {
       .insert(dbRow as any)
       .select("id")
       .single();
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("Этот рекламный аккаунт уже добавлен в проект");
+      }
+      throw error;
+    }
     await refetch();
     return (data?.id as string) ?? null;
   }, [user?.id, refetch, projectId]);
+
 
   const updateCabinet = useCallback(async (id: string, patch: Partial<AdCabinet>) => {
     const { error } = await supabase
