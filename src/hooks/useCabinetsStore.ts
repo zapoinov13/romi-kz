@@ -5,6 +5,13 @@ import { useRealtimeTable } from "@/hooks/useRealtimeTable";
 import { useProjectsStore } from "@/hooks/useProjectsStore";
 import type { AdCabinet } from "@/types/ads";
 
+/** act_123456 из любого написания ID рекламного аккаунта Meta. */
+const normalizeActId = (raw: string): string => {
+  const digits = String(raw ?? "").replace(/^act_/i, "").replace(/\D/g, "");
+  return digits ? `act_${digits}` : "";
+};
+
+
 const toCabinet = (r: any): AdCabinet => {
   const cfg = (r.config && typeof r.config === "object") ? (r.config as Record<string, unknown>) : {};
   const pickStr = (...vals: unknown[]): string | undefined => {
