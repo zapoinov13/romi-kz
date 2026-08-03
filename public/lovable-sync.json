@@ -1,7 +1,7 @@
 {
-  "git_sha": "22c1950",
-  "git_sha_full": "22c19503bc6580c346b65fa77c5cec5b79622b2c",
-  "updated_at": "2026-08-01T07:14:34Z",
-  "label": "Обработан бакет медиа",
+  "git_sha": "1b153af",
+  "git_sha_full": "1b153affabb8859b7487da189221fe73c573be2e",
+  "updated_at": "2026-08-03T08:03:11Z",
+  "label": "Fixed leads insert policy",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
