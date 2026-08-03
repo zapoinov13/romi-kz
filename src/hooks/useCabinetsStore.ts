@@ -138,7 +138,7 @@ const toDbPatch = (patch: Partial<AdCabinet>): Record<string, unknown> => {
   }
   const ext = String(out.external_id ?? "").trim();
   const act = String(out.ad_account_id ?? "").trim();
-  const resolvedAct = act || ext;
+  const resolvedAct = normalizeActId(act || ext) || act || ext;
   if (resolvedAct) {
     out.external_id = resolvedAct;
     out.ad_account_id = resolvedAct;
