@@ -1,7 +1,7 @@
 {
-  "git_sha": "1b153af",
-  "git_sha_full": "1b153affabb8859b7487da189221fe73c573be2e",
-  "updated_at": "2026-08-03T08:03:11Z",
-  "label": "Fixed leads insert policy",
+  "git_sha": "458839e",
+  "git_sha_full": "458839e48330e342e2ee9fab906a10960a8fa2ea",
+  "updated_at": "2026-08-03T14:02:30Z",
+  "label": "Защотил дубли кабинетов",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
