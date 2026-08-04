@@ -1,7 +1,7 @@
 {
-  "git_sha": "16c46f3",
-  "git_sha_full": "16c46f35e701cd3494ad7b6405c19bee3b4d3079",
-  "updated_at": "2026-08-04T08:26:38Z",
-  "label": "Hardened Meta token write access",
+  "git_sha": "a4d6956",
+  "git_sha_full": "a4d695659155e35a01f71d0999b49eb6fbb5a65b",
+  "updated_at": "2026-08-04T08:30:18Z",
+  "label": "Исправил расхождения в аналитике",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
