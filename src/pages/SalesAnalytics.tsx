@@ -43,8 +43,9 @@ function periodLabel(range: ReportPeriodRange): string {
     range.from.getMonth() === range.to.getMonth() &&
     range.from.getDate() === range.to.getDate();
   if (same) return format(range.from, "d MMMM yyyy", { locale: ru });
-  return `${format(range.from, "d MMM", { locale: ru })} – ${format(range.to, "d MMM yyyy", { locale: ru })}`;
+  return `${format(range.from, "d MMM", { locale: ru })} - ${format(range.to, "d MMM yyyy", { locale: ru })}`;
 }
+
 
 export default function SalesAnalytics() {
   const { cabinets } = usePersonalCabinets();
