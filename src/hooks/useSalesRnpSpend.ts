@@ -7,10 +7,12 @@ import type { ReportPeriodRange } from "@/hooks/useReportData";
 
 export function useSalesRnpSpend(range: ReportPeriodRange, cabinetId: string | null) {
   const { cabinets } = usePersonalCabinets();
-  const cabinet = useMemo(
-    () => cabinets.find((c) => c.id === cabinetId) ?? cabinets[0] ?? null,
-    [cabinets, cabinetId],
-  );
+  // Если кабинет выбран - берём только его, без подмены первым в списке,
+  // иначе расход не совпадал бы с лидами выбранного кабинета.
+  const cabinet = useMemo(() => {
+    if (cabinetId) return cabinets.find((c) => c.id === cabinetId) ?? null;
+    return cabinets[0] ?? null;
+  }, [cabinets, cabinetId]);
   const actId = cabinet ? resolveCabinetActId(cabinet) : null;
   const { data, loading, error } = useMetaInsightsRange(actId, range, !!actId);
 

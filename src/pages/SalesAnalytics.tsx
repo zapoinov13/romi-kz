@@ -43,8 +43,9 @@ function periodLabel(range: ReportPeriodRange): string {
     range.from.getMonth() === range.to.getMonth() &&
     range.from.getDate() === range.to.getDate();
   if (same) return format(range.from, "d MMMM yyyy", { locale: ru });
-  return `${format(range.from, "d MMM", { locale: ru })} – ${format(range.to, "d MMM yyyy", { locale: ru })}`;
+  return `${format(range.from, "d MMM", { locale: ru })} - ${format(range.to, "d MMM yyyy", { locale: ru })}`;
 }
+
 
 export default function SalesAnalytics() {
   const { cabinets } = usePersonalCabinets();
@@ -90,15 +91,18 @@ export default function SalesAnalytics() {
     () => filterSalesLeads(displayableRows, filters),
     [displayableRows, filters],
   );
+  // CRM-часть KPI считаем по тем же строкам, что видит пользователь в таблице,
+  // Meta-часть (расход, лиды Meta) всегда за весь период кабинета.
   const kpi = useMemo(
     () =>
-      computeSalesKpi(displayableRows, spend, {
+      computeSalesKpi(filtered, spend, {
         formLeads: adsFormLeads,
         messages: adsMessages,
         conversions: metaLeads,
       }),
-    [displayableRows, spend, adsFormLeads, adsMessages, metaLeads],
+    [filtered, spend, adsFormLeads, adsMessages, metaLeads],
   );
+
   const topCreatives = useMemo(() => computeTopCreatives(filtered), [filtered]);
   const topServices = useMemo(() => computeTopServices(filtered, services), [filtered, services]);
 

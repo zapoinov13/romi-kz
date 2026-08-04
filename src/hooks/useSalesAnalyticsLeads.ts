@@ -74,7 +74,8 @@ function mergeLead(
   maps: AdNameMaps,
 ): SalesAnalyticsLead {
   const utm = lead.utm;
-  const createdAt = lead.first_touch_at ?? lead.created_at;
+  // Дата строки = created_at: по этому же полю фильтруется запрос и фильтры таблицы.
+  const createdAt = lead.created_at;
   const fromCrm = {
     isQualified: deriveQualified(lead, stageKey),
     paymentStatus: derivePaymentStatus(lead, stageKey),
