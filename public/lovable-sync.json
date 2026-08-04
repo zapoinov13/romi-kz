@@ -1,7 +1,7 @@
 {
-  "git_sha": "458839e",
-  "git_sha_full": "458839e48330e342e2ee9fab906a10960a8fa2ea",
-  "updated_at": "2026-08-03T14:02:30Z",
-  "label": "Защотил дубли кабинетов",
+  "git_sha": "16c46f3",
+  "git_sha_full": "16c46f35e701cd3494ad7b6405c19bee3b4d3079",
+  "updated_at": "2026-08-04T08:26:38Z",
+  "label": "Hardened Meta token write access",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
