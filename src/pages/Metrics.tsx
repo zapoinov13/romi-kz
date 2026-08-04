@@ -99,10 +99,12 @@ const Metrics = () => {
     [cabinetId, cabinets],
   );
 
+  // Строго выбранный кабинет: раньше при кабинете без ID аккаунта таблица
+  // показывала сумму по всем кабинетам, а правки писались в один - цифры не сходились.
   const actIds = useMemo(() => {
-    if (!selectedCabinet?.externalId) return allActIds;
-    return [selectedCabinet.externalId];
-  }, [selectedCabinet, allActIds]);
+    if (selectedCabinet) return selectedCabinet.externalId ? [selectedCabinet.externalId] : [];
+    return cabinetId ? [] : allActIds;
+  }, [selectedCabinet, cabinetId, allActIds]);
 
   const canEdit = Boolean(selectedCabinet);
 
@@ -111,6 +113,7 @@ const Metrics = () => {
     period,
     actIds.length > 0,
   );
+  const missingActId = Boolean(selectedCabinet && !selectedCabinet.externalId);
 
   const { getPlan } = useFinancePlans();
   const planSrc = getPlan(monthKey(period.from));
@@ -172,12 +175,14 @@ const Metrics = () => {
       else normalized[k] = v;
     }
     try {
-      const { data: existing } = await supabase
+      const { data: existingRows } = await supabase
         .from("cabinet_daily_insights")
         .select("id")
         .eq("cabinet_id", selectedCabinet.id)
         .eq("date", isoDate)
-        .maybeSingle();
+        .order("id", { ascending: true })
+        .limit(1);
+      const existing = existingRows?.[0];
       if (existing?.id) {
         const { error: updErr } = await supabase
           .from("cabinet_daily_insights")
@@ -258,7 +263,11 @@ const Metrics = () => {
     }
 
     const v = def.pick(d);
-    return v > 0 ? <span className="tabular-nums">{def.format(v)}</span> : <Dash />;
+    return (
+      <span className="block px-1.5 py-0.5 text-right tabular-nums" title={def.help}>
+        {v > 0 ? def.format(v) : <Dash />}
+      </span>
+    );
   };
 
   const handleExportCsv = () => {
@@ -274,7 +283,15 @@ const Metrics = () => {
         }),
       ];
     });
-    const csv = [header, ...rows]
+    const totalRow = [
+      "Итого",
+      `${since} - ${until}`,
+      ...RNP_COLUMNS.map((def) => {
+        const v = def.total(totals);
+        return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0;
+      }),
+    ];
+    const csv = [header, totalRow, ...rows]
       .map((r) =>
         r
           .map((v) => {
@@ -414,7 +431,16 @@ const Metrics = () => {
             Клик по ячейке → ввод · Enter сохранить · Esc отмена
           </span>
           <span className="hidden h-4 w-px bg-border sm:block" />
-          <span>CPL, CP WA, CPQL, CAC — автоматически</span>
+          <span>CPL, CP WA, CPQL, CAC - автоматически</span>
+          <span className="hidden h-4 w-px bg-border sm:block" />
+          <span>Клики, WA и Сайт приходят из Meta и не редактируются</span>
+        </div>
+      )}
+
+      {missingActId && (
+        <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          У кабинета «{selectedCabinet?.name}» не указан ID рекламного аккаунта - данные Meta не
+          загружаются. Укажите ID в разделе «Управление рекламой».
         </div>
       )}
 
@@ -476,7 +502,7 @@ const Metrics = () => {
                     )}
                   >
                     {col.short}
-                    {col.kind !== "formula" && (
+                    {(col.kind === "manual" || col.kind === "direct") && (
                       <Pencil className="ml-0.5 inline h-2 w-2 text-primary/40" />
                     )}
                   </th>
