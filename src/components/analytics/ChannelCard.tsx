@@ -41,14 +41,14 @@ export const ChannelCard = ({ stat }: { stat: ChannelStat }) => {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-        <Cell label="Расход" value={spend > 0 ? fmtMoney(spend) : "—"} />
-        <Cell label="Лиды" value={leads > 0 ? fmtNum(leads) : "—"} />
-        <Cell label="CPL" value={cpl > 0 ? fmtMoney(cpl) : "—"} />
-        <Cell label="Продажи" value={sales > 0 ? fmtNum(sales) : "—"} />
-        <Cell label="Выручка" value={revenue > 0 ? fmtMoney(revenue) : "—"} accent />
+        <Cell label="Расход" value={spend > 0 ? fmtMoney(spend) : "-"} />
+        <Cell label="Лиды" value={leads > 0 ? fmtNum(leads) : "-"} />
+        <Cell label="CPL" value={cpl > 0 ? fmtMoney(cpl) : "-"} />
+        <Cell label="Продажи" value={sales > 0 ? fmtNum(sales) : "-"} />
+        <Cell label="Выручка" value={revenue > 0 ? fmtMoney(revenue) : "-"} accent />
         <Cell
           label="Конверсия"
-          value={leads > 0 ? `${((sales / leads) * 100).toFixed(1)}%` : "—"}
+          value={leads > 0 ? `${((sales / leads) * 100).toFixed(1)}%` : "-"}
         />
       </div>
     </div>
