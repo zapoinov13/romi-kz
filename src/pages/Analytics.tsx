@@ -32,7 +32,7 @@ const TrendChart = lazy(() =>
 );
 import { PeriodPicker, monthRange } from "@/components/dashboard/PeriodPicker";
 import { useReportData, type ReportPeriodRange } from "@/hooks/useReportData";
-import { dateRangeToIso, eachDayInRange, inDateRange, isoDateLocal } from "@/lib/periodRange";
+import { dateRangeToIso, eachDayInRange, inDateRangeLocal, isoDateLocal, localDayOf } from "@/lib/periodRange";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -140,7 +140,7 @@ const Analytics = () => {
   const { cabinets } = usePersonalCabinets();
   const { since, until } = dateRangeToIso(period);
 
-  const monthLabel = `${period.from.getDate()} ${MONTHS_RU[period.from.getMonth()]}. – ${period.to.getDate()} ${MONTHS_RU[period.to.getMonth()]}. ${period.to.getFullYear()}`;
+  const monthLabel = `${period.from.getDate()} ${MONTHS_RU[period.from.getMonth()]}. - ${period.to.getDate()} ${MONTHS_RU[period.to.getMonth()]}. ${period.to.getFullYear()}`;
 
   const allActIds = useMemo(
     () => cabinets.map((c) => c.externalId).filter(Boolean),
@@ -174,9 +174,10 @@ const Analytics = () => {
   const { leads, loading: leadsLoading, refetch } = useLeadsLite();
 
   const periodLeads = useMemo(
-    () => leads.filter((l) => inDateRange(l.createdAt, since, until)),
+    () => leads.filter((l) => inDateRangeLocal(l.createdAt, since, until)),
     [leads, since, until],
   );
+
   // Optional cabinet filter on leads (используется для UTM-таблицы и каналов)
   const filteredLeads = useMemo(() => {
     if (cabinetId === "all") return periodLeads;
@@ -272,7 +273,8 @@ const Analytics = () => {
       // Только активный кабинет (если выбран) — иначе все продажи
       if (cabinetId !== "all" && l.cabinetId !== cabinetId) continue;
       const paidAt = l.paidAt ?? l.lastActivityAt ?? l.createdAt;
-      if (!inDateRange(paidAt, since, until)) continue;
+      if (!inDateRangeLocal(paidAt, since, until)) continue;
+
       const bucket = ensure(classify(l as LeadLite));
       bucket.sales += 1;
       bucket.revenue += l.amount || 0;
@@ -336,7 +338,7 @@ const Analytics = () => {
       if (!isLeadPaid(l)) continue;
       if (cabinetId !== "all" && l.cabinetId !== cabinetId) continue;
       const paidAt = l.paidAt ?? l.lastActivityAt ?? l.createdAt;
-      if (!inDateRange(paidAt, since, until)) continue;
+      if (!inDateRangeLocal(paidAt, since, until)) continue;
       const u = l.utm ?? {};
       if (!u.source && !u.campaign && !u.medium) continue;
       const cur = ensure(u);
@@ -352,30 +354,40 @@ const Analytics = () => {
       .sort((a, b) => b.revenue - a.revenue || (b.avgScore ?? 0) - (a.avgScore ?? 0) || b.leads - a.leads);
   }, [filteredLeads, leads, since, until, cabinetId]);
 
-  // Trend data: per day in selected period
+  // Trend data: per day in selected period.
+  // Расход берём из того же источника, что и KPI (useReportData → CDI), иначе
+  // сумма по графику не сходилась с карточкой «Расход».
+  // Лиды - по локальному дню создания, продажи - по дню оплаты (как в KPI).
   const trend = useMemo<TrendPoint[]>(() => {
-    const dailyMap = new Map<string, { spend: number }>();
-    for (const d of data?.daily ?? []) {
-      dailyMap.set(d.date, { spend: d.spend });
+    const spendByDate = new Map<string, number>();
+    for (const d of reportData?.monthlyMeta ?? []) {
+      spendByDate.set(d.date.slice(0, 10), (spendByDate.get(d.date.slice(0, 10)) ?? 0) + d.spend);
     }
-    const leadsByDate = new Map<string, { leads: number; sales: number }>();
-    for (const l of filteredLeads) {
-      const d = new Date(l.createdAt).toISOString().slice(0, 10);
-      const cur = leadsByDate.get(d) ?? { leads: 0, sales: 0 };
-      cur.leads += 1;
-      if (isLeadPaid(l)) cur.sales += 1;
-      leadsByDate.set(d, cur);
+    const byDate = new Map<string, { leads: number; sales: number }>();
+    const bump = (iso: string, key: "leads" | "sales") => {
+      const cur = byDate.get(iso) ?? { leads: 0, sales: 0 };
+      cur[key] += 1;
+      byDate.set(iso, cur);
+    };
+    for (const l of filteredLeads) bump(localDayOf(l.createdAt), "leads");
+    for (const l of leads) {
+      if (!isLeadPaid(l)) continue;
+      if (cabinetId !== "all" && l.cabinetId !== cabinetId) continue;
+      const paidAt = l.paidAt ?? l.lastActivityAt ?? l.createdAt;
+      if (!inDateRangeLocal(paidAt, since, until)) continue;
+      bump(localDayOf(paidAt), "sales");
     }
     return eachDayInRange(period).map((date) => {
       const iso = isoDateLocal(date);
       return {
         date: iso,
-        spend: Math.round(dailyMap.get(iso)?.spend ?? 0),
-        leads: leadsByDate.get(iso)?.leads ?? 0,
-        sales: leadsByDate.get(iso)?.sales ?? 0,
+        spend: Math.round(spendByDate.get(iso) ?? 0),
+        leads: byDate.get(iso)?.leads ?? 0,
+        sales: byDate.get(iso)?.sales ?? 0,
       };
     });
-  }, [data, filteredLeads, period]);
+  }, [reportData, filteredLeads, leads, cabinetId, since, until, period]);
+
 
   const hasLinkedData = actIds.length > 0;
   const hasMonthData = !!data?.daily.length || filteredLeads.length > 0;
