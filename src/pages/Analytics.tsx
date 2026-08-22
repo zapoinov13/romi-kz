@@ -390,7 +390,13 @@ const Analytics = () => {
 
 
   const hasLinkedData = actIds.length > 0;
-  const hasMonthData = !!data?.daily.length || filteredLeads.length > 0;
+  const hasMonthData =
+    !!data?.daily.length ||
+    !!reportData?.monthlyMeta.length ||
+    spend > 0 ||
+    leadCount > 0 ||
+    filteredLeads.length > 0;
+
   const funnelBase = Math.max(impressions, clicks, leadCount, diagnosticsCount, salesCount, 1);
 
   return (
