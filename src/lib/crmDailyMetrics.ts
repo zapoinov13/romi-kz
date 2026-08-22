@@ -1,5 +1,7 @@
 import type { LeadLite } from "@/hooks/useLeadsLite";
 import { isLeadDiagnosticEvent, isLeadPaid } from "@/lib/leadStageFlags";
+import { localDayOf } from "@/lib/periodRange";
+
 
 export interface ReportPeriodRange {
   from: Date;

@@ -103,6 +103,24 @@ export function inDateRange(iso: string, since: string, until: string): boolean 
   return day >= since && day <= until;
 }
 
+/**
+ * Локальный календарный день для timestamp из базы (UTC ISO).
+ * `iso.slice(0,10)` даёт UTC-дату, из-за чего лид, созданный ночью по местному
+ * времени, попадал в предыдущий день и «терялся» в графиках и фильтрах.
+ */
+export function localDayOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return isoDateLocal(d);
+}
+
+/** Тот же inDateRange, но по локальному дню timestamp. */
+export function inDateRangeLocal(iso: string, since: string, until: string): boolean {
+  const day = localDayOf(iso);
+  return day >= since && day <= until;
+}
+
+
 export function rangeSpanDays(range: ReportPeriodRange): number {
   const ms = startOfDay(range.to).getTime() - startOfDay(range.from).getTime();
   return Math.max(1, Math.round(ms / 86_400_000) + 1);
