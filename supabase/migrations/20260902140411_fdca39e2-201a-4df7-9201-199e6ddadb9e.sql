@@ -1,0 +1,2 @@
+GRANT SELECT (id, project_id, cabinet_id, waba_id, phone_number_id, display_phone, display_name, onboarding_mode, connected, connected_at, created_by, created_at, updated_at) ON public.whatsapp_accounts TO authenticated;
+GRANT ALL ON public.whatsapp_accounts TO service_role;
