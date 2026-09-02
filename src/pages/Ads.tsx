@@ -187,8 +187,8 @@ const Ads = () => {
           {filtered.length > 0 ? (
             <table className="w-full min-w-[880px] table-fixed border-collapse">
               <colgroup>
-                {ADS_COL_WIDTHS.map((w) => (
-                  <col key={w} style={{ width: w }} />
+                {ADS_COL_WIDTHS.map((w, i) => (
+                  <col key={`${i}-${w}`} style={{ width: w }} />
                 ))}
               </colgroup>
               <thead className="hidden lg:table-header-group">
