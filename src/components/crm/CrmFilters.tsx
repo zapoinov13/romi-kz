@@ -1,3 +1,4 @@
+import React from "react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -16,13 +17,11 @@ interface Props {
   members: TeamMember[];
 }
 
-export function CrmFilters({ state, onChange, sources, members }: Props) {
-  const { search, source, assigneeId } = state;
-
-  const Chip = ({
-    active, onClick, children,
-  }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+const Chip = React.forwardRef<HTMLButtonElement, { active: boolean; onClick: () => void; children: React.ReactNode }>(
+  ({ active, onClick, children }, ref) => (
     <button
+      ref={ref}
+      type="button"
       onClick={onClick}
       className={cn(
         "shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
@@ -33,7 +32,12 @@ export function CrmFilters({ state, onChange, sources, members }: Props) {
     >
       {children}
     </button>
-  );
+  ),
+);
+Chip.displayName = "CrmFilterChip";
+
+export function CrmFilters({ state, onChange, sources, members }: Props) {
+  const { search, source, assigneeId } = state;
 
   const hasFilters = !!source || !!assigneeId || !!search;
 
