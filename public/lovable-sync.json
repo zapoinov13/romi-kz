@@ -1,7 +1,7 @@
 {
-  "git_sha": "c5dba34",
-  "git_sha_full": "c5dba34b979613160514682e8da36738d555597d",
-  "updated_at": "2026-09-02T14:07:09Z",
-  "label": "Обеспечил стабильную работу",
+  "git_sha": "574c293",
+  "git_sha_full": "574c293cc4a334bb8068c9aefa96b3c8f14cb51a",
+  "updated_at": "2026-09-05T10:10:29Z",
+  "label": "Исправил ошибку доступа",
   "publish_hint": "GitHub main → Vercel romi-kz.vercel.app"
 }
